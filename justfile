@@ -47,3 +47,9 @@ docs-test:
 # Build and serve the documentation
 docs:
 	@uv run mkdocs serve
+
+edit:
+  @uv run vim
+
+e: edit
+vim: edit
