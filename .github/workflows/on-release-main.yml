@@ -5,9 +5,8 @@ on:
     types: [published]
 
 jobs:
-
   set-version:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -64,4 +63,3 @@ jobs:
 
       - name: Deploy documentation
         run: uv run mkdocs gh-deploy --force
-
