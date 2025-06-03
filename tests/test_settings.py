@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -275,5 +276,5 @@ this is not valid TOML syntax [[[
         settings_file_path.write_text(malformed_toml)
 
         json_file_path = tmp_path / "test.json"
-        with pytest.raises(TypeError):  # tomllib will raise a parsing error
+        with pytest.raises(tomllib.TOMLDecodeError):
             settings.Settings.load_from_file(settings_file_path=settings_file_path, json_file_path=json_file_path)
