@@ -17,9 +17,15 @@ In the UI we may use the terms
 - "bucket" to mean "value".
 """
 
-FEATURE_FILE_FIELD_NAMES = ("category", "name", "min", "max")
+FEATURE_FILE_FIELD_NAMES = ("feature", "value", "min", "max")
 FEATURE_FILE_FIELD_NAMES_FLEX = (
     *FEATURE_FILE_FIELD_NAMES,
+    "min_flex",
+    "max_flex",
+)
+FEATURE_FILE_FIELD_NAMES_OLD = ("category", "name", "min", "max")
+FEATURE_FILE_FIELD_NAMES_FLEX_OLD = (
+    *FEATURE_FILE_FIELD_NAMES_OLD,
     "min_flex",
     "max_flex",
 )
@@ -137,6 +143,8 @@ class FeatureCollection:
         The minimum selection for this set of features is the largest minimum selection
         of any individual feature.
         """
+        if not self.collection:
+            return 0
         return max(v.minimum_selection() for v in self.collection.values())
 
     def maximum_selection(self) -> int:
@@ -144,6 +152,8 @@ class FeatureCollection:
         The maximum selection for this set of features is the smallest maximum selection
         of any individual feature.
         """
+        if not self.collection:
+            return 0
         return min(v.maximum_selection() for v in self.collection.values())
 
     def check_min_max(self) -> None:
@@ -158,6 +168,34 @@ class FeatureCollection:
             )
             raise ValueError(msg)
 
+    def check_desired(self, desired_number: int) -> None:
+        """
+        Check if the desired number of people is within the min/max of every feature.
+        """
+        for feature_name, feature_values in self.collection.items():
+            if (
+                desired_number < feature_values.minimum_selection()
+                or desired_number > feature_values.maximum_selection()
+            ):
+                msg = (
+                    f"The number of people to select ({desired_number}) is out of the range of "
+                    f"the numbers of people in the {feature_name} feature. It should be within "
+                    f"[{feature_values.minimum_selection()}, {feature_values.maximum_selection()}]."
+                )
+                raise Exception(msg)
+
+
+def _normalise_col_names(row: dict[str, str]) -> dict[str, str]:
+    """
+    if the dict has "category" as the key, change that to "feature"
+    if the dict has "name" as the key, change that to "value"
+    """
+    if "category" in row:
+        row["feature"] = row.pop("category")
+    if "name" in row:
+        row["value"] = row.pop("name")
+    return row
+
 
 def _feature_headers_flex(headers: list[str]) -> bool:
     """
@@ -168,13 +206,20 @@ def _feature_headers_flex(headers: list[str]) -> bool:
     """
     # check that the fieldnames are (at least) what we expect, and only once.
     # BUT (for reverse compatibility) let min_flex and max_flex be optional.
-    if sorted(headers) == sorted(FEATURE_FILE_FIELD_NAMES):
+    if sorted(headers) in (
+        sorted(FEATURE_FILE_FIELD_NAMES),
+        sorted(FEATURE_FILE_FIELD_NAMES_OLD),
+    ):
         return False
-    if sorted(headers) == sorted(FEATURE_FILE_FIELD_NAMES_FLEX):
+    if sorted(headers) in (
+        sorted(FEATURE_FILE_FIELD_NAMES_FLEX),
+        sorted(FEATURE_FILE_FIELD_NAMES_FLEX_OLD),
+    ):
         return True
     # below here we are reporting errors with the headers
     messages: list[str] = []
-    for field_name in FEATURE_FILE_FIELD_NAMES:
+    required_fields = FEATURE_FILE_FIELD_NAMES if "feature" in headers else FEATURE_FILE_FIELD_NAMES_OLD
+    for field_name in required_fields:
         feature_head_field_name_count = headers.count(field_name)
         if feature_head_field_name_count == 0 and (field_name != "min_flex" and field_name != "max_flex"):
             messages.append(f"Did not find required column name '{field_name}' in the input")
@@ -192,9 +237,9 @@ def _clean_row(row: dict[str, str], feature_flex: bool) -> tuple[str, str, Featu
     but only if they are strings! (sometimes people use ints as feature names or values
     and then strip produces an exception...)
     """
-    feature_name = str(row["category"]).strip()
+    feature_name = str(row["feature"]).strip()
     # check for blank entries and report a meaningful error
-    feature_value = str(row["name"]).strip()
+    feature_value = str(row["value"]).strip()
     if feature_value == "" or row["min"] == "" or row["max"] == "":
         msg = f"ERROR reading in feature file: found a blank cell in a row of the feature: {feature_name}."
         raise ValueError(msg)
@@ -232,24 +277,20 @@ def _clean_row(row: dict[str, str], feature_flex: bool) -> tuple[str, str, Featu
 
 # read in stratified selection features and values - a dict of dicts of dicts...
 def read_in_features(
-    features_head: Iterable[str], features_body: Iterator[dict[str, str]]
-) -> tuple[FeatureCollection, list[str], int, int]:
+    features_head: Iterable[str], features_body: Iterable[dict[str, str]]
+) -> tuple[FeatureCollection, list[str]]:
     features = FeatureCollection()
     msg: list[str] = []
-    try:
-        features_flex = _feature_headers_flex(list(features_head))
-        for row in features_body:
-            if not str(row["category"]).strip():
-                continue
-            features.add_feature(*_clean_row(row, features_flex))
+    features_flex = _feature_headers_flex(list(features_head))
+    for row in features_body:
+        row = _normalise_col_names(row)
+        if not str(row["feature"]).strip():
+            continue
+        features.add_feature(*_clean_row(row, features_flex))
 
-        msg.append(f"Number of features: {len(features.feature_names)}")
-        features.check_min_max()
-        # check feature_flex to see if we need to set the max here
-        # this only changes the max_flex value if these (optional) flex values are NOT set already
-        features.set_default_max_flex()
-
-    except Exception as error:
-        msg.append(f"Error loading categories: {error}")
-    # TODO - drop the last two bits of the return tuple
-    return features, msg, features.minimum_selection(), features.maximum_selection()
+    msg.append(f"Number of features: {len(features.feature_names)}")
+    features.check_min_max()
+    # check feature_flex to see if we need to set the max here
+    # this only changes the max_flex value if these (optional) flex values are NOT set already
+    features.set_default_max_flex()
+    return features, msg
