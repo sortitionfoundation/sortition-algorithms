@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from cattrs import ClassValidationError
 
 from sortition_algorithms import settings
 
@@ -21,19 +22,258 @@ def create_settings(
         max_attempts=3,
         selection_algorithm=selection_algorithm,
         random_number_seed=1234,
-        json_file_path=Path("/tmp"),  # noqa: S108
+        json_file_path=Path("/some/path.json"),
     )
 
 
-@pytest.mark.parametrize("alg", settings.SELECTION_ALGORITHMS)
-def test_selection_algorithms_accepted(alg):
-    settings = create_settings(selection_algorithm=alg)
-    assert settings.selection_algorithm == alg
+class TestSettingsConstructor:
+    """Test the Settings class constructor and validation."""
+
+    @pytest.mark.parametrize("alg", settings.SELECTION_ALGORITHMS)
+    def test_selection_algorithms_accepted(self, alg):
+        settings_obj = create_settings(selection_algorithm=alg)
+        assert settings_obj.selection_algorithm == alg
+
+    def test_selection_algorithms_blocked_for_unknown(self):
+        with pytest.raises(ValueError, match="selection_algorithm unknown is not one of"):
+            create_settings(selection_algorithm="unknown")
+
+    def test_valid_settings_creation(self):
+        """Test creating a valid Settings object."""
+        settings_obj = create_settings(
+            columns_to_keep=["name", "email"],
+            check_same_address=True,
+            check_same_address_columns=["address1", "postcode"],
+            selection_algorithm="maximin",
+        )
+        assert settings_obj.id_column == "nationbuilder_id"
+        assert settings_obj.columns_to_keep == ["name", "email"]
+        assert settings_obj.check_same_address is True
+        assert settings_obj.check_same_address_columns == ["address1", "postcode"]
+        assert settings_obj.selection_algorithm == "maximin"
+        assert settings_obj.max_attempts == 3
+        assert settings_obj.random_number_seed == 1234
+
+    def test_id_column_must_be_string(self):
+        """Test that id_column must be a string."""
+        with pytest.raises(TypeError):
+            settings.Settings(
+                id_column=123,  # t
+                columns_to_keep=[],
+                check_same_address=False,
+                check_same_address_columns=[],
+                max_attempts=3,
+                selection_algorithm="legacy",
+                random_number_seed=0,
+                json_file_path=Path("/some/path.json"),
+            )
+
+    def test_columns_to_keep_must_be_list(self):
+        """Test that columns_to_keep must be a list."""
+        with pytest.raises(TypeError, match="columns_to_keep must be a LIST of strings"):
+            create_settings(columns_to_keep="not_a_list")  # t
+
+    def test_columns_to_keep_must_be_list_of_strings(self):
+        """Test that columns_to_keep must be a list of strings."""
+        with pytest.raises(TypeError, match="columns_to_keep must be a list of STRINGS"):
+            create_settings(columns_to_keep=["valid", 123, "also_valid"])  # t
+
+    def test_check_same_address_must_be_bool(self):
+        """Test that check_same_address must be a boolean."""
+        with pytest.raises(TypeError):
+            settings.Settings(
+                id_column="test",
+                columns_to_keep=[],
+                check_same_address="not_a_bool",  # t
+                check_same_address_columns=[],
+                max_attempts=3,
+                selection_algorithm="legacy",
+                random_number_seed=0,
+                json_file_path=Path("/some/path.json"),
+            )
+
+    def test_check_same_address_columns_must_be_list(self):
+        """Test that check_same_address_columns must be a list."""
+        with pytest.raises(TypeError, match="check_same_address_columns must be a LIST of strings"):
+            create_settings(check_same_address_columns="not_a_list")  # t
+
+    def test_check_same_address_columns_must_be_zero_or_two_items(self):
+        """Test that check_same_address_columns must have 0 or 2 items."""
+        with pytest.raises(
+            ValueError,
+            match="check_same_address_columns must be a list of ZERO OR TWO strings",
+        ):
+            create_settings(check_same_address_columns=["only_one"])
+
+        with pytest.raises(
+            ValueError,
+            match="check_same_address_columns must be a list of ZERO OR TWO strings",
+        ):
+            create_settings(check_same_address_columns=["one", "two", "three"])
+
+    def test_check_same_address_columns_must_be_strings(self):
+        """Test that check_same_address_columns must contain strings."""
+        with pytest.raises(TypeError, match="check_same_address_columns must be a list of STRINGS"):
+            create_settings(check_same_address_columns=["valid", 123])  # t
+
+    def test_check_same_address_true_requires_columns(self):
+        """Test that check_same_address=True requires columns to be specified."""
+        with pytest.raises(
+            ValueError,
+            match="check_same_address is TRUE but there are no columns listed",
+        ):
+            create_settings(check_same_address=True, check_same_address_columns=[])
+
+    def test_check_same_address_false_allows_empty_columns(self):
+        """Test that check_same_address=False allows empty columns list."""
+        settings_obj = create_settings(check_same_address=False, check_same_address_columns=[])
+        assert settings_obj.check_same_address is False
+        assert settings_obj.check_same_address_columns == []
+
+    def test_max_attempts_must_be_int(self):
+        """Test that max_attempts must be an integer."""
+        with pytest.raises(TypeError):
+            settings.Settings(
+                id_column="test",
+                columns_to_keep=[],
+                check_same_address=False,
+                check_same_address_columns=[],
+                max_attempts="not_an_int",  # t
+                selection_algorithm="legacy",
+                random_number_seed=0,
+                json_file_path=Path("/some/path.json"),
+            )
+
+    def test_random_number_seed_must_be_int(self):
+        """Test that random_number_seed must be an integer."""
+        with pytest.raises(TypeError):
+            settings.Settings(
+                id_column="test",
+                columns_to_keep=[],
+                check_same_address=False,
+                check_same_address_columns=[],
+                max_attempts=100,
+                selection_algorithm="legacy",
+                random_number_seed="not_an_int",  # t
+                json_file_path=Path("/some/path.json"),
+            )
 
 
-def test_selection_algorithms_blocked_for_unknown():
-    with pytest.raises(ValueError):
-        create_settings(selection_algorithm="unknown")
+class TestSettingsLoadFromFile:
+    """Test the Settings.load_from_file() class method."""
 
+    def test_load_from_existing_file(self, tmp_path):
+        """Test loading settings from an existing TOML file."""
+        toml_content = """
+id_column = "test_id"
+check_same_address = true
+check_same_address_columns = ["addr1", "postcode"]
+max_attempts = 50
+columns_to_keep = ["name", "email", "phone"]
+selection_algorithm = "nash"
+random_number_seed = 42
+"""
+        settings_file_path = tmp_path / "settings.toml"
+        settings_file_path.write_text(toml_content)
 
-# TODO: consider more tests
+        json_file_path = tmp_path / "test.json"
+        settings_obj, message = settings.Settings.load_from_file(
+            settings_file_path=settings_file_path, json_file_path=json_file_path
+        )
+
+        assert settings_obj.id_column == "test_id"
+        assert settings_obj.check_same_address is True
+        assert settings_obj.check_same_address_columns == ["addr1", "postcode"]
+        assert settings_obj.max_attempts == 50
+        assert settings_obj.columns_to_keep == ["name", "email", "phone"]
+        assert settings_obj.selection_algorithm == "nash"
+        assert settings_obj.random_number_seed == 42
+        assert settings_obj.json_file_path == json_file_path
+        assert message == ""
+
+    def test_load_from_nonexistent_file_creates_default(self, tmp_path):
+        """Test that loading from a non-existent file creates a default settings file."""
+        settings_file_path = tmp_path / "new_settings.toml"
+        json_file_path = tmp_path / "test.json"
+
+        assert not settings_file_path.exists()
+
+        settings_obj, message = settings.Settings.load_from_file(
+            settings_file_path=settings_file_path, json_file_path=json_file_path
+        )
+
+        # Check that the file was created
+        assert settings_file_path.exists()
+
+        # Check that the message indicates the file was created
+        assert "Wrote default settings to" in message
+        assert "restart this app" in message
+
+        # Check that the settings have default values
+        assert settings_obj.id_column == "nationbuilder_id"
+        assert settings_obj.selection_algorithm == "maximin"
+        assert settings_obj.max_attempts == 100
+        assert settings_obj.random_number_seed == 0
+        assert settings_obj.json_file_path == json_file_path
+
+    def test_load_with_check_same_address_false(self, tmp_path):
+        """Test loading settings with check_same_address set to false."""
+        toml_content = """
+id_column = "test_id"
+check_same_address = false
+check_same_address_columns = ["some", "columns"]  # these should be ignored
+max_attempts = 10
+columns_to_keep = ["name"]
+selection_algorithm = "legacy"
+random_number_seed = 0
+"""
+        settings_file_path = tmp_path / "settings.toml"
+        settings_file_path.write_text(toml_content)
+
+        json_file_path = tmp_path / "test.json"
+        settings_obj, message = settings.Settings.load_from_file(
+            settings_file_path=settings_file_path, json_file_path=json_file_path
+        )
+
+        assert settings_obj.check_same_address is False
+        assert settings_obj.check_same_address_columns == []  # Should be reset to empty list
+        assert "WARNING" in message
+        assert "do NOT check if respondents have same address" in message
+
+    def test_load_with_invalid_toml_content(self, tmp_path):
+        """Test loading settings with invalid TOML content raises appropriate error."""
+        invalid_toml = """
+id_column = "test"
+selection_algorithm = "invalid_algorithm"
+check_same_address = true
+check_same_address_columns = []
+max_attempts = 10
+columns_to_keep = ["name"]
+random_number_seed = 0
+"""
+        settings_file_path = tmp_path / "settings.toml"
+        settings_file_path.write_text(invalid_toml)
+
+        json_file_path = tmp_path / "test.json"
+        with pytest.raises(
+            ClassValidationError,
+            match="While structuring Settings",
+        ) as excinfo:
+            settings.Settings.load_from_file(settings_file_path=settings_file_path, json_file_path=json_file_path)
+        assert excinfo.group_contains(
+            ValueError,
+            match="check_same_address is TRUE but",
+        )
+
+    def test_load_with_malformed_toml_file(self, tmp_path):
+        """Test loading settings from a malformed TOML file raises appropriate error."""
+        malformed_toml = """
+id_column = "test"
+this is not valid TOML syntax [[[
+"""
+        settings_file_path = tmp_path / "settings.toml"
+        settings_file_path.write_text(malformed_toml)
+
+        json_file_path = tmp_path / "test.json"
+        with pytest.raises(TypeError):  # tomllib will raise a parsing error
+            settings.Settings.load_from_file(settings_file_path=settings_file_path, json_file_path=json_file_path)
