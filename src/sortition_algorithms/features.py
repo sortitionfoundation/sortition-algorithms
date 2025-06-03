@@ -47,7 +47,7 @@ class FeatureValueCounts:
         if self.max_flex == MAX_FLEX_UNSET:
             self.max_flex = max_flex
 
-    def add_remaining(self):
+    def add_remaining(self) -> None:
         self.remaining += 1
 
 
@@ -197,7 +197,7 @@ def _normalise_col_names(row: dict[str, str]) -> dict[str, str]:
     return row
 
 
-def _feature_headers_flex(headers: Iterable[str]) -> bool:
+def _feature_headers_flex(headers: list[str]) -> bool:
     """
     Determine if the headers match either the required ones, or required plus flex fields.
     Return True if the flex headers are present, False if not.

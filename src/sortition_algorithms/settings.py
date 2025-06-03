@@ -1,5 +1,6 @@
 import tomllib
 from pathlib import Path
+from typing import Any
 
 from attrs import define, field, validators
 from cattrs import structure
@@ -49,7 +50,7 @@ random_number_seed = 0
 """
 
 
-def check_columns_for_same_address(instance, attribute, value):
+def check_columns_for_same_address(instance: "Settings", attribute: Any, value: Any) -> None:
     if not isinstance(value, list):
         raise TypeError("check_same_address_columns must be a LIST of strings")
     if len(value) not in (0, 2):
@@ -75,14 +76,14 @@ class Settings:
     json_file_path: Path
 
     @columns_to_keep.validator
-    def check_columns_to_keep(self, attribute, value):
+    def check_columns_to_keep(self, attribute: Any, value: Any) -> None:
         if not isinstance(value, list):
             raise TypeError("columns_to_keep must be a LIST of strings")
         if not all(isinstance(element, str) for element in value):
             raise TypeError("columns_to_keep must be a list of STRINGS")
 
     @selection_algorithm.validator
-    def check_selection_algorithm(self, attribute, value):
+    def check_selection_algorithm(self, attribute: Any, value: str) -> None:
         if value not in SELECTION_ALGORITHMS:
             raise ValueError(f"selection_algorithm {value} is not one of: {', '.join(SELECTION_ALGORITHMS)}")
 
