@@ -197,7 +197,7 @@ def _normalise_col_names(row: dict[str, str]) -> dict[str, str]:
     return row
 
 
-def _feature_headers_flex(headers: list[str]) -> bool:
+def _feature_headers_flex(headers: Iterable[str]) -> bool:
     """
     Determine if the headers match either the required ones, or required plus flex fields.
     Return True if the flex headers are present, False if not.
@@ -275,14 +275,20 @@ def _clean_row(row: dict[str, str], feature_flex: bool) -> tuple[str, str, Featu
     return feature_name, feature_value, fv_counts
 
 
-# read in stratified selection features and values - a dict of dicts of dicts...
 def read_in_features(
     features_head: Iterable[str], features_body: Iterable[dict[str, str]]
 ) -> tuple[FeatureCollection, list[str]]:
+    """
+    Read in stratified selection features and values
+
+    Note we do want features_head to ensure we don't have multiple columns with the same name
+    """
     features = FeatureCollection()
     msg: list[str] = []
     features_flex = _feature_headers_flex(list(features_head))
     for row in features_body:
+        # check the set of keys in the row are the same as the headers
+        assert set(row.keys()) == set(features_head)  # noqa: S101
         row = _normalise_col_names(row)
         if not str(row["feature"]).strip():
             continue
