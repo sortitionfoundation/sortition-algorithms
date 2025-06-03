@@ -20,7 +20,7 @@ check:
 # Test the code with pytest
 test:
 	@echo "🚀 Testing code: Running pytest"
-	@uv run python -m pytest --tb=short --cov --cov-config=pyproject.toml --cov-report=xml
+	@uv run python -m pytest --tb=short --cov --cov-config=pyproject.toml --cov-report=html
 
 # Build wheel file
 build: clean-build
