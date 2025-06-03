@@ -120,6 +120,9 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# repomix
+repomix-output*
+
 # Pyre type checker
 .pyre/
 
