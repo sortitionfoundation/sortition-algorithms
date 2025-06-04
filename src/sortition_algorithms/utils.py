@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+
+
 def strip_str_int(value: str | int) -> str:
     return str(value).strip()
 
@@ -8,7 +11,7 @@ class StrippedDict:
     strip() whitespace
     """
 
-    def __init__(self, raw_dict: dict[str, str] | dict[str, str | int]) -> None:
+    def __init__(self, raw_dict: Mapping[str, str] | Mapping[str, str | int]) -> None:
         self.raw_dict = raw_dict
 
     def __getitem__(self, key: str) -> str:

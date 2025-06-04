@@ -3,7 +3,7 @@ from collections.abc import Iterable, Iterator
 
 from attrs import define
 
-from sortition_algorithms import utils
+from sortition_algorithms import errors, utils
 
 # TODO: put this in docs and link to them from here.
 """
@@ -52,6 +52,12 @@ class FeatureValueCounts:
     def add_remaining(self) -> None:
         self.remaining += 1
 
+    def remove_remaining(self) -> None:
+        self.remaining -= 1
+        if self.remaining == 0 and self.selected < self.min:
+            msg = "SELECTION IMPOSSIBLE: FAIL - no one/not enough left after deletion."
+            raise errors.SelectionError(msg)
+
 
 class FeatureValues:
     """
@@ -83,6 +89,9 @@ class FeatureValues:
 
     def add_remaining(self, value_name: str) -> None:
         self.feature_values[value_name].add_remaining()
+
+    def remove_remaining(self, value_name: str) -> None:
+        self.feature_values[value_name].remove_remaining()
 
     def minimum_selection(self) -> int:
         """
@@ -143,6 +152,13 @@ class FeatureCollection:
 
     def add_remaining(self, feature: str, value_name: str) -> None:
         self.collection[feature].add_remaining(value_name)
+
+    def remove_remaining(self, feature: str, value_name: str) -> None:
+        try:
+            self.collection[feature].remove_remaining(value_name)
+        except errors.SelectionError as e:
+            msg = f"Failed removing from {feature}/{value_name}: {e}"
+            raise errors.SelectionError(msg) from None
 
     def minimum_selection(self) -> int:
         """
