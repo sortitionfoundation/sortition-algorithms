@@ -3,7 +3,7 @@ from collections.abc import Iterable, Iterator
 
 from attrs import define
 
-from sortition_algorithms.utils import StrippedDict
+from sortition_algorithms import utils
 
 # TODO: put this in docs and link to them from here.
 """
@@ -237,7 +237,7 @@ def _feature_headers_flex(headers: list[str]) -> bool:
     raise ValueError(msg)
 
 
-def _clean_row(row: StrippedDict, feature_flex: bool) -> tuple[str, str, FeatureValueCounts]:
+def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, FeatureValueCounts]:
     """
     allow for some dirty data - at least strip white space from feature name and value
     but only if they are strings! (sometimes people use ints as feature names or values
@@ -295,7 +295,7 @@ def read_in_features(
     for row in features_body:
         # check the set of keys in the row are the same as the headers
         assert set(row.keys()) == set(features_head)  # noqa: S101
-        stripped_row = StrippedDict(_normalise_col_names(row))
+        stripped_row = utils.StrippedDict(_normalise_col_names(row))
         if not stripped_row["feature"]:
             continue
         features.add_feature(*_clean_row(stripped_row, features_flex))
