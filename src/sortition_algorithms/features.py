@@ -52,6 +52,9 @@ class FeatureValueCounts:
     def add_remaining(self) -> None:
         self.remaining += 1
 
+    def add_selected(self) -> None:
+        self.selected += 1
+
     def remove_remaining(self) -> None:
         self.remaining -= 1
         if self.remaining == 0 and self.selected < self.min:
@@ -89,6 +92,9 @@ class FeatureValues:
 
     def add_remaining(self, value_name: str) -> None:
         self.feature_values[value_name].add_remaining()
+
+    def add_selected(self, value_name: str) -> None:
+        self.feature_values[value_name].add_selected()
 
     def remove_remaining(self, value_name: str) -> None:
         self.feature_values[value_name].remove_remaining()
@@ -152,6 +158,9 @@ class FeatureCollection:
 
     def add_remaining(self, feature: str, value_name: str) -> None:
         self.collection[feature].add_remaining(value_name)
+
+    def add_selected(self, feature: str, value_name: str) -> None:
+        self.collection[feature].add_selected(value_name)
 
     def remove_remaining(self, feature: str, value_name: str) -> None:
         try:

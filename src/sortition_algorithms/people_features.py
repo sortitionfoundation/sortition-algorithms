@@ -4,10 +4,21 @@ import typing
 from collections import defaultdict
 from copy import deepcopy
 
+from attrs import define
+
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
 from sortition_algorithms.settings import Settings
+
+
+@define(kw_only=True, slots=True)
+class MaxRatioResult:
+    """Result from finding the category with maximum selection ratio."""
+
+    feature_name: str
+    feature_value: str
+    random_person_index: int
 
 
 class PeopleFeatures:
@@ -87,6 +98,72 @@ class PeopleFeatures:
                 "replacement? If so your REMAINING FILE WILL BE USELESS!!!"
             )
         return msg
+
+    def select_person(self, person_key: str) -> None:
+        """
+        Selecting a person means:
+        - remove the person from our copy of People
+        - update the `selected` and `remaining` counts of the FeatureCollection
+        """
+        person = self.people.get_person_dict(person_key)
+        for feature in self.features.feature_names:
+            self.features.remove_remaining(feature, person[feature])
+            self.features.add_selected(feature, person[feature])
+        self.people.remove(person_key)
+
+    def find_max_ratio_category(self) -> MaxRatioResult:
+        """
+        Find the feature/value combination with the highest selection ratio.
+
+        The ratio is calculated as: (min - selected) / remaining
+        This represents how urgently we need people from this category.
+        Higher ratio = more urgent need (fewer people available relative to what we still need).
+
+        Returns:
+            MaxRatioResult containing the feature name, value, and a random person index
+
+        Raises:
+            SelectionError: If insufficient people remain to meet minimum requirements
+        """
+        max_ratio = -100.0
+        result_feature_name = ""
+        result_feature_value = ""
+        random_person_index = -1
+
+        for feature_name, feature_value, fv_counts in self.features.feature_values_counts():
+            # Check if we have insufficient people to meet minimum requirements
+            people_still_needed = fv_counts.min - fv_counts.selected
+            if fv_counts.selected < fv_counts.min and fv_counts.remaining < people_still_needed:
+                msg = (
+                    f"SELECTION IMPOSSIBLE: Not enough people remaining in {feature_name}/{feature_value}. "
+                    f"Need {people_still_needed} more, but only {fv_counts.remaining} remaining."
+                )
+                raise errors.SelectionError(msg)
+
+            # Skip categories with no remaining people or max = 0
+            if fv_counts.remaining == 0 or fv_counts.max == 0:
+                continue
+
+            # Calculate the priority ratio
+            ratio = people_still_needed / float(fv_counts.remaining)
+
+            # Track the highest ratio category
+            if ratio > max_ratio:
+                max_ratio = ratio
+                result_feature_name = feature_name
+                result_feature_value = feature_value
+                random_person_index = random.randint(1, fv_counts.remaining)  # noqa: S311
+
+        # If no valid category found, all categories must be at their max or have max=0
+        if not result_feature_name:
+            msg = "No valid categories found - all may be at maximum or have max=0"
+            raise errors.SelectionError(msg)
+
+        return MaxRatioResult(
+            feature_name=result_feature_name,
+            feature_value=result_feature_value,
+            random_person_index=random_person_index,
+        )
 
 
 class WeightedSample:
