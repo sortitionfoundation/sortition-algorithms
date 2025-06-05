@@ -193,6 +193,34 @@ class PeopleFeatures:
             random_person_index=random_person_index,
         )
 
+    def handle_category_full_deletions(self, selected_person_data: dict[str, str]) -> list[str]:
+        """
+        Check if any categories are now full after a selection and delete remaining people.
+
+        When a person is selected, some categories may reach their maximum quota.
+        This method identifies such categories and removes all remaining people from them.
+
+        Args:
+            selected_person_data: Dictionary of the selected person's feature values
+
+        Returns:
+            List of output messages about categories that became full and people deleted
+
+        Raises:
+            SelectionError: If deletions would violate minimum constraints
+        """
+        output_messages = []
+
+        for feature_name, feature_value, fv_counts in self.features.feature_values_counts():
+            if feature_value == selected_person_data[feature_name] and fv_counts.selected == fv_counts.max:
+                num_deleted, num_left = self.delete_all_with_feature_value(feature_name, feature_value)
+                if num_deleted > 0:
+                    output_messages.append(
+                        f"Category {feature_name}/{feature_value} full - deleted {num_deleted} people, {num_left} left."
+                    )
+
+        return output_messages
+
 
 class WeightedSample:
     def __init__(self, features: FeatureCollection) -> None:

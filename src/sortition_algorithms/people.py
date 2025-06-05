@@ -90,6 +90,33 @@ class People:
             if person_address == tuple(loop_person[col] for col in address_columns):
                 yield loop_key
 
+    def find_person_by_position_in_category(self, feature_name: str, feature_value: str, position: int) -> str:
+        """
+        Find the nth person (1-indexed) in a specific feature category.
+
+        Args:
+            feature_name: Name of the feature (e.g., "gender")
+            feature_value: Value of the feature (e.g., "male")
+            position: 1-indexed position within the category
+
+        Returns:
+            Person key of the person at the specified position
+
+        Raises:
+            SelectionError: If no person is found at the specified position
+        """
+        current_position = 0
+
+        for person_key, person_dict in self._full_data.items():
+            if person_dict[feature_name] == feature_value:
+                current_position += 1
+                if current_position == position:
+                    return person_key
+
+        # Should always find someone if position is valid
+        msg = f"Failed to find person at position {position} in {feature_name}/{feature_value}"
+        raise errors.SelectionError(msg)
+
 
 # simple helper function to tidy the code below
 def _check_columns_exist_or_multiple(people_head: list[str], column_list: Iterable[str], error_text: str) -> None:
