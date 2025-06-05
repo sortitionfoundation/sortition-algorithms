@@ -28,9 +28,17 @@ class PeopleFeatures:
 
     # TODO: consider naming: maybe SelectionState
 
-    def __init__(self, people: People, features: FeatureCollection) -> None:
+    def __init__(
+        self,
+        people: People,
+        features: FeatureCollection,
+        check_same_address: bool = False,
+        check_same_address_columns: list[str] | None = None,
+    ) -> None:
         self.people = deepcopy(people)
         self.features = deepcopy(features)
+        self.check_same_address = check_same_address
+        self.check_same_address_columns = check_same_address_columns or []
 
     def update_features_remaining(self, person_key: str) -> None:
         # this will blow up if the person does not exist
@@ -99,17 +107,37 @@ class PeopleFeatures:
             )
         return msg
 
-    def select_person(self, person_key: str) -> None:
+    def select_person(self, person_key: str) -> list[str]:
         """
         Selecting a person means:
         - remove the person from our copy of People
         - update the `selected` and `remaining` counts of the FeatureCollection
+        - if check_same_address is True, also remove household members (without adding to selected)
+
+        Returns:
+            List of additional people removed due to same address (empty if check_same_address is False)
         """
+        # First, find household members if address checking is enabled (before removing the person)
+        household_members_removed = []
+        if self.check_same_address and self.check_same_address_columns:
+            household_members_removed = list(self.people.matching_address(person_key, self.check_same_address_columns))
+
+        # Handle the main person selection
         person = self.people.get_person_dict(person_key)
         for feature in self.features.feature_names:
             self.features.remove_remaining(feature, person[feature])
             self.features.add_selected(feature, person[feature])
         self.people.remove(person_key)
+
+        # Then remove household members if any were found
+        for household_member_key in household_members_removed:
+            household_member = self.people.get_person_dict(household_member_key)
+            for feature in self.features.feature_names:
+                self.features.remove_remaining(feature, household_member[feature])
+                # Note: we don't call add_selected() for household members
+            self.people.remove(household_member_key)
+
+        return household_members_removed
 
     def find_max_ratio_category(self) -> MaxRatioResult:
         """

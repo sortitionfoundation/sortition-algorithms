@@ -246,7 +246,8 @@ class TestPeopleFeatures:
         people_features.update_all_features_remaining()
 
         # Select one male (this will update selected and remaining counts)
-        people_features.select_person("0")  # John: male, young
+        household_members = people_features.select_person("0")  # John: male, young
+        assert household_members == []  # No address checking configured
 
         # Now ratios should be different:
         # gender/male: (1-1)/1 = 0/1 = 0.0 (minimum already met)
@@ -355,3 +356,217 @@ class TestPeopleFeatures:
 
             assert remaining_count is not None
             assert 1 <= result.random_person_index <= remaining_count
+
+    def test_select_person_basic(self):
+        """Test basic person selection without address checking."""
+        people_features = self.create_test_people_features()
+        people_features.update_all_features_remaining()
+
+        # Initial counts
+        initial_people_count = people_features.people.count
+
+        # Select John (male, young)
+        household_members = people_features.select_person("0")
+
+        # Should return empty list (no address checking)
+        assert household_members == []
+
+        # People count should decrease by 1
+        assert people_features.people.count == initial_people_count - 1
+
+        # John should be gone
+        assert "0" not in people_features.people
+
+        # Check that feature counts were updated correctly
+        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+            if feature_name == "gender" and value_name == "male":
+                assert counts.selected == 1
+                assert counts.remaining == 1  # Bob is still there
+            elif feature_name == "age" and value_name == "young":
+                assert counts.selected == 1
+                assert counts.remaining == 1  # Jane is still there
+            else:
+                assert counts.selected == 0
+                assert counts.remaining == 2  # No change for female/old
+
+    def test_select_person_without_address_checking(self):
+        """Test that address checking can be explicitly disabled."""
+        people_features = self.create_test_people_features()
+        people_features.update_all_features_remaining()
+
+        # Even with address columns configured, check_same_address=False means no checking
+        people_features.check_same_address = False
+        people_features.check_same_address_columns = ["address1", "address2"]
+
+        household_members = people_features.select_person("0")
+        assert household_members == []
+
+    def create_test_people_features_with_addresses(self):
+        """Helper to create PeopleFeatures with address data for testing."""
+        columns_to_keep = ["name", "email", "address1", "address2"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+        features.add_feature("age", "young", FeatureValueCounts(min=1, max=3))
+        features.add_feature("age", "old", FeatureValueCounts(min=1, max=3))
+
+        # Add people with address data
+        test_people = [
+            ("John", "male", "young", "123 Main St", "12345"),  # Same address as Jane
+            ("Jane", "female", "young", "123 Main St", "12345"),  # Same address as John
+            ("Bob", "male", "old", "456 Oak Ave", "67890"),  # Different address
+            ("Alice", "female", "old", "789 Pine Rd", "11111"),  # Different address
+            ("Carol", "female", "old", "123 Main St", "12345"),  # Same address as John/Jane
+        ]
+
+        for person_id, (name, gender, age, addr1, addr2) in enumerate(test_people):
+            person_data = StrippedDict({
+                "id": str(person_id),
+                "name": name,
+                "email": f"{name.lower()}@example.com",
+                "gender": gender,
+                "age": age,
+                "address1": addr1,
+                "address2": addr2,
+            })
+            people.add(str(person_id), person_data, features)
+
+        return PeopleFeatures(
+            people, features, check_same_address=True, check_same_address_columns=["address1", "address2"]
+        )
+
+    def test_select_person_with_address_checking(self):
+        """Test person selection with automatic household member removal."""
+        people_features = self.create_test_people_features_with_addresses()
+        people_features.update_all_features_remaining()
+
+        # Initial state: 5 people
+        assert people_features.people.count == 5
+
+        # Select John (at 123 Main St) - should also remove Jane and Carol
+        household_members = people_features.select_person("0")  # John
+
+        # Should return Jane and Carol as household members
+        assert set(household_members) == {"1", "4"}  # Jane and Carol
+
+        # People count should decrease by 3 (John + 2 household members)
+        assert people_features.people.count == 2
+
+        # Only Bob and Alice should remain
+        remaining_people = set(people_features.people)
+        assert remaining_people == {"2", "3"}  # Bob and Alice
+
+        # Check feature counts
+        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+            if feature_name == "gender" and value_name == "male":
+                assert counts.selected == 1  # Only John was selected (not Bob)
+                assert counts.remaining == 1  # Only Bob remains
+            elif feature_name == "gender" and value_name == "female":
+                assert counts.selected == 0  # Jane and Carol were removed, not selected
+                assert counts.remaining == 1  # Only Alice remains
+            elif feature_name == "age" and value_name == "young":
+                assert counts.selected == 1  # Only John was selected
+                assert counts.remaining == 0  # Jane was removed
+            elif feature_name == "age" and value_name == "old":
+                assert counts.selected == 0  # Bob and Alice remain, Carol was removed
+                assert counts.remaining == 2  # Bob and Alice
+
+    def test_select_person_no_household_members(self):
+        """Test person selection when no household members exist."""
+        people_features = self.create_test_people_features_with_addresses()
+        people_features.update_all_features_remaining()
+
+        # Select Bob (at unique address) - should not remove anyone else
+        household_members = people_features.select_person("2")  # Bob
+
+        # Should return empty list (no household members)
+        assert household_members == []
+
+        # People count should decrease by 1
+        assert people_features.people.count == 4
+
+        # Bob should be gone, others remain
+        remaining_people = set(people_features.people)
+        assert remaining_people == {"0", "1", "3", "4"}  # John, Jane, Alice, Carol
+
+    def test_select_person_empty_address_columns(self):
+        """Test that empty address columns disable address checking."""
+        people_features = self.create_test_people_features_with_addresses()
+        people_features.update_all_features_remaining()
+
+        # Set empty address columns
+        people_features.check_same_address_columns = []
+
+        household_members = people_features.select_person("0")
+        assert household_members == []
+
+    def test_select_person_feature_counts_consistency(self):
+        """Test that feature counts remain consistent after selection with address checking."""
+        people_features = self.create_test_people_features_with_addresses()
+        people_features.update_all_features_remaining()
+
+        # Record initial remaining counts (what matters for consistency checking)
+        initial_remaining = {}
+        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+            key = (feature_name, value_name)
+            initial_remaining[key] = counts.remaining
+
+        # Select someone with household members
+        people_features.select_person("0")  # John (removes Jane and Carol too)
+
+        # Check remaining count changes
+        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+            key = (feature_name, value_name)
+            remaining_change = initial_remaining[key] - counts.remaining
+
+            # Check expected changes in remaining counts
+            if key == ("gender", "male"):
+                # John was selected (male) -> remaining should decrease by 1
+                assert remaining_change == 1, (
+                    f"Expected male remaining to decrease by 1, was {initial_remaining[key]}, now {counts.remaining}"
+                )
+                assert counts.selected == 1, "John should be selected"
+            elif key == ("gender", "female"):
+                # Jane and Carol were removed (female) -> remaining should decrease by 2
+                assert remaining_change == 2, (
+                    f"Expected female remaining to decrease by 2, was {initial_remaining[key]}, now {counts.remaining}"
+                )
+                assert counts.selected == 0, "No females should be selected, only removed"
+            elif key == ("age", "young"):
+                # John selected, Jane removed (both young) -> remaining should decrease by 2
+                assert remaining_change == 2, (
+                    f"Expected young remaining to decrease by 2, was {initial_remaining[key]}, now {counts.remaining}"
+                )
+                assert counts.selected == 1, "Only John should be selected"
+            elif key == ("age", "old"):
+                # Carol removed (old) -> remaining should decrease by 1
+                assert remaining_change == 1, (
+                    f"Expected old remaining to decrease by 1, was {initial_remaining[key]}, now {counts.remaining}"
+                )
+                assert counts.selected == 0, "No old people should be selected, only removed"
+
+    def test_select_person_updates_feature_counts_for_household_members(self):
+        """Test that household member removal properly updates feature counts."""
+        people_features = self.create_test_people_features_with_addresses()
+        people_features.update_all_features_remaining()
+
+        # Check initial remaining counts for females
+        initial_female_remaining = None
+        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+            if feature_name == "gender" and value_name == "female":
+                initial_female_remaining = counts.remaining
+                break
+
+        assert initial_female_remaining == 3  # Jane, Alice, Carol
+
+        # Select John - removes Jane and Carol (both female)
+        people_features.select_person("0")
+
+        # Check final counts for females
+        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+            if feature_name == "gender" and value_name == "female":
+                assert counts.selected == 0  # Household members aren't "selected"
+                assert counts.remaining == 1  # Only Alice remains
+                break
