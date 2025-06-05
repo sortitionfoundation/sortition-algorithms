@@ -403,3 +403,515 @@ class TestReadInPeople:
         assert "123" in people
         assert "456" in people
         assert "789" in people
+
+
+class TestPeopleHouseholds:
+    """Test the households() method of the People class."""
+
+    def test_households_empty_people(self):
+        """Test households method with no people."""
+        columns_to_keep = ["name"]
+        people = People(columns_to_keep)
+
+        households = people.households(["address1", "postcode"])
+
+        assert households == {}
+
+    def test_households_single_person(self):
+        """Test households method with a single person."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+
+        person_data = StrippedDict({
+            "id": "1",
+            "name": "John Doe",
+            "address1": "123 Main St",
+            "postcode": "12345",
+            "gender": "male",
+        })
+        people.add("1", person_data, features)
+
+        households = people.households(["address1", "postcode"])
+
+        expected = {("123 Main St", "12345"): ["1"]}
+        assert households == expected
+
+    def test_households_multiple_people_same_address(self):
+        """Test households method with multiple people at the same address."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        # Add people at the same address
+        people_data = [
+            ("1", "John Doe", "123 Main St", "12345", "male"),
+            ("2", "Jane Doe", "123 Main St", "12345", "female"),
+            ("3", "Bob Doe", "123 Main St", "12345", "male"),
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        households = people.households(["address1", "postcode"])
+
+        expected = {("123 Main St", "12345"): ["1", "2", "3"]}
+        assert households == expected
+
+    def test_households_multiple_people_different_addresses(self):
+        """Test households method with people at different addresses."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        # Add people at different addresses
+        people_data = [
+            ("1", "John Doe", "123 Main St", "12345", "male"),
+            ("2", "Jane Smith", "456 Oak Ave", "67890", "female"),
+            ("3", "Bob Johnson", "789 Pine Rd", "54321", "male"),
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        households = people.households(["address1", "postcode"])
+
+        expected = {
+            ("123 Main St", "12345"): ["1"],
+            ("456 Oak Ave", "67890"): ["2"],
+            ("789 Pine Rd", "54321"): ["3"],
+        }
+        assert households == expected
+
+    def test_households_mixed_same_and_different_addresses(self):
+        """Test households method with mix of same and different addresses."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        # Add people with some sharing addresses
+        people_data = [
+            ("1", "John Doe", "123 Main St", "12345", "male"),
+            ("2", "Jane Doe", "123 Main St", "12345", "female"),  # Same as John
+            ("3", "Bob Smith", "456 Oak Ave", "67890", "male"),
+            ("4", "Alice Smith", "456 Oak Ave", "67890", "female"),  # Same as Bob
+            ("5", "Charlie Johnson", "789 Pine Rd", "54321", "male"),  # Unique address
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        households = people.households(["address1", "postcode"])
+
+        expected = {
+            ("123 Main St", "12345"): ["1", "2"],
+            ("456 Oak Ave", "67890"): ["3", "4"],
+            ("789 Pine Rd", "54321"): ["5"],
+        }
+        assert households == expected
+
+    def test_households_single_address_column(self):
+        """Test households method with only one address column."""
+        columns_to_keep = ["name", "address1"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        people_data = [
+            ("1", "John Doe", "123 Main St", "male"),
+            ("2", "Jane Doe", "123 Main St", "female"),  # Same address
+            ("3", "Bob Smith", "456 Oak Ave", "male"),  # Different address
+        ]
+
+        for person_id, name, address1, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        households = people.households(["address1"])
+
+        expected = {
+            ("123 Main St",): ["1", "2"],
+            ("456 Oak Ave",): ["3"],
+        }
+        assert households == expected
+
+    def test_households_with_whitespace_in_addresses(self):
+        """Test households method handles whitespace in addresses correctly."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+
+        # Note: StrippedDict will strip whitespace, so these should be considered the same
+        people_data = [
+            ("1", "John Doe", "  123 Main St  ", "  12345  ", "male"),
+            ("2", "Jane Doe", "123 Main St", "12345", "male"),
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        households = people.households(["address1", "postcode"])
+
+        # Both should end up in the same household due to whitespace stripping
+        expected = {("123 Main St", "12345"): ["1", "2"]}
+        assert households == expected
+
+    def test_households_empty_address_columns_list(self):
+        """Test households method with empty address columns list."""
+        columns_to_keep = ["name"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+
+        person_data = StrippedDict({
+            "id": "1",
+            "name": "John Doe",
+            "gender": "male",
+        })
+        people.add("1", person_data, features)
+
+        households = people.households([])
+
+        # Empty tuple should group everyone together
+        expected = {(): ["1"]}
+        assert households == expected
+
+
+class TestPeopleMatchingAddress:
+    """Test the matching_address() method of the People class."""
+
+    def test_matching_address_no_matches(self):
+        """Test matching_address when no one else has the same address."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        # Add people with different addresses
+        people_data = [
+            ("1", "John Doe", "123 Main St", "12345", "male"),
+            ("2", "Jane Smith", "456 Oak Ave", "67890", "female"),
+            ("3", "Bob Johnson", "789 Pine Rd", "54321", "male"),
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        # John should have no matches
+        matches = list(people.matching_address("1", ["address1", "postcode"]))
+        assert matches == []
+
+    def test_matching_address_with_matches(self):
+        """Test matching_address when other people have the same address."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        # Add people with some sharing addresses
+        people_data = [
+            ("1", "John Doe", "123 Main St", "12345", "male"),
+            ("2", "Jane Doe", "123 Main St", "12345", "female"),  # Same as John
+            ("3", "Bob Doe", "123 Main St", "12345", "male"),  # Same as John
+            ("4", "Alice Smith", "456 Oak Ave", "67890", "female"),  # Different address
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        # John should match Jane and Bob
+        matches = list(people.matching_address("1", ["address1", "postcode"]))
+        assert set(matches) == {"2", "3"}
+
+        # Jane should match John and Bob
+        matches = list(people.matching_address("2", ["address1", "postcode"]))
+        assert set(matches) == {"1", "3"}
+
+        # Alice should have no matches
+        matches = list(people.matching_address("4", ["address1", "postcode"]))
+        assert matches == []
+
+    def test_matching_address_excludes_self(self):
+        """Test that matching_address excludes the person being queried."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+
+        # Add person
+        person_data = StrippedDict({
+            "id": "1",
+            "name": "John Doe",
+            "address1": "123 Main St",
+            "postcode": "12345",
+            "gender": "male",
+        })
+        people.add("1", person_data, features)
+
+        # Should not match himself
+        matches = list(people.matching_address("1", ["address1", "postcode"]))
+        assert matches == []
+
+    def test_matching_address_single_address_column(self):
+        """Test matching_address with only one address column."""
+        columns_to_keep = ["name", "address1"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        people_data = [
+            ("1", "John Doe", "123 Main St", "male"),
+            ("2", "Jane Doe", "123 Main St", "female"),  # Same address
+            ("3", "Bob Smith", "456 Oak Ave", "male"),  # Different address
+        ]
+
+        for person_id, name, address1, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        # John should match Jane
+        matches = list(people.matching_address("1", ["address1"]))
+        assert matches == ["2"]
+
+        # Bob should have no matches
+        matches = list(people.matching_address("3", ["address1"]))
+        assert matches == []
+
+    def test_matching_address_with_whitespace(self):
+        """Test matching_address handles whitespace correctly."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+
+        # Addresses with different whitespace should still match
+        people_data = [
+            ("1", "John Doe", "  123 Main St  ", "  12345  ", "male"),
+            ("2", "Jane Doe", "123 Main St", "12345", "male"),
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        # Should match due to whitespace stripping
+        matches = list(people.matching_address("1", ["address1", "postcode"]))
+        assert matches == ["2"]
+
+    def test_matching_address_empty_address_columns(self):
+        """Test matching_address with empty address columns list."""
+        columns_to_keep = ["name"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        people_data = [
+            ("1", "John Doe", "male"),
+            ("2", "Jane Doe", "female"),
+            ("3", "Bob Smith", "male"),
+        ]
+
+        for person_id, name, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        # With empty address columns, everyone should match everyone else
+        matches = list(people.matching_address("1", []))
+        assert set(matches) == {"2", "3"}
+
+        matches = list(people.matching_address("2", []))
+        assert set(matches) == {"1", "3"}
+
+    def test_matching_address_partial_address_match(self):
+        """Test that partial address matches don't count as matches."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
+
+        people_data = [
+            ("1", "John Doe", "123 Main St", "12345", "male"),
+            (
+                "2",
+                "Jane Doe",
+                "123 Main St",
+                "67890",
+                "female",
+            ),  # Same street, different postcode
+            (
+                "3",
+                "Bob Smith",
+                "456 Oak Ave",
+                "12345",
+                "male",
+            ),  # Different street, same postcode
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        # John should have no matches (both address1 AND postcode must match)
+        matches = list(people.matching_address("1", ["address1", "postcode"]))
+        assert matches == []
+
+    def test_matching_address_case_sensitivity(self):
+        """Test that matching_address is case sensitive (or handles case as per StrippedDict)."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
+
+        people_data = [
+            ("1", "John Doe", "123 Main St", "12345", "male"),
+            ("2", "Jane Doe", "123 MAIN ST", "12345", "male"),  # Different case
+        ]
+
+        for person_id, name, address1, postcode, gender in people_data:
+            person_data = StrippedDict({
+                "id": person_id,
+                "name": name,
+                "address1": address1,
+                "postcode": postcode,
+                "gender": gender,
+            })
+            people.add(person_id, person_data, features)
+
+        # Should NOT match due to case difference (StrippedDict only strips, doesn't normalize case)
+        matches = list(people.matching_address("1", ["address1", "postcode"]))
+        assert matches == []
+
+    def test_matching_address_nonexistent_person(self):
+        """Test matching_address raises KeyError for non-existent person."""
+        columns_to_keep = ["name", "address1"]
+        people = People(columns_to_keep)
+
+        with pytest.raises(KeyError):
+            list(people.matching_address("nonexistent", ["address1"]))
+
+    def test_matching_address_large_household(self):
+        """Test matching_address with a large household."""
+        columns_to_keep = ["name", "address1", "postcode"]
+        people = People(columns_to_keep)
+
+        features = FeatureCollection()
+        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=10))
+        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=10))
+
+        # Add 10 people at the same address
+        for i in range(10):
+            person_data = StrippedDict({
+                "id": str(i),
+                "name": f"Person {i}",
+                "address1": "123 Main St",
+                "postcode": "12345",
+                "gender": "male" if i % 2 == 0 else "female",
+            })
+            people.add(str(i), person_data, features)
+
+        # Person 0 should match all others (1-9)
+        matches = list(people.matching_address("0", ["address1", "postcode"]))
+        expected_matches = [str(i) for i in range(1, 10)]
+        assert set(matches) == set(expected_matches)
+
+        # Person 5 should match all others except themselves
+        matches = list(people.matching_address("5", ["address1", "postcode"]))
+        expected_matches = [str(i) for i in range(10) if i != 5]
+        assert set(matches) == set(expected_matches)

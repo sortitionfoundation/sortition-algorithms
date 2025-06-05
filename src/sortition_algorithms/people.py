@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import ItemsView, Iterable, Iterator
 
 from sortition_algorithms import errors
@@ -20,6 +21,9 @@ class People:
     @property
     def count(self) -> int:
         return len(self._full_data)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._full_data)
 
     def items(self) -> ItemsView[str, dict[str, str]]:
         return self._full_data.items()
@@ -58,11 +62,33 @@ class People:
         for key in person_keys:
             self.remove(key)
 
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._full_data)
-
     def get_person_dict(self, person_key: str) -> dict[str, str]:
         return self._full_data[person_key]
+
+    def households(self, address_columns: list[str]) -> dict[tuple[str, ...], list[str]]:
+        """
+        Generates a dict with:
+        - keys: a tuple containing the address strings
+        - values: a list of person_key for each person at that address
+        """
+        households = defaultdict(list)
+        for person_key, person in self._full_data.items():
+            address = tuple(person[col] for col in address_columns)
+            households[address].append(person_key)
+        return households
+
+    def matching_address(self, person_key: str, address_columns: list[str]) -> Iterable[str]:
+        """
+        Returns a list of person keys for all people who have an address matching
+        the address of the person passed in.
+        """
+        person = self._full_data[person_key]
+        person_address = tuple(person[col] for col in address_columns)
+        for loop_key, loop_person in self._full_data.items():
+            if loop_key == person_key:
+                continue  # skip the person we've been given
+            if person_address == tuple(loop_person[col] for col in address_columns):
+                yield loop_key
 
 
 # simple helper function to tidy the code below
