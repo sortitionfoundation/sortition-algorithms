@@ -53,3 +53,6 @@ edit:
 
 e: edit
 vim: edit
+
+repomix:
+  repomix --style plain src tests
