@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Iterator
-from copy import deepcopy
 
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
@@ -57,80 +56,6 @@ class People:
 
     def get_person_dict(self, person_key: str) -> dict[str, str]:
         return self._full_data[person_key]
-
-
-class PeopleFeatures:
-    """
-    This class manipulates people and features together, making a deepcopy on init.
-    """
-
-    # TODO: consider naming: maybe SelectionState
-
-    def __init__(self, people: People, features: FeatureCollection) -> None:
-        self.people = deepcopy(people)
-        self.features = deepcopy(features)
-
-    def update_features_remaining(self, person_key: str) -> None:
-        # this will blow up if the person does not exist
-        person = self.people.get_person_dict(person_key)
-        for feature_name in self.features.feature_names:
-            self.features.add_remaining(feature_name, person[feature_name])
-
-    def update_all_features_remaining(self) -> None:
-        for person_key in self.people:
-            self.update_features_remaining(person_key)
-
-    def delete_all_with_feature_value(
-        self,
-        feature_name: str,
-        feature_value: str,
-    ) -> tuple[int, int]:
-        """
-        When a feature is full we want to delete everyone in it.
-        Returns count of those deleted, and count of those left
-        """
-        people_to_delete: list[str] = []
-        for pkey in self.people:
-            person = self.people.get_person_dict(pkey)
-            if person[feature_name] == feature_value:
-                people_to_delete.append(pkey)
-                # adjust the features "remaining" values for each feature in turn
-                for feature in self.features.feature_names:
-                    self.features.remove_remaining(feature, person[feature])
-        for p in people_to_delete:
-            self.people.remove(p)
-        # return the number of people deleted and the number of people left
-        return len(people_to_delete), self.people.count
-
-    def prune_for_feature_max_0(self) -> list[str]:
-        """
-        Check if any feature_value.max is set to zero. if so delete everyone with that feature value
-        NOT DONE: could then check if anyone is left.
-        """
-        # TODO: when do we want to do this?
-        msg: list[str] = []
-        msg.append(f"Number of people: {self.people.count}.")
-        total_num_deleted = 0
-        for (
-            feature_name,
-            feature_value,
-            fv_counts,
-        ) in self.features.feature_values_counts():
-            if fv_counts.max == 0:  # we don't want any of these people
-                # pass the message in as deleting them might throw an exception
-                msg.append(f"Feature/value {feature_name}/{feature_value} full - deleting people...")
-                num_deleted, num_left = self.delete_all_with_feature_value(feature_name, feature_value)
-                # if no exception was thrown above add this bit to the end of the previous message
-                msg[-1] += f" Deleted {num_deleted}, {num_left} left."
-                total_num_deleted += num_deleted
-        # if the total number of people deleted is lots then we're probably doing a replacement selection, which means
-        # the 'remaining' file will be useless - remind the user of this!
-        if total_num_deleted >= self.people.count / 2:
-            msg.append(
-                ">>> WARNING <<< That deleted MANY PEOPLE - are you doing a "
-                "replacement? If so your REMAINING FILE WILL BE USELESS!!!"
-            )
-        return msg
 
 
 # simple helper function to tidy the code below
