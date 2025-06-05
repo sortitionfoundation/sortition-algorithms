@@ -149,7 +149,7 @@ class TestPeopleFeatures:
                 counts.min = 10  # Impossible to satisfy
                 counts.selected = 0
 
-        with pytest.raises(errors.SelectionError, match="Failed removing from gender/male"):
+        with pytest.raises(errors.SelectionError, match="not enough left in gender male"):
             people_features.delete_all_with_feature_value("gender", "male")
 
     def test_prune_for_feature_max_0(self):

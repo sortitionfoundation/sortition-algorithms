@@ -4,6 +4,7 @@ import typing
 from collections import defaultdict
 from copy import deepcopy
 
+from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
 from sortition_algorithms.settings import Settings
@@ -30,25 +31,30 @@ class PeopleFeatures:
         for person_key in self.people:
             self.update_features_remaining(person_key)
 
-    def delete_all_with_feature_value(
-        self,
-        feature_name: str,
-        feature_value: str,
-    ) -> tuple[int, int]:
+    def delete_all_with_feature_value(self, feature_name: str, feature_value: str) -> tuple[int, int]:
         """
-        When a feature is full we want to delete everyone in it.
+        When a feature/value is "full" we delete everyone else in it.
+        "Full" means that the number selected equals the "max" amount - that
+        is detected elsewhere and then this method is called.
         Returns count of those deleted, and count of those left
         """
+        # when a category is full we want to delete everyone in it
         people_to_delete: list[str] = []
-        for pkey in self.people:
-            person = self.people.get_person_dict(pkey)
+        for pkey, person in self.people.items():
             if person[feature_name] == feature_value:
                 people_to_delete.append(pkey)
-                # adjust the features "remaining" values for each feature in turn
                 for feature in self.features.feature_names:
-                    self.features.remove_remaining(feature, person[feature])
-        for p in people_to_delete:
-            self.people.remove(p)
+                    try:
+                        self.features.remove_remaining(feature, person[feature])
+                    except errors.SelectionError as e:
+                        msg = (
+                            f"SELECTION IMPOSSIBLE: FAIL in delete_all_in_feature_value() "
+                            f"as after previous deletion no one/not enough left in {feature} "
+                            f"{person[feature]}. Tried to delete: {len(people_to_delete)}"
+                        )
+                        raise errors.SelectionError(msg) from e
+
+        self.people.remove_many(people_to_delete)
         # return the number of people deleted and the number of people left
         return len(people_to_delete), self.people.count
 
@@ -96,7 +102,7 @@ class WeightedSample:
 
         Then making random choices from that list produces a weighted sample.
         """
-        self.weighted = defaultdict(list)
+        self.weighted: dict[str, list[str]] = defaultdict(list)
         for feature_name, value, fv_counts in features.feature_values_counts():
             self.weighted[feature_name] += [value] * fv_counts.max
 
@@ -110,7 +116,7 @@ def create_readable_sample_file(
     people_file: typing.TextIO,
     number_people_example_file: int,
     settings: Settings,
-):
+) -> None:
     example_people_writer = csv.writer(
         people_file,
         delimiter=",",

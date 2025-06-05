@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Iterator
+from collections.abc import ItemsView, Iterable, Iterator
 
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
@@ -20,6 +20,9 @@ class People:
     @property
     def count(self) -> int:
         return len(self._full_data)
+
+    def items(self) -> ItemsView[str, dict[str, str]]:
+        return self._full_data.items()
 
     def add(self, person_key: str, data: StrippedDict, features: FeatureCollection) -> None:
         person_full_data: dict[str, str] = {}
@@ -50,6 +53,10 @@ class People:
     def remove(self, person_key: str) -> None:
         del self._full_data[person_key]
         del self._col_to_keep_data[person_key]
+
+    def remove_many(self, person_keys: Iterable[str]) -> None:
+        for key in person_keys:
+            self.remove(key)
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._full_data)
