@@ -622,53 +622,29 @@ def _find_maximin_primal(
     return [p / sum_probabilities for p in probabilities]
 
 
-def find_distribution_maximin(
-    features: FeatureCollection,
-    people: People,
-    number_people_wanted: int,
-    settings: Settings,
-) -> tuple[list[frozenset[str]], list[float], list[str]]:
-    """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected.
+def _setup_maximin_incremental_model(
+    committees: set[frozenset[str]],
+    covered_agents: frozenset[str],
+) -> tuple[mip.model.Model, dict[str, mip.entities.Var], mip.entities.Var]:
+    """Set up the incremental LP model for maximin optimization.
+
+    The incremental model is an LP with a variable y_e for each entitlement e and one more variable z.
+    For an agent i, let e(i) denote her entitlement. Then, the LP is:
+
+    minimize  z
+    s.t.      Σ_{i ∈ B} y_{e(i)} ≤ z   ∀ feasible committees B (*)
+              Σ_e y_e = 1
+              y_e ≥ 0                  ∀ e
+
+    At any point in time, constraint (*) is only enforced for the committees in `committees`.
 
     Args:
-        features: FeatureCollection with min/max quotas
-        people: People object with pool members
-        number_people_wanted: desired size of the panel
-        settings: Settings object containing configuration
+        committees: set of initial committees
+        covered_agents: agents that can be included in some committee
 
     Returns:
-        tuple of (committees, probabilities, output_lines)
-        - committees: list of feasible committees (frozenset of agent IDs)
-        - probabilities: list of probabilities for each committee
-        - output_lines: list of debug strings
+        tuple of (incremental_model, incr_agent_vars, upper_bound_var)
     """
-    output_lines = [_print("Using maximin algorithm.")]
-
-    # Set up an ILP that can be used for discovering new feasible committees maximizing some
-    # sum of weights over the agents
-    new_committee_model, agent_vars = _setup_committee_generation(features, people, number_people_wanted, settings)
-
-    # Start by finding some initial committees, guaranteed to cover every agent that can be covered by some committee
-    committees: set[frozenset[str]]  # set of feasible committees, add more over time
-    covered_agents: frozenset[str]  # all agent ids for agents that can actually be included
-    committees, covered_agents, new_output_lines = _generate_initial_committees(
-        new_committee_model,
-        agent_vars,
-        people.count,
-    )
-    output_lines += new_output_lines
-
-    # The incremental model is an LP with a variable y_e for each entitlement e and one more variable z.
-    # For an agent i, let e(i) denote her entitlement. Then, the LP is:
-    #
-    # minimize  z
-    # s.t.      Σ_{i ∈ B} y_{e(i)} ≤ z   ∀ feasible committees B (*)
-    #           Σ_e y_e = 1
-    #           y_e ≥ 0                  ∀ e
-    #
-    # At any point in time, constraint (*) is only enforced for the committees in `committees`. By linear-programming
-    # duality, if the optimal solution with these reduced constraints satisfies all possible constraints, the committees
-    # in `committees` are enough to find the maximin distribution among them.
     incremental_model = mip.Model(sense=mip.MINIMIZE)
     incremental_model.verbose = 0
 
@@ -692,13 +668,107 @@ def find_distribution_maximin(
         # Σ_{i ∈ B} y_{e(i)} ≤ z   ∀ B ∈ `committees`
         incremental_model.add_constr(committee_sum <= upper_bound)
 
+    return incremental_model, incr_agent_vars, upper_bound
+
+
+def _run_maximin_heuristic_for_additional_committees(
+    new_committee_model: mip.model.Model,
+    agent_vars: dict[str, mip.entities.Var],
+    incremental_model: mip.model.Model,
+    incr_agent_vars: dict[str, mip.entities.Var],
+    upper_bound_var: mip.entities.Var,
+    committees: set[frozenset[str]],
+    covered_agents: frozenset[str],
+    entitlement_weights: dict[str, float],
+    upper: float,
+    value: float,
+) -> int:
+    """Run heuristic to find additional committees without re-optimizing the incremental model.
+
+    Because optimizing `incremental_model` takes a long time, we would like to get multiple committees out
+    of a single run of `incremental_model`. Rather than reoptimizing for optimal y_e and z, we find some
+    feasible values y_e and z by modifying the old solution.
+    This heuristic only adds more committees, and does not influence correctness.
+
+    Args:
+        new_committee_model: MIP model for finding new committees
+        agent_vars: agent variables in the committee model
+        incremental_model: the incremental LP model
+        incr_agent_vars: agent variables in incremental model
+        upper_bound_var: upper bound variable in incremental model
+        committees: set of committees (modified in-place)
+        covered_agents: agents that can be included
+        entitlement_weights: current entitlement weights (modified in-place)
+        upper: current upper bound value
+        value: current objective value
+
+    Returns:
+        number of additional committees found
+    """
+    counter = 0
+    new_set = None  # Initialize to avoid UnboundLocalError
+
+    for _ in range(10):
+        # scale down the y_{e(i)} for i ∈ `new_set` to make Σ_{i ∈ `new_set`} y_{e(i)} ≤ z true
+        if new_set is not None:  # Only scale if we have a new_set from previous iteration
+            for agent_id in new_set:
+                entitlement_weights[agent_id] *= upper / value
+
+        # This will change Σ_e y_e to be less than 1. We rescale the y_e and z
+        sum_weights = sum(entitlement_weights.values())
+        if sum_weights < EPS:
+            break
+        for agent_id in entitlement_weights:
+            entitlement_weights[agent_id] /= sum_weights
+        upper /= sum_weights
+
+        new_committee_model.objective = mip.xsum(
+            entitlement_weights[agent_id] * agent_vars[agent_id] for agent_id in covered_agents
+        )
+        new_committee_model.optimize()
+        new_set = _ilp_results_to_committee(agent_vars)
+        value = sum(entitlement_weights[agent_id] for agent_id in new_set)
+        if value <= upper + EPS or new_set in committees:
+            break
+        committees.add(new_set)
+        incremental_model.add_constr(mip.xsum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound_var)
+        counter += 1
+
+    return counter
+
+
+def _run_maximin_optimization_loop(
+    new_committee_model: mip.model.Model,
+    agent_vars: dict[str, mip.entities.Var],
+    incremental_model: mip.model.Model,
+    incr_agent_vars: dict[str, mip.entities.Var],
+    upper_bound_var: mip.entities.Var,
+    committees: set[frozenset[str]],
+    covered_agents: frozenset[str],
+    output_lines: list[str],
+) -> tuple[list[frozenset[str]], list[float], list[str]]:
+    """Run the main maximin optimization loop with column generation.
+
+    Args:
+        new_committee_model: MIP model for finding new committees
+        agent_vars: agent variables in the committee model
+        incremental_model: the incremental LP model
+        incr_agent_vars: agent variables in incremental model
+        upper_bound_var: upper bound variable in incremental model
+        committees: set of committees (modified in-place)
+        covered_agents: agents that can be included
+        output_lines: list of output messages (modified in-place)
+
+    Returns:
+        tuple of (committees, probabilities, output_lines)
+    """
     while True:
         status = incremental_model.optimize()
         assert status == mip.OptimizationStatus.OPTIMAL
 
         # currently optimal values for y_e
         entitlement_weights = {agent_id: incr_agent_vars[agent_id].x for agent_id in covered_agents}
-        upper = upper_bound.x  # currently optimal value for z
+        upper = upper_bound_var.x  # currently optimal value for z
 
         # For these fixed y_e, find the feasible committee B with maximal Σ_{i ∈ B} y_{e(i)}
         new_committee_model.objective = mip.xsum(
@@ -724,39 +794,212 @@ def find_distribution_maximin(
         # Some committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z. We add B to `committees` and recurse
         assert new_set not in committees
         committees.add(new_set)
-        incremental_model.add_constr(mip.xsum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound)
+        incremental_model.add_constr(mip.xsum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound_var)
 
-        # Heuristic for better speed in practice:
-        # Because optimizing `incremental_model` takes a long time, we would like to get multiple committees out
-        # of a single run of `incremental_model`. Rather than reoptimizing for optimal y_e and z, we find some
-        # feasible values y_e and z by modifying the old solution.
-        # This heuristic only adds more committees, and does not influence correctness.
-        counter = 0
-        for _ in range(10):
-            # scale down the y_{e(i)} for i ∈ `new_set` to make Σ_{i ∈ `new_set`} y_{e(i)} ≤ z true
-            for agent_id in new_set:
-                entitlement_weights[agent_id] *= upper / value
-            # This will change Σ_e y_e to be less than 1. We rescale the y_e and z
-            sum_weights = sum(entitlement_weights.values())
-            if sum_weights < EPS:
-                break
-            for agent_id in entitlement_weights:
-                entitlement_weights[agent_id] /= sum_weights
-            upper /= sum_weights
-
-            new_committee_model.objective = mip.xsum(
-                entitlement_weights[agent_id] * agent_vars[agent_id] for agent_id in covered_agents
-            )
-            new_committee_model.optimize()
-            new_set = _ilp_results_to_committee(agent_vars)
-            value = sum(entitlement_weights[agent_id] for agent_id in new_set)
-            if value <= upper + EPS or new_set in committees:
-                break
-            committees.add(new_set)
-            incremental_model.add_constr(mip.xsum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound)
-            counter += 1
+        # Run heuristic to find additional committees
+        counter = _run_maximin_heuristic_for_additional_committees(
+            new_committee_model,
+            agent_vars,
+            incremental_model,
+            incr_agent_vars,
+            upper_bound_var,
+            committees,
+            covered_agents,
+            entitlement_weights,
+            upper,
+            value,
+        )
         if counter > 0:
             print(f"Heuristic successfully generated {counter} additional committees.")
+
+
+def find_distribution_maximin(
+    features: FeatureCollection,
+    people: People,
+    number_people_wanted: int,
+    settings: Settings,
+) -> tuple[list[frozenset[str]], list[float], list[str]]:
+    """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected.
+
+    Args:
+        features: FeatureCollection with min/max quotas
+        people: People object with pool members
+        number_people_wanted: desired size of the panel
+        settings: Settings object containing configuration
+
+    Returns:
+        tuple of (committees, probabilities, output_lines)
+        - committees: list of feasible committees (frozenset of agent IDs)
+        - probabilities: list of probabilities for each committee
+        - output_lines: list of debug strings
+    """
+    output_lines = [_print("Using maximin algorithm.")]
+
+    # Set up an ILP that can be used for discovering new feasible committees
+    new_committee_model, agent_vars = _setup_committee_generation(features, people, number_people_wanted, settings)
+
+    # Find initial committees that cover every possible agent
+    committees, covered_agents, initial_output = _generate_initial_committees(
+        new_committee_model, agent_vars, people.count
+    )
+    output_lines += initial_output
+
+    # Set up the incremental LP model for column generation
+    incremental_model, incr_agent_vars, upper_bound_var = _setup_maximin_incremental_model(committees, covered_agents)
+
+    # Run the main optimization loop
+    return _run_maximin_optimization_loop(
+        new_committee_model,
+        agent_vars,
+        incremental_model,
+        incr_agent_vars,
+        upper_bound_var,
+        committees,
+        covered_agents,
+        output_lines,
+    )
+
+
+def _solve_nash_welfare_optimization(
+    committees: list[frozenset[str]],
+    entitlements: list[str],
+    contributes_to_entitlement: dict[str, int],
+    start_lambdas: list[float],
+    number_people_wanted: int,
+    output_lines: list[str],
+) -> tuple[Any, np.ndarray, np.ndarray]:
+    """Solve the Nash welfare optimization problem for current committees.
+
+    Args:
+        committees: list of current committees
+        entitlements: list of agent entitlements
+        contributes_to_entitlement: mapping from agent_id to entitlement index
+        start_lambdas: starting probabilities for committees
+        number_people_wanted: desired committee size
+        output_lines: list of output messages (modified in-place)
+
+    Returns:
+        tuple of (lambdas variable, entitled_reciprocals, differentials)
+    """
+    lambdas = cp.Variable(len(committees))  # probability of outputting a specific committee
+    lambdas.value = start_lambdas
+
+    # A is a binary matrix, whose (i,j)th entry indicates whether agent `entitlements[i]`
+    # is included in committee j
+    matrix = _committees_to_matrix(committees, entitlements, contributes_to_entitlement)
+    assert matrix.shape == (len(entitlements), len(committees))
+
+    objective = cp.Maximize(cp.sum(cp.log(matrix @ lambdas)))
+    constraints = [lambdas >= 0, cp.sum(lambdas) == 1]
+    problem = cp.Problem(objective, constraints)
+
+    # Try SCS solver first, fall back to ECOS if it fails
+    try:
+        nash_welfare = problem.solve(solver=cp.SCS, warm_start=True)
+    except cp.SolverError:
+        # At least the ECOS solver in cvxpy crashes sometimes (numerical instabilities?).
+        # In this case, try another solver. But hope that SCS is more stable.
+        output_lines.append(_print("Had to switch to ECOS solver."))
+        nash_welfare = problem.solve(solver=cp.ECOS, warm_start=True)
+
+    scaled_welfare = nash_welfare - len(entitlements) * log(number_people_wanted / len(entitlements))
+    output_lines.append(_print(f"Scaled Nash welfare is now: {scaled_welfare}."))
+
+    assert lambdas.value.shape == (len(committees),)  # type: ignore[union-attr]
+    entitled_utilities = matrix.dot(lambdas.value)  # type: ignore[arg-type]
+    assert entitled_utilities.shape == (len(entitlements),)
+    assert (entitled_utilities > EPS2).all()
+    entitled_reciprocals = 1 / entitled_utilities
+    assert entitled_reciprocals.shape == (len(entitlements),)
+    differentials = entitled_reciprocals.dot(matrix)
+    assert differentials.shape == (len(committees),)
+
+    return lambdas, entitled_reciprocals, differentials
+
+
+def _find_best_new_committee_for_nash(
+    new_committee_model: mip.model.Model,
+    agent_vars: dict[str, mip.entities.Var],
+    entitled_reciprocals: np.ndarray,
+    contributes_to_entitlement: dict[str, int],
+    covered_agents: frozenset[str],
+) -> tuple[frozenset[str], float]:
+    """Find the committee that maximizes the Nash welfare objective.
+
+    Args:
+        new_committee_model: MIP model for finding committees
+        agent_vars: agent variables in the committee model
+        entitled_reciprocals: reciprocals of current utilities
+        contributes_to_entitlement: mapping from agent_id to entitlement index
+        covered_agents: agents that can be included
+
+    Returns:
+        tuple of (new_committee, objective_value)
+    """
+    obj = [
+        entitled_reciprocals[contributes_to_entitlement[agent_id]] * agent_vars[agent_id] for agent_id in covered_agents
+    ]
+    new_committee_model.objective = mip.xsum(obj)
+    new_committee_model.optimize()
+
+    new_set = _ilp_results_to_committee(agent_vars)
+    value = sum(entitled_reciprocals[contributes_to_entitlement[agent_id]] for agent_id in new_set)
+
+    return new_set, value
+
+
+def _run_nash_optimization_loop(
+    new_committee_model: mip.model.Model,
+    agent_vars: dict[str, mip.entities.Var],
+    committees: list[frozenset[str]],
+    entitlements: list[str],
+    contributes_to_entitlement: dict[str, int],
+    covered_agents: frozenset[str],
+    number_people_wanted: int,
+    output_lines: list[str],
+) -> tuple[list[frozenset[str]], list[float], list[str]]:
+    """Run the main Nash welfare optimization loop.
+
+    Args:
+        new_committee_model: MIP model for finding committees
+        agent_vars: agent variables in the committee model
+        committees: list of committees (modified in-place)
+        entitlements: list of agent entitlements
+        contributes_to_entitlement: mapping from agent_id to entitlement index
+        covered_agents: agents that can be included
+        number_people_wanted: desired committee size
+        output_lines: list of output messages (modified in-place)
+
+    Returns:
+        tuple of (committees, probabilities, output_lines)
+    """
+    start_lambdas = [1 / len(committees) for _ in committees]
+
+    while True:
+        # Solve Nash welfare optimization for current committees
+        lambdas, entitled_reciprocals, differentials = _solve_nash_welfare_optimization(
+            committees, entitlements, contributes_to_entitlement, start_lambdas, number_people_wanted, output_lines
+        )
+
+        # Find the best new committee
+        new_set, value = _find_best_new_committee_for_nash(
+            new_committee_model, agent_vars, entitled_reciprocals, contributes_to_entitlement, covered_agents
+        )
+
+        # Check convergence condition
+        if value <= differentials.max() + EPS_NASH:
+            probabilities = np.array(lambdas.value).clip(0, 1)
+            probabilities_normalised = list(probabilities / sum(probabilities))
+            return committees, probabilities_normalised, output_lines
+
+        # Add new committee and continue
+        print(value, differentials.max(), value - differentials.max())
+        assert new_set not in committees
+        committees.append(new_set)
+        start_lambdas = [
+            *list(np.array(lambdas.value)),
+            0,
+        ]  # Add 0 probability for new committee
 
 
 def find_distribution_nash(
@@ -787,88 +1030,29 @@ def find_distribution_nash(
     output_lines = [_print("Using Nash algorithm.")]
 
     # Set up an ILP used for discovering new feasible committees
-    # We will use it many times, putting different weights on the inclusion of different agents to find many feasible
-    # committees
     new_committee_model, agent_vars = _setup_committee_generation(features, people, number_people_wanted, settings)
 
-    # Start by finding committees including every agent, and learn which agents cannot possibly be included
-    committees: list[frozenset[str]]  # set of feasible committees, add more over time
-    covered_agents: frozenset[str]  # all agent ids for agents that can actually be included
-    committee_set, covered_agents, new_output_lines = _generate_initial_committees(
-        new_committee_model,
-        agent_vars,
-        2 * people.count,
+    # Find initial committees that include every possible agent
+    committee_set, covered_agents, initial_output = _generate_initial_committees(
+        new_committee_model, agent_vars, 2 * people.count
     )
     committees = list(committee_set)
-    output_lines += new_output_lines
+    output_lines += initial_output
 
     # Map the covered agents to indices in a list for easier matrix representation
     entitlements, contributes_to_entitlement = _define_entitlements(covered_agents)
 
-    # The algorithm proceeds iteratively. First, it finds probabilities for the committees already present in
-    # `committees` that maximize the sum of logarithms. Then, reusing the old ILP, it finds the feasible committee
-    # (possibly outside of `committees`) such that the partial derivative of the sum of logarithms with respect to the
-    # probability of outputting this committee is maximal. If this partial derivative is less than the maximal partial
-    # derivative of any committee already in `committees`, the Karush-Kuhn-Tucker conditions (which are sufficient in
-    # this case) imply that the distribution is optimal even with all other committees receiving probability 0.
-    start_lambdas = [1 / len(committees) for _ in committees]
-
-    while True:
-        lambdas = cp.Variable(len(committees))  # probability of outputting a specific committee
-        lambdas.value = start_lambdas
-
-        # A is a binary matrix, whose (i,j)th entry indicates whether agent `entitlements[i]`
-        # is included in committee j
-        matrix = _committees_to_matrix(committees, entitlements, contributes_to_entitlement)
-        assert matrix.shape == (len(entitlements), len(committees))
-
-        objective = cp.Maximize(cp.sum(cp.log(matrix @ lambdas)))
-        constraints = [lambdas >= 0, cp.sum(lambdas) == 1]
-        problem = cp.Problem(objective, constraints)
-
-        # Try SCS solver first, fall back to ECOS if it fails
-        try:
-            nash_welfare = problem.solve(solver=cp.SCS, warm_start=True)
-        except cp.SolverError:
-            # At least the ECOS solver in cvxpy crashes sometimes (numerical instabilities?).
-            # In this case, try another solver. But hope that SCS is more stable.
-            output_lines.append(_print("Had to switch to ECOS solver."))
-            nash_welfare = problem.solve(solver=cp.ECOS, warm_start=True)
-
-        scaled_welfare = nash_welfare - len(entitlements) * log(number_people_wanted / len(entitlements))
-        output_lines.append(_print(f"Scaled Nash welfare is now: {scaled_welfare}."))
-
-        assert lambdas.value.shape == (len(committees),)  # type: ignore[union-attr]
-        entitled_utilities = matrix.dot(lambdas.value)  # type: ignore[arg-type]
-        assert entitled_utilities.shape == (len(entitlements),)
-        assert (entitled_utilities > EPS2).all()
-        entitled_reciprocals = 1 / entitled_utilities
-        assert entitled_reciprocals.shape == (len(entitlements),)
-        differentials = entitled_reciprocals.dot(matrix)
-        assert differentials.shape == (len(committees),)
-
-        obj = [
-            entitled_reciprocals[contributes_to_entitlement[agent_id]] * agent_vars[agent_id]
-            for agent_id in covered_agents
-        ]
-        new_committee_model.objective = mip.xsum(obj)
-        new_committee_model.optimize()
-
-        new_set = _ilp_results_to_committee(agent_vars)
-        value = sum(entitled_reciprocals[contributes_to_entitlement[agent_id]] for agent_id in new_set)
-
-        if value <= differentials.max() + EPS_NASH:
-            probabilities = np.array(lambdas.value).clip(0, 1)
-            probabilities_normalised = list(probabilities / sum(probabilities))
-            return committees, probabilities_normalised, output_lines
-
-        print(value, differentials.max(), value - differentials.max())
-        assert new_set not in committees
-        committees.append(new_set)
-        start_lambdas = [
-            *list(np.array(lambdas.value)),
-            0,
-        ]  # Add 0 probability for new committee
+    # Run the main Nash welfare optimization loop
+    return _run_nash_optimization_loop(
+        new_committee_model,
+        agent_vars,
+        committees,
+        entitlements,
+        contributes_to_entitlement,
+        covered_agents,
+        number_people_wanted,
+        output_lines,
+    )
 
 
 def _dual_leximin_stage(
@@ -922,6 +1106,193 @@ def _dual_leximin_stage(
     return model, agent_vars, cap_var
 
 
+def _run_leximin_column_generation_loop(
+    new_committee_model: mip.model.Model,
+    agent_vars: dict[str, mip.entities.Var],
+    dual_model: Any,  # grb.Model
+    dual_agent_vars: dict[str, Any],  # dict[str, grb.Var]
+    dual_cap_var: Any,  # grb.Var
+    committees: set[frozenset[str]],
+    fixed_probabilities: dict[str, float],
+    people: People,
+    reduction_counter: int,
+    output_lines: list[str],
+) -> tuple[bool, int]:
+    """Run the column generation inner loop for leximin optimization.
+
+    The primal LP being solved by column generation, with a variable x_P for each feasible panel P:
+
+    maximize z
+    s.t.     Σ_{P : i ∈ P} x_P ≥ z                         ∀ i not in fixed_probabilities
+             Σ_{P : i ∈ P} x_P ≥ fixed_probabilities[i]    ∀ i in fixed_probabilities
+             Σ_P x_P ≤ 1                                   (This should be thought of as equality, and wlog.
+                                                           optimal solutions have equality, but simplifies dual)
+             x_P ≥ 0                                       ∀ P
+
+    We instead solve its dual linear program:
+    minimize ŷ - Σ_{i in fixed_probabilities} fixed_probabilities[i] * yᵢ
+    s.t.     Σ_{i ∈ P} yᵢ ≤ ŷ                              ∀ P
+             Σ_{i not in fixed_probabilities} yᵢ = 1
+             ŷ, yᵢ ≥ 0                                     ∀ i
+
+    Args:
+        new_committee_model: MIP model for finding committees
+        agent_vars: agent variables in the committee model
+        dual_model: Gurobi model for dual LP
+        dual_agent_vars: agent variables in dual model
+        dual_cap_var: capacity variable in dual model
+        committees: set of committees (modified in-place)
+        fixed_probabilities: probabilities that have been fixed (modified in-place)
+        people: People object with all agents
+        reduction_counter: counter for probability reductions
+        output_lines: list of output messages (modified in-place)
+
+    Returns:
+        tuple of (should_break_outer_loop, updated_reduction_counter)
+    """
+    while True:
+        dual_model.optimize()
+        if dual_model.status != grb.GRB.OPTIMAL:
+            # In theory, the LP is feasible in the first iterations, and we only add constraints (by fixing
+            # probabilities) that preserve feasibility. Due to floating-point issues, however, it may happen that
+            # Gurobi still cannot satisfy all the fixed probabilities in the primal (meaning that the dual will be
+            # unbounded). In this case, we slightly relax the LP by slightly reducing all fixed probabilities.
+            for agent_id in fixed_probabilities:
+                # Relax all fixed probabilities by a small constant
+                fixed_probabilities[agent_id] = max(0.0, fixed_probabilities[agent_id] - 0.0001)
+            dual_model, dual_agent_vars, dual_cap_var = _dual_leximin_stage(
+                people,
+                committees,
+                fixed_probabilities,
+            )
+            print(dual_model.status, f"REDUCE PROBS for {reduction_counter}th time.")
+            reduction_counter += 1
+            continue
+
+        # Find the panel P for which Σ_{i ∈ P} yᵢ is largest, i.e., for which Σ_{i ∈ P} yᵢ ≤ ŷ is tightest
+        agent_weights = {agent_id: agent_var.x for agent_id, agent_var in dual_agent_vars.items()}
+        new_committee_model.objective = mip.xsum(agent_weights[agent_id] * agent_vars[agent_id] for agent_id in people)
+        new_committee_model.optimize()
+        new_set = _ilp_results_to_committee(agent_vars)  # panel P
+        value = new_committee_model.objective_value  # Σ_{i ∈ P} yᵢ
+
+        upper = dual_cap_var.x  # ŷ
+        dual_obj = dual_model.objVal  # ŷ - Σ_{i in fixed_probabilities} fixed_probabilities[i] * yᵢ
+
+        output_lines.append(
+            _print(
+                f"Maximin is at most {dual_obj - upper + value:.2%}, can do {dual_obj:.2%} with "
+                f"{len(committees)} committees. Gap {value - upper:.2%}."
+            )
+        )
+        if value <= upper + EPS:
+            # Within numeric tolerance, the panels in `committees` are enough to constrain the dual, i.e., they are
+            # enough to support an optimal primal solution.
+            for agent_id, agent_weight in agent_weights.items():
+                if agent_weight > EPS and agent_id not in fixed_probabilities:
+                    # `agent_weight` is the dual variable yᵢ of the constraint "Σ_{P : i ∈ P} x_P ≥ z" for
+                    # i = `agent_id` in the primal LP. If yᵢ is positive, this means that the constraint must be
+                    # binding in all optimal solutions [1], and we can fix `agent_id`'s probability to the
+                    # optimal value of the primal/dual LP.
+                    # [1] Theorem 3.3 in: Renato Pelessoni. Some remarks on the use of the strict complementarity in
+                    # checking coherence and extending coherent probabilities. 1998.
+                    fixed_probabilities[agent_id] = max(0, dual_obj)
+            return True, reduction_counter  # Break outer loop
+
+        # Given that Σ_{i ∈ P} yᵢ > ŷ, the current solution to `dual_model` is not yet a solution to the dual.
+        # Thus, add the constraint for panel P and recurse.
+        assert new_set not in committees
+        committees.add(new_set)
+        dual_model.addConstr(grb.quicksum(dual_agent_vars[agent_id] for agent_id in new_set) <= dual_cap_var)
+
+
+def _solve_leximin_primal_for_final_probabilities(
+    committees: set[frozenset[str]], fixed_probabilities: dict[str, float]
+) -> list[float]:
+    """Solve the final primal problem to get committee probabilities from fixed agent probabilities.
+
+    The previous algorithm computed the leximin selection probabilities of each agent and a set of panels such that
+    the selection probabilities can be obtained by randomizing over these panels. Here, such a randomization is found.
+
+    Args:
+        committees: set of committees
+        fixed_probabilities: fixed probabilities for each agent
+
+    Returns:
+        list of normalized probabilities for each committee
+    """
+    primal = grb.Model()
+    # Variables for the output probabilities of the different panels
+    committee_vars = [primal.addVar(vtype=grb.GRB.CONTINUOUS, lb=0.0) for _ in committees]
+    # To avoid numerical problems, we formally minimize the largest downward deviation from the fixed probabilities.
+    eps = primal.addVar(vtype=grb.GRB.CONTINUOUS, lb=0.0)
+    primal.addConstr(grb.quicksum(committee_vars) == 1)  # Probabilities add up to 1
+    for agent_id, prob in fixed_probabilities.items():
+        agent_probability = grb.quicksum(
+            comm_var for committee, comm_var in zip(committees, committee_vars, strict=False) if agent_id in committee
+        )
+        primal.addConstr(agent_probability >= prob - eps)
+    primal.setObjective(eps, grb.GRB.MINIMIZE)
+    primal.optimize()
+
+    # Bound variables between 0 and 1 and renormalize, because np.random.choice is sensitive to small deviations here
+    probabilities = np.array([comm_var.x for comm_var in committee_vars]).clip(0, 1)
+    return list(probabilities / sum(probabilities))
+
+
+def _run_leximin_main_loop(
+    new_committee_model: mip.model.Model,
+    agent_vars: dict[str, mip.entities.Var],
+    committees: set[frozenset[str]],
+    people: People,
+    output_lines: list[str],
+) -> dict[str, float]:
+    """Run the main leximin optimization loop that fixes probabilities iteratively.
+
+    The outer loop maximizes the minimum of all unfixed probabilities while satisfying the fixed probabilities.
+    In each iteration, at least one more probability is fixed, but often more than one.
+
+    Args:
+        new_committee_model: MIP model for finding committees
+        agent_vars: agent variables in the committee model
+        committees: set of committees (modified in-place)
+        people: People object with all agents
+        output_lines: list of output messages (modified in-place)
+
+    Returns:
+        dict mapping agent_id to fixed probability
+    """
+    fixed_probabilities: dict[str, float] = {}
+    reduction_counter = 0
+
+    while len(fixed_probabilities) < people.count:
+        print(f"Fixed {len(fixed_probabilities)}/{people.count} probabilities.")
+
+        dual_model, dual_agent_vars, dual_cap_var = _dual_leximin_stage(
+            people,
+            committees,
+            fixed_probabilities,
+        )
+
+        # Run column generation inner loop
+        should_break, reduction_counter = _run_leximin_column_generation_loop(
+            new_committee_model,
+            agent_vars,
+            dual_model,
+            dual_agent_vars,
+            dual_cap_var,
+            committees,
+            fixed_probabilities,
+            people,
+            reduction_counter,
+            output_lines,
+        )
+        if should_break:
+            break
+
+    return fixed_probabilities
+
+
 def find_distribution_leximin(
     features: FeatureCollection,
     people: People,
@@ -954,126 +1325,20 @@ def find_distribution_leximin(
     output_lines = [_print("Using leximin algorithm.")]
     grb.setParam("OutputFlag", 0)
 
-    # Set up an ILP that can be used for discovering new feasible committees maximizing some
-    # sum of weights over the agents
+    # Set up an ILP that can be used for discovering new feasible committees
     new_committee_model, agent_vars = _setup_committee_generation(features, people, number_people_wanted, settings)
 
-    # Start by finding some initial committees, guaranteed to cover every agent that can be covered by some committee
-    committees: set[frozenset[str]]  # set of feasible committees, add more over time
-    covered_agents: frozenset[str]  # all agent ids for agents that can actually be included
-    committees, covered_agents, new_output_lines = _generate_initial_committees(
-        new_committee_model,
-        agent_vars,
-        3 * people.count,
+    # Find initial committees that cover every possible agent
+    committees, covered_agents, initial_output = _generate_initial_committees(
+        new_committee_model, agent_vars, 3 * people.count
     )
-    output_lines += new_output_lines
+    output_lines += initial_output
 
-    # Over the course of the algorithm, the selection probabilities of more and more agents get fixed to a certain value
-    fixed_probabilities: dict[str, float] = {}
+    # Run the main leximin optimization loop to fix agent probabilities
+    fixed_probabilities = _run_leximin_main_loop(new_committee_model, agent_vars, committees, people, output_lines)
 
-    reduction_counter = 0
-
-    # The outer loop maximizes the minimum of all unfixed probabilities while satisfying the fixed probabilities.
-    # In each iteration, at least one more probability is fixed, but often more than one.
-    while len(fixed_probabilities) < people.count:
-        print(f"Fixed {len(fixed_probabilities)}/{people.count} probabilities.")
-
-        dual_model, dual_agent_vars, dual_cap_var = _dual_leximin_stage(
-            people,
-            committees,
-            fixed_probabilities,
-        )
-        # In the inner loop, there is a column generation for maximizing the minimum of all unfixed probabilities
-        while True:
-            """The primal LP being solved by column generation, with a variable x_P for each feasible panel P:
-
-            maximize z
-            s.t.     Σ_{P : i ∈ P} x_P ≥ z                         ∀ i not in fixed_probabilities
-                     Σ_{P : i ∈ P} x_P ≥ fixed_probabilities[i]    ∀ i in fixed_probabilities
-                     Σ_P x_P ≤ 1                                   (This should be thought of as equality, and wlog.
-                                                                   optimal solutions have equality, but simplifies dual)
-                     x_P ≥ 0                                       ∀ P
-
-            We instead solve its dual linear program:
-            minimize ŷ - Σ_{i in fixed_probabilities} fixed_probabilities[i] * yᵢ
-            s.t.     Σ_{i ∈ P} yᵢ ≤ ŷ                              ∀ P
-                     Σ_{i not in fixed_probabilities} yᵢ = 1
-                     ŷ, yᵢ ≥ 0                                     ∀ i
-            """
-            dual_model.optimize()
-            if dual_model.status != grb.GRB.OPTIMAL:
-                # In theory, the LP is feasible in the first iterations, and we only add constraints (by fixing
-                # probabilities) that preserve feasibility. Due to floating-point issues, however, it may happen that
-                # Gurobi still cannot satisfy all the fixed probabilities in the primal (meaning that the dual will be
-                # unbounded). In this case, we slightly relax the LP by slightly reducing all fixed probabilities.
-                for agent_id in fixed_probabilities:
-                    # Relax all fixed probabilities by a small constant
-                    fixed_probabilities[agent_id] = max(0.0, fixed_probabilities[agent_id] - 0.0001)
-                dual_model, dual_agent_vars, dual_cap_var = _dual_leximin_stage(
-                    people,
-                    committees,
-                    fixed_probabilities,
-                )
-                print(dual_model.status, f"REDUCE PROBS for {reduction_counter}th time.")
-                reduction_counter += 1
-                continue
-
-            # Find the panel P for which Σ_{i ∈ P} yᵢ is largest, i.e., for which Σ_{i ∈ P} yᵢ ≤ ŷ is tightest
-            agent_weights = {agent_id: agent_var.x for agent_id, agent_var in dual_agent_vars.items()}
-            new_committee_model.objective = mip.xsum(
-                agent_weights[agent_id] * agent_vars[agent_id] for agent_id in people
-            )
-            new_committee_model.optimize()
-            new_set = _ilp_results_to_committee(agent_vars)  # panel P
-            value = new_committee_model.objective_value  # Σ_{i ∈ P} yᵢ
-
-            upper = dual_cap_var.x  # ŷ
-            dual_obj = dual_model.objVal  # ŷ - Σ_{i in fixed_probabilities} fixed_probabilities[i] * yᵢ
-
-            output_lines.append(
-                _print(
-                    f"Maximin is at most {dual_obj - upper + value:.2%}, can do {dual_obj:.2%} with "
-                    f"{len(committees)} committees. Gap {value - upper:.2%}."
-                )
-            )
-            if value <= upper + EPS:
-                # Within numeric tolerance, the panels in `committees` are enough to constrain the dual, i.e., they are
-                # enough to support an optimal primal solution.
-                for agent_id, agent_weight in agent_weights.items():
-                    if agent_weight > EPS and agent_id not in fixed_probabilities:
-                        # `agent_weight` is the dual variable yᵢ of the constraint "Σ_{P : i ∈ P} x_P ≥ z" for
-                        # i = `agent_id` in the primal LP. If yᵢ is positive, this means that the constraint must be
-                        # binding in all optimal solutions [1], and we can fix `agent_id`'s probability to the
-                        # optimal value of the primal/dual LP.
-                        # [1] Theorem 3.3 in: Renato Pelessoni. Some remarks on the use of the strict complementarity in
-                        # checking coherence and extending coherent probabilities. 1998.
-                        fixed_probabilities[agent_id] = max(0, dual_obj)
-                break
-            # Given that Σ_{i ∈ P} yᵢ > ŷ, the current solution to `dual_model` is not yet a solution to the dual.
-            # Thus, add the constraint for panel P and recurse.
-            assert new_set not in committees
-            committees.add(new_set)
-            dual_model.addConstr(grb.quicksum(dual_agent_vars[agent_id] for agent_id in new_set) <= dual_cap_var)
-
-    # The previous algorithm computed the leximin selection probabilities of each agent and a set of panels such that
-    # the selection probabilities can be obtained by randomizing over these panels. Here, such a randomization is found.
-    primal = grb.Model()
-    # Variables for the output probabilities of the different panels
-    committee_vars = [primal.addVar(vtype=grb.GRB.CONTINUOUS, lb=0.0) for _ in committees]
-    # To avoid numerical problems, we formally minimize the largest downward deviation from the fixed probabilities.
-    eps = primal.addVar(vtype=grb.GRB.CONTINUOUS, lb=0.0)
-    primal.addConstr(grb.quicksum(committee_vars) == 1)  # Probabilities add up to 1
-    for agent_id, prob in fixed_probabilities.items():
-        agent_probability = grb.quicksum(
-            comm_var for committee, comm_var in zip(committees, committee_vars, strict=False) if agent_id in committee
-        )
-        primal.addConstr(agent_probability >= prob - eps)
-    primal.setObjective(eps, grb.GRB.MINIMIZE)
-    primal.optimize()
-
-    # Bound variables between 0 and 1 and renormalize, because np.random.choice is sensitive to small deviations here
-    probabilities = np.array([comm_var.x for comm_var in committee_vars]).clip(0, 1)
-    probabilities_normalised = list(probabilities / sum(probabilities))
+    # Convert fixed agent probabilities to committee probabilities
+    probabilities_normalised = _solve_leximin_primal_for_final_probabilities(committees, fixed_probabilities)
 
     return list(committees), probabilities_normalised, output_lines
 
