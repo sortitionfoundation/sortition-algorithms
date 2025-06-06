@@ -49,37 +49,19 @@ def _reduction_weight(features: FeatureCollection, feature_name: str, value_name
     return 1  # fallback
 
 
-def _relax_infeasible_quotas(  # noqa: C901
+def _create_relaxation_variables_and_bounds(
+    model: mip.model.Model,
     features: FeatureCollection,
-    people: People,
-    number_people_wanted: int,
-    settings: Settings,
-    ensure_inclusion: Collection[Iterable[str]] = ((),),
-) -> tuple[FeatureCollection, list[str]]:
-    """Assuming that the quotas are not satisfiable, suggest a minimal relaxation that would be.
+) -> tuple[dict[tuple[str, str], mip.entities.Var], dict[tuple[str, str], mip.entities.Var]]:
+    """Create relaxation variables and add bounds constraints for quota relaxation.
 
     Args:
-        features: FeatureCollection with min/max quotas
-        people: People object with pool members
-        number_people_wanted: desired size of the panel
-        settings: Settings object containing check_same_address and check_same_address_columns
-        ensure_inclusion: allows to specify that some panels should contain specific sets of agents. for example,
-            passing `(("a",), ("b", "c"))` means that the quotas should be relaxed such that some valid panel contains
-            agent "a" and some valid panel contains both agents "b" and "c". the default of `((),)` just requires
-            a panel to exist, without further restrictions.
+        model: MIP model to add variables and constraints to
+        features: FeatureCollection with min/max quotas and flex bounds
 
     Returns:
-        tuple of (relaxed FeatureCollection, list of output messages)
-
-    Raises:
-        InfeasibleQuotasCantRelaxError: If quotas cannot be relaxed within min_flex/max_flex bounds
-        SelectionError: If solver fails for other reasons
+        tuple of (min_vars, max_vars) - dictionaries mapping feature-value pairs to relaxation variables
     """
-    model = mip.Model(sense=mip.MINIMIZE)
-    model.verbose = 0  # TODO: get debug level from settings
-
-    assert len(ensure_inclusion) > 0  # otherwise, the existence of a panel is not required
-
     # Get all feature-value pairs
     feature_values = [(feature_name, value_name) for feature_name, value_name, _ in features.feature_values_counts()]
 
@@ -97,46 +79,73 @@ def _relax_infeasible_quotas(  # noqa: C901
         # Relaxed max cannot go above max_flex
         model.add_constr(value_counts.max + max_vars[fv] <= value_counts.max_flex)
 
-    # For each inclusion set, create constraints to ensure a valid committee exists
-    for inclusion_set in ensure_inclusion:
-        # Binary variables for each person (selected/not selected)
-        agent_vars = {person_id: model.add_var(var_type=mip.BINARY) for person_id in people}
+    return min_vars, max_vars
 
-        # Force inclusion of specified agents
-        for agent in inclusion_set:
-            model.add_constr(agent_vars[agent] == 1)
 
-        # Must select exactly the desired number of people
-        model.add_constr(mip.xsum(agent_vars.values()) == number_people_wanted)
+def _add_committee_constraints_for_inclusion_set(
+    model: mip.model.Model,
+    inclusion_set: Iterable[str],
+    people: People,
+    number_people_wanted: int,
+    features: FeatureCollection,
+    min_vars: dict[tuple[str, str], mip.entities.Var],
+    max_vars: dict[tuple[str, str], mip.entities.Var],
+    settings: Settings,
+) -> None:
+    """Add constraints to ensure a valid committee exists that includes the specified agents.
 
-        # Respect relaxed quotas for each feature-value
-        for feature_name, value_name, value_counts in features.feature_values_counts():
-            fv = (feature_name, value_name)
+    Args:
+        model: MIP model to add constraints to
+        inclusion_set: agents that must be included in this committee
+        people: People object with pool members
+        number_people_wanted: desired size of the panel
+        features: FeatureCollection with quotas
+        min_vars: relaxation variables for minimum quotas
+        max_vars: relaxation variables for maximum quotas
+        settings: Settings object containing household checking configuration
+    """
+    # Binary variables for each person (selected/not selected)
+    agent_vars = {person_id: model.add_var(var_type=mip.BINARY) for person_id in people}
 
-            # Count people with this feature-value who are selected
-            number_feature_value_agents = mip.xsum(
-                agent_vars[person_id]
-                for person_id, person_data in people.items()
-                if person_data[feature_name] == value_name
-            )
+    # Force inclusion of specified agents
+    for agent in inclusion_set:
+        model.add_constr(agent_vars[agent] == 1)
 
-            # Apply relaxed min/max constraints
-            model.add_constr(number_feature_value_agents >= value_counts.min - min_vars[fv])
-            model.add_constr(number_feature_value_agents <= value_counts.max + max_vars[fv])
+    # Must select exactly the desired number of people
+    model.add_constr(mip.xsum(agent_vars.values()) == number_people_wanted)
 
-        # Household constraints: at most 1 person per household
-        if settings.check_same_address:
-            for housemates in people.households(settings.check_same_address_columns).values():
-                if len(housemates) > 1:
-                    model.add_constr(mip.xsum(agent_vars[member_id] for member_id in housemates) <= 1)
+    # Respect relaxed quotas for each feature-value
+    for feature_name, value_name, value_counts in features.feature_values_counts():
+        fv = (feature_name, value_name)
 
-    # Objective: minimize weighted sum of relaxations
-    model.objective = mip.xsum(
-        [_reduction_weight(features, *fv) * min_vars[fv] for fv in feature_values]
-        + [max_vars[fv] for fv in feature_values]
-    )
+        # Count people with this feature-value who are selected
+        number_feature_value_agents = mip.xsum(
+            agent_vars[person_id]
+            for person_id, person_data in people.items()
+            if person_data[feature_name] == value_name
+        )
 
-    # Solve the model
+        # Apply relaxed min/max constraints
+        model.add_constr(number_feature_value_agents >= value_counts.min - min_vars[fv])
+        model.add_constr(number_feature_value_agents <= value_counts.max + max_vars[fv])
+
+    # Household constraints: at most 1 person per household
+    if settings.check_same_address:
+        for housemates in people.households(settings.check_same_address_columns).values():
+            if len(housemates) > 1:
+                model.add_constr(mip.xsum(agent_vars[member_id] for member_id in housemates) <= 1)
+
+
+def _solve_relaxation_model_and_handle_errors(model: mip.model.Model) -> None:
+    """Solve the relaxation model and handle any optimization errors.
+
+    Args:
+        model: MIP model to solve
+
+    Raises:
+        InfeasibleQuotasCantRelaxError: If quotas cannot be relaxed within flex bounds
+        SelectionError: If solver fails for other reasons
+    """
     status = model.optimize()
     if status == mip.OptimizationStatus.INFEASIBLE:
         msg = (
@@ -153,6 +162,22 @@ def _relax_infeasible_quotas(  # noqa: C901
         )
         raise errors.SelectionError(msg)
 
+
+def _extract_relaxed_features_and_messages(
+    features: FeatureCollection,
+    min_vars: dict[tuple[str, str], mip.entities.Var],
+    max_vars: dict[tuple[str, str], mip.entities.Var],
+) -> tuple[FeatureCollection, list[str]]:
+    """Extract relaxed quotas from solved model and generate recommendation messages.
+
+    Args:
+        features: Original FeatureCollection with quotas
+        min_vars: solved relaxation variables for minimum quotas
+        max_vars: solved relaxation variables for maximum quotas
+
+    Returns:
+        tuple of (relaxed FeatureCollection, list of recommendation messages)
+    """
     # Create a copy of the features with relaxed quotas
     relaxed_features = copy.deepcopy(features)
     output_lines = []
@@ -183,6 +208,62 @@ def _relax_infeasible_quotas(  # noqa: C901
             output_lines.append(f"Recommend raising upper quota of {feature_name}:{value_name} to {new_max}.")
 
     return relaxed_features, output_lines
+
+
+def _relax_infeasible_quotas(
+    features: FeatureCollection,
+    people: People,
+    number_people_wanted: int,
+    settings: Settings,
+    ensure_inclusion: Collection[Iterable[str]] = ((),),
+) -> tuple[FeatureCollection, list[str]]:
+    """Assuming that the quotas are not satisfiable, suggest a minimal relaxation that would be.
+
+    Args:
+        features: FeatureCollection with min/max quotas
+        people: People object with pool members
+        number_people_wanted: desired size of the panel
+        settings: Settings object containing check_same_address and check_same_address_columns
+        ensure_inclusion: allows to specify that some panels should contain specific sets of agents. for example,
+            passing `(("a",), ("b", "c"))` means that the quotas should be relaxed such that some valid panel contains
+            agent "a" and some valid panel contains both agents "b" and "c". the default of `((),)` just requires
+            a panel to exist, without further restrictions.
+
+    Returns:
+        tuple of (relaxed FeatureCollection, list of output messages)
+
+    Raises:
+        InfeasibleQuotasCantRelaxError: If quotas cannot be relaxed within min_flex/max_flex bounds
+        SelectionError: If solver fails for other reasons
+    """
+    model = mip.Model(sense=mip.MINIMIZE)
+    model.verbose = 0  # TODO: get debug level from settings
+
+    assert len(ensure_inclusion) > 0  # otherwise, the existence of a panel is not required
+
+    # Create relaxation variables and bounds constraints
+    min_vars, max_vars = _create_relaxation_variables_and_bounds(model, features)
+
+    # Get feature-value pairs for objective function
+    feature_values = [(feature_name, value_name) for feature_name, value_name, _ in features.feature_values_counts()]
+
+    # For each inclusion set, create constraints to ensure a valid committee exists
+    for inclusion_set in ensure_inclusion:
+        _add_committee_constraints_for_inclusion_set(
+            model, inclusion_set, people, number_people_wanted, features, min_vars, max_vars, settings
+        )
+
+    # Objective: minimize weighted sum of relaxations
+    model.objective = mip.xsum(
+        [_reduction_weight(features, *fv) * min_vars[fv] for fv in feature_values]
+        + [max_vars[fv] for fv in feature_values]
+    )
+
+    # Solve the model and handle errors
+    _solve_relaxation_model_and_handle_errors(model)
+
+    # Extract results and generate messages
+    return _extract_relaxed_features_and_messages(features, min_vars, max_vars)
 
 
 def _setup_committee_generation(
@@ -349,7 +430,118 @@ def _committees_to_matrix(
     return np.column_stack(columns)
 
 
-def _generate_initial_committees(  # noqa: C901
+def _update_multiplicative_weights_after_committee_found(
+    weights: dict[str, float],
+    new_committee: frozenset[str],
+    agent_vars: dict[str, mip.entities.Var],
+    found_duplicate: bool,
+) -> None:
+    """Update multiplicative weights after finding a committee.
+
+    Args:
+        weights: current weights for each agent (modified in-place)
+        new_committee: the committee that was just found
+        agent_vars: dict mapping agent_id to binary MIP variables
+        found_duplicate: True if this committee was already found before
+    """
+    if not found_duplicate:
+        # Decrease the weight of each agent in the new committee by a constant factor
+        # As a result, future rounds will strongly prioritize including agents that appear in few committees
+        for agent_id in new_committee:
+            weights[agent_id] *= 0.8
+    else:
+        # If committee is already known, make all weights a bit more equal to mix things up
+        for agent_id in agent_vars:
+            weights[agent_id] = 0.9 * weights[agent_id] + 0.1
+
+    # Rescale the weights to prevent floating point problems
+    coefficient_sum = sum(weights.values())
+    for agent_id in agent_vars:
+        weights[agent_id] *= len(agent_vars) / coefficient_sum
+
+
+def _run_multiplicative_weights_phase(
+    new_committee_model: mip.model.Model,
+    agent_vars: dict[str, mip.entities.Var],
+    multiplicative_weights_rounds: int,
+) -> tuple[set[frozenset[str]], set[str]]:
+    """Run the multiplicative weights algorithm to find an initial diverse set of committees.
+
+    Args:
+        new_committee_model: MIP model for finding committees
+        agent_vars: dict mapping agent_id to binary MIP variables
+        multiplicative_weights_rounds: number of rounds to run
+
+    Returns:
+        tuple of (committees, covered_agents) - sets of committees found and agents covered
+    """
+    committees: set[frozenset[str]] = set()
+    covered_agents: set[str] = set()
+
+    # Each agent has a weight between 0.99 and 1
+    # Note that if all start with weight `1` then we can end up with some committees having wrong number of results
+    weights = {agent_id: secrets_uniform(0.99, 1.0) for agent_id in agent_vars}
+
+    for i in range(multiplicative_weights_rounds):
+        # Find a feasible committee such that the sum of weights of its members is maximal
+        new_committee_model.objective = mip.xsum(weights[agent_id] * agent_vars[agent_id] for agent_id in agent_vars)
+        new_committee_model.optimize()
+        new_committee = _ilp_results_to_committee(agent_vars)
+
+        # Check if this is a new committee
+        is_new_committee = new_committee not in committees
+        if is_new_committee:
+            committees.add(new_committee)
+            for agent_id in new_committee:
+                covered_agents.add(agent_id)
+
+        # Update weights based on whether we found a new committee
+        _update_multiplicative_weights_after_committee_found(weights, new_committee, agent_vars, not is_new_committee)
+
+        print(
+            f"Multiplicative weights phase, round {i + 1}/{multiplicative_weights_rounds}. "
+            f"Discovered {len(committees)} committees so far."
+        )
+
+    return committees, covered_agents
+
+
+def _find_committees_for_uncovered_agents(
+    new_committee_model: mip.model.Model,
+    agent_vars: dict[str, mip.entities.Var],
+    covered_agents: set[str],
+) -> tuple[set[frozenset[str]], set[str], list[str]]:
+    """Find committees that include any agents not yet covered by existing committees.
+
+    Args:
+        new_committee_model: MIP model for finding committees
+        agent_vars: dict mapping agent_id to binary MIP variables
+        covered_agents: agents already covered by existing committees (modified in-place)
+
+    Returns:
+        tuple of (new_committees, updated_covered_agents, output_lines)
+    """
+    new_committees: set[frozenset[str]] = set()
+    output_lines = []
+
+    # Try to find a committee including each uncovered agent
+    for agent_id, agent_var in agent_vars.items():
+        if agent_id not in covered_agents:
+            new_committee_model.objective = agent_var  # only care about this specific agent being included
+            new_committee_model.optimize()
+            new_committee = _ilp_results_to_committee(agent_vars)
+
+            if agent_id in new_committee:
+                new_committees.add(new_committee)
+                for covered_agent_id in new_committee:
+                    covered_agents.add(covered_agent_id)
+            else:
+                output_lines.append(_print(f"Agent {agent_id} not contained in any feasible committee."))
+
+    return new_committees, covered_agents, output_lines
+
+
+def _generate_initial_committees(
     new_committee_model: mip.model.Model,
     agent_vars: dict[str, mip.entities.Var],
     multiplicative_weights_rounds: int,
@@ -369,66 +561,27 @@ def _generate_initial_committees(  # noqa: C901
         - covered_agents: frozenset of all agents included in some committee
         - output_lines: list of debug messages
     """
-    new_output_lines = []
-    committees: set[frozenset[str]] = set()  # Committees discovered so far
-    covered_agents: set[str] = set()  # All agents included in some committee
+    output_lines = []
 
-    # Begin using a multiplicative-weight stage. Each agent has a weight between 0.99 and 1
-    # Note that if all start with weight `1` then we can end up with some committees
-    # having the wrong number of results.
-    weights = {agent_id: secrets_uniform(0.99, 1.0) for agent_id in agent_vars}
+    # Phase 1: Use multiplicative weights algorithm to find diverse committees
+    committees, covered_agents = _run_multiplicative_weights_phase(
+        new_committee_model, agent_vars, multiplicative_weights_rounds
+    )
 
-    for i in range(multiplicative_weights_rounds):
-        # In each round, find a feasible committee such that the sum of weights of its members is maximal
-        new_committee_model.objective = mip.xsum(weights[agent_id] * agent_vars[agent_id] for agent_id in agent_vars)
-        new_committee_model.optimize()
-        new_set = _ilp_results_to_committee(agent_vars)
+    # Phase 2: Find committees for any agents not yet covered
+    additional_committees, covered_agents, coverage_output = _find_committees_for_uncovered_agents(
+        new_committee_model, agent_vars, covered_agents
+    )
+    committees.update(additional_committees)
+    output_lines.extend(coverage_output)
 
-        # Decrease the weight of each agent in the new committee by a constant factor
-        # As a result, future rounds will strongly prioritize including agents that appear in few committees
-        for agent_id in new_set:
-            weights[agent_id] *= 0.8
-
-        # Rescale the weights to prevent floating point problems
-        coefficient_sum = sum(weights.values())
-        for agent_id in agent_vars:
-            weights[agent_id] *= len(agent_vars) / coefficient_sum
-
-        if new_set not in committees:
-            # Found a new committee
-            committees.add(new_set)
-            for agent_id in new_set:
-                covered_agents.add(agent_id)
-        else:
-            # If committee is already known, make all weights a bit more equal to mix things up
-            for agent_id in agent_vars:
-                weights[agent_id] = 0.9 * weights[agent_id] + 0.1
-
-        print(
-            f"Multiplicative weights phase, round {i + 1}/{multiplicative_weights_rounds}. "
-            f"Discovered {len(committees)} committees so far."
-        )
-
-    # If there are any agents that have not been included so far, try to find a committee including this specific agent
-    for agent_id, value in agent_vars.items():
-        if agent_id not in covered_agents:
-            new_committee_model.objective = value  # only care about agent `agent_id` being included
-            new_committee_model.optimize()
-            new_set = _ilp_results_to_committee(agent_vars)
-            if agent_id in new_set:
-                committees.add(new_set)
-                for id2 in new_set:
-                    covered_agents.add(id2)
-            else:
-                new_output_lines.append(_print(f"Agent {agent_id} not contained in any feasible committee."))
-
-    # We assume in this stage that the quotas are feasible
-    assert len(committees) >= 1
+    # Validation and final output
+    assert len(committees) >= 1  # We assume quotas are feasible at this stage
 
     if len(covered_agents) == len(agent_vars):
-        new_output_lines.append(_print("All agents are contained in some feasible committee."))
+        output_lines.append(_print("All agents are contained in some feasible committee."))
 
-    return committees, frozenset(covered_agents), new_output_lines
+    return committees, frozenset(covered_agents), output_lines
 
 
 def _find_maximin_primal(
