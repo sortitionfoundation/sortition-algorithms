@@ -13,7 +13,7 @@ try:
     GUROBI_AVAILABLE = True
 except ImportError:
     GUROBI_AVAILABLE = False
-    grb = None  # type: ignore[assignment]
+    grb = None
 
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
@@ -919,7 +919,7 @@ def find_distribution_leximin(
     primal.optimize()
 
     # Bound variables between 0 and 1 and renormalize, because np.random.choice is sensitive to small deviations here
-    probabilities = np.array([comm_var.x for comm_var in committee_vars]).clip(0, 1)  # type: ignore[attr-defined]
+    probabilities = np.array([comm_var.x for comm_var in committee_vars]).clip(0, 1)
     probabilities_normalised = list(probabilities / sum(probabilities))
 
     return list(committees), probabilities_normalised, output_lines
