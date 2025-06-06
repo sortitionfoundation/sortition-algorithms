@@ -123,6 +123,9 @@ dmypy.json
 # repomix
 repomix-output*
 
+# claude
+.claude/settings.local.json
+
 # Pyre type checker
 .pyre/
 
