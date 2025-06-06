@@ -319,7 +319,7 @@ def read_in_features(
     features_flex = _feature_headers_flex(list(features_head))
     for row in features_body:
         # check the set of keys in the row are the same as the headers
-        assert set(row.keys()) == set(features_head)  # noqa: S101
+        assert set(row.keys()) == set(features_head)
         stripped_row = utils.StrippedDict(_normalise_col_names(row))
         if not stripped_row["feature"]:
             continue

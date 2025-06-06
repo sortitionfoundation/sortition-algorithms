@@ -12,16 +12,27 @@ classifiers = [
   "Intended Audience :: Developers",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["attrs>=25.3.0", "cattrs>=25.1.0"]
+dependencies = [
+  "attrs>=25.3.0",
+  "cattrs>=25.1.0",
+  "cvxpy>=1.6.5",
+  "mip==1.15.0",
+  "numpy>=2.2.6",
+]
 
 [project.urls]
 Homepage = "https://sortitionfoundation.github.io/sortition-algorithms/"
 Repository = "https://github.com/sortitionfoundation/sortition-algorithms"
 Documentation = "https://sortitionfoundation.github.io/sortition-algorithms/"
+
+[project.optional-dependencies]
+gurobi = [
+    "gurobipy>=12.0.2",
+]
 
 [dependency-groups]
 dev = [
@@ -53,6 +64,22 @@ check_untyped_defs = true
 warn_return_any = true
 warn_unused_ignores = true
 show_error_codes = true
+
+# mip does not have type hints/stubs
+[[tool.mypy.overrides]]
+module = "mip.*"
+ignore_missing_imports = true
+ignore_errors = true
+
+# gurobipy is commercial so we can't even install it
+[[tool.mypy.overrides]]
+module = "gurobipy.*"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "sortition_algorithms.committee_generation"
+disallow_any_unimported = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -100,6 +127,8 @@ select = [
 ignore = [
   # LineTooLong
   "E501",
+  # use assert in non-test code
+  "S101",
   # DoNotAssignLambda
   "E731",
 ]

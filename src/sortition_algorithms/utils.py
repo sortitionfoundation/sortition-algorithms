@@ -1,3 +1,4 @@
+import secrets
 from collections.abc import Mapping
 
 
@@ -16,3 +17,10 @@ class StrippedDict:
 
     def __getitem__(self, key: str) -> str:
         return strip_str_int(self.raw_dict[key])
+
+
+def secrets_uniform(lower: float, upper: float) -> float:
+    assert upper > lower
+    diff = upper - lower
+    rand_int = secrets.randbelow(1_000_000)
+    return lower + (rand_int * diff / 1_000_000)

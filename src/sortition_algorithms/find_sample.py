@@ -62,9 +62,7 @@ def find_random_sample_legacy(
         )
 
         # Should never select the same person twice
-        assert selected_person_key not in people_selected, (  # noqa: S101
-            f"Person {selected_person_key} was already selected"
-        )
+        assert selected_person_key not in people_selected, f"Person {selected_person_key} was already selected"
 
         # Select the person (this also removes household members if configured)
         people_selected.add(selected_person_key)

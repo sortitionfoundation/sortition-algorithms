@@ -1,5 +1,5 @@
 import csv
-import random
+import secrets
 import typing
 from collections import defaultdict
 from copy import deepcopy
@@ -158,7 +158,11 @@ class PeopleFeatures:
         result_feature_value = ""
         random_person_index = -1
 
-        for feature_name, feature_value, fv_counts in self.features.feature_values_counts():
+        for (
+            feature_name,
+            feature_value,
+            fv_counts,
+        ) in self.features.feature_values_counts():
             # Check if we have insufficient people to meet minimum requirements
             people_still_needed = fv_counts.min - fv_counts.selected
             if fv_counts.selected < fv_counts.min and fv_counts.remaining < people_still_needed:
@@ -180,7 +184,8 @@ class PeopleFeatures:
                 max_ratio = ratio
                 result_feature_name = feature_name
                 result_feature_value = feature_value
-                random_person_index = random.randint(1, fv_counts.remaining)  # noqa: S311
+                # from 1 to remaining
+                random_person_index = secrets.randbelow(fv_counts.remaining) + 1
 
         # If no valid category found, all categories must be at their max or have max=0
         if not result_feature_name:
@@ -211,7 +216,11 @@ class PeopleFeatures:
         """
         output_messages = []
 
-        for feature_name, feature_value, fv_counts in self.features.feature_values_counts():
+        for (
+            feature_name,
+            feature_value,
+            fv_counts,
+        ) in self.features.feature_values_counts():
             if feature_value == selected_person_data[feature_name] and fv_counts.selected == fv_counts.max:
                 num_deleted, num_left = self.delete_all_with_feature_value(feature_name, feature_value)
                 if num_deleted > 0:
@@ -241,7 +250,7 @@ class WeightedSample:
 
     def value_for(self, feature_name: str) -> str:
         # S311 is random numbers for crypto - but this is just for a sample file
-        return random.choice(self.weighted[feature_name])  # noqa: S311
+        return secrets.choice(self.weighted[feature_name])
 
 
 def create_readable_sample_file(
