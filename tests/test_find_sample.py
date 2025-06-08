@@ -1,10 +1,15 @@
 import pytest
 
 from sortition_algorithms import errors
-from sortition_algorithms.features import FeatureCollection, FeatureValueCounts
+from sortition_algorithms.features import FeatureValueCounts
 from sortition_algorithms.find_sample import find_random_sample_legacy
-from sortition_algorithms.people import People
-from sortition_algorithms.utils import StrippedDict
+from tests.helpers import (
+    create_gender_only_features,
+    create_people_with_legacy_addresses,
+    create_simple_features,
+    create_simple_people,
+    create_test_settings,
+)
 
 
 class TestFindRandomSampleLegacy:
@@ -12,35 +17,9 @@ class TestFindRandomSampleLegacy:
 
     def create_test_data(self):
         """Create test people and features for selection testing."""
-        columns_to_keep = ["name", "email"]
-        people = People(columns_to_keep)
-
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=2))
-        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=2))
-        features.add_feature("age", "young", FeatureValueCounts(min=1, max=2))
-        features.add_feature("age", "old", FeatureValueCounts(min=1, max=2))
-
-        # Add test people
-        test_people = [
-            ("John", "male", "young"),
-            ("Jane", "female", "young"),
-            ("Bob", "male", "old"),
-            ("Alice", "female", "old"),
-            ("Carol", "female", "young"),
-            ("David", "male", "old"),
-        ]
-
-        for person_id, (name, gender, age) in enumerate(test_people):
-            person_data = StrippedDict({
-                "id": str(person_id),
-                "name": name,
-                "email": f"{name.lower()}@example.com",
-                "gender": gender,
-                "age": age,
-            })
-            people.add(str(person_id), person_data, features)
-
+        features = create_simple_features(gender_min=1, gender_max=2, age_min=1, age_max=2)
+        settings = create_test_settings(columns_to_keep=["name", "email"])
+        people = create_simple_people(features, settings, count=6)
         return people, features
 
     def test_basic_selection(self):
@@ -64,10 +43,10 @@ class TestFindRandomSampleLegacy:
 
     def test_selection_respects_quotas(self):
         """Test that selection respects min/max quotas."""
-        people, features = self.create_test_data()
-
         # Run selection multiple times to check quota adherence
         for _ in range(5):
+            # Create fresh test data each time since legacy function modifies it
+            people, features = self.create_test_data()
             committees, messages = find_random_sample_legacy(people, features, 4)
             selected_people = committees[0]
 
@@ -100,55 +79,24 @@ class TestFindRandomSampleLegacy:
 
     def test_impossible_quotas_error(self):
         """Test error when quotas are impossible to satisfy."""
-        columns_to_keep = ["name"]
-        people = People(columns_to_keep)
+        # Create impossible quotas: need 3 males minimum but only 2 people total
+        features = create_gender_only_features(min_val=3, max_val=5)
+        settings = create_test_settings(columns_to_keep=["name"])
+        people = create_simple_people(features, settings, count=2)
 
-        features = FeatureCollection()
-        # Impossible: need 3 males minimum but only 2 people total
-        features.add_feature("gender", "male", FeatureValueCounts(min=3, max=5))
-        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=2))
-
-        # Add only 2 people, both male
-        for i, name in enumerate(["John", "Bob"]):
-            person_data = StrippedDict({
-                "id": str(i),
-                "name": name,
-                "gender": "male",
-            })
-            people.add(str(i), person_data, features)
+        # Override both people to be male to match the test scenario
+        for person_id in ["0", "1"]:
+            person_data = people.get_person_dict(person_id)
+            person_data["gender"] = "male"
 
         with pytest.raises(errors.SelectionError):
             find_random_sample_legacy(people, features, 3)
 
     def create_test_data_with_addresses(self):
         """Create test data with address information for household testing."""
-        columns_to_keep = ["name", "address1", "address2"]
-        people = People(columns_to_keep)
-
-        features = FeatureCollection()
-        # More lenient constraints to handle household removals
-        features.add_feature("gender", "male", FeatureValueCounts(min=0, max=3))
-        features.add_feature("gender", "female", FeatureValueCounts(min=0, max=3))
-
-        # Add people with some at same address
-        test_people = [
-            ("John", "male", "123 Main St", "12345"),  # Same address as Jane
-            ("Jane", "female", "123 Main St", "12345"),  # Same address as John
-            ("Bob", "male", "456 Oak Ave", "67890"),  # Different address
-            ("Alice", "female", "789 Pine Rd", "11111"),  # Different address
-            ("Carol", "female", "123 Main St", "12345"),  # Same address as John/Jane
-        ]
-
-        for person_id, (name, gender, addr1, addr2) in enumerate(test_people):
-            person_data = StrippedDict({
-                "id": str(person_id),
-                "name": name,
-                "address1": addr1,
-                "address2": addr2,
-                "gender": gender,
-            })
-            people.add(str(person_id), person_data, features)
-
+        features = create_gender_only_features(min_val=0, max_val=3)
+        settings = create_test_settings(columns_to_keep=["name", "address1", "address2"])
+        people = create_people_with_legacy_addresses(features, settings)
         return people, features
 
     def test_address_checking_enabled(self):
@@ -156,7 +104,11 @@ class TestFindRandomSampleLegacy:
         people, features = self.create_test_data_with_addresses()
 
         committees, messages = find_random_sample_legacy(
-            people, features, 2, check_same_address=True, check_same_address_columns=["address1", "address2"]
+            people,
+            features,
+            2,
+            check_same_address=True,
+            check_same_address_columns=["address1", "address2"],
         )
 
         selected_people = committees[0]
@@ -183,7 +135,11 @@ class TestFindRandomSampleLegacy:
         people, features = self.create_test_data_with_addresses()
 
         committees, messages = find_random_sample_legacy(
-            people, features, 2, check_same_address=False, check_same_address_columns=["address1", "address2"]
+            people,
+            features,
+            2,
+            check_same_address=False,
+            check_same_address_columns=["address1", "address2"],
         )
 
         selected_people = committees[0]
@@ -205,34 +161,24 @@ class TestFindRandomSampleLegacy:
 
     def test_max_zero_pruning(self):
         """Test that people with max=0 categories are pruned."""
-        columns_to_keep = ["name"]
-        people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=2))
+        # Create features with males allowed but females not wanted
+        features = create_gender_only_features(min_val=1, max_val=2)
         features.add_feature("gender", "female", FeatureValueCounts(min=0, max=0))  # Don't want any females
 
-        # Add people
-        test_people = [
-            ("John", "male"),
-            ("Jane", "female"),  # Should be pruned
-            ("Bob", "male"),
-        ]
+        settings = create_test_settings(columns_to_keep=["name"])
+        people = create_simple_people(features, settings, count=3)
 
-        for person_id, (name, gender) in enumerate(test_people):
-            person_data = StrippedDict({
-                "id": str(person_id),
-                "name": name,
-                "gender": gender,
-            })
-            people.add(str(person_id), person_data, features)
+        # Override one person to be female (will be pruned)
+        person_data = people.get_person_dict("1")
+        person_data["gender"] = "female"
 
         committees, messages = find_random_sample_legacy(people, features, 2)
 
         # Should only select males (Jane should be pruned)
         selected_people = committees[0]
         assert len(selected_people) == 2
-        assert selected_people == {"0", "2"}  # John and Bob
+        assert selected_people == {"0", "2"}  # Person0 and Person2
 
     def test_return_format_compatibility(self):
         """Test that return format matches legacy expectations."""

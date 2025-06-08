@@ -5,26 +5,7 @@ import pytest
 from cattrs import ClassValidationError
 
 from sortition_algorithms import settings
-
-
-def create_settings(
-    columns_to_keep: list[str] | None = None,
-    check_same_address: bool = False,
-    check_same_address_columns: list[str] | None = None,
-    selection_algorithm: str = "legacy",
-) -> settings.Settings:
-    columns_to_keep = columns_to_keep or []
-    check_same_address_columns = check_same_address_columns or []
-    return settings.Settings(
-        id_column="nationbuilder_id",
-        columns_to_keep=columns_to_keep,
-        check_same_address=check_same_address,
-        check_same_address_columns=check_same_address_columns,
-        max_attempts=3,
-        selection_algorithm=selection_algorithm,
-        random_number_seed=1234,
-        json_file_path=Path("/some/path.json"),
-    )
+from tests.helpers import create_test_settings
 
 
 class TestSettingsConstructor:
@@ -32,28 +13,28 @@ class TestSettingsConstructor:
 
     @pytest.mark.parametrize("alg", settings.SELECTION_ALGORITHMS)
     def test_selection_algorithms_accepted(self, alg):
-        settings_obj = create_settings(selection_algorithm=alg)
+        settings_obj = create_test_settings(selection_algorithm=alg)
         assert settings_obj.selection_algorithm == alg
 
     def test_selection_algorithms_blocked_for_unknown(self):
         with pytest.raises(ValueError, match="selection_algorithm unknown is not one of"):
-            create_settings(selection_algorithm="unknown")
+            create_test_settings(selection_algorithm="unknown")
 
     def test_valid_settings_creation(self):
         """Test creating a valid Settings object."""
-        settings_obj = create_settings(
+        settings_obj = create_test_settings(
             columns_to_keep=["name", "email"],
             check_same_address=True,
             check_same_address_columns=["address1", "postcode"],
             selection_algorithm="maximin",
         )
-        assert settings_obj.id_column == "nationbuilder_id"
+        assert settings_obj.id_column == "id"
         assert settings_obj.columns_to_keep == ["name", "email"]
         assert settings_obj.check_same_address is True
         assert settings_obj.check_same_address_columns == ["address1", "postcode"]
         assert settings_obj.selection_algorithm == "maximin"
-        assert settings_obj.max_attempts == 3
-        assert settings_obj.random_number_seed == 1234
+        assert settings_obj.max_attempts == 100
+        assert settings_obj.random_number_seed == 42
 
     def test_id_column_must_be_string(self):
         """Test that id_column must be a string."""
@@ -72,12 +53,12 @@ class TestSettingsConstructor:
     def test_columns_to_keep_must_be_list(self):
         """Test that columns_to_keep must be a list."""
         with pytest.raises(TypeError, match="columns_to_keep must be a LIST of strings"):
-            create_settings(columns_to_keep="not_a_list")  # t
+            create_test_settings(columns_to_keep="not_a_list")  # t
 
     def test_columns_to_keep_must_be_list_of_strings(self):
         """Test that columns_to_keep must be a list of strings."""
         with pytest.raises(TypeError, match="columns_to_keep must be a list of STRINGS"):
-            create_settings(columns_to_keep=["valid", 123, "also_valid"])  # t
+            create_test_settings(columns_to_keep=["valid", 123, "also_valid"])  # t
 
     def test_check_same_address_must_be_bool(self):
         """Test that check_same_address must be a boolean."""
@@ -96,7 +77,7 @@ class TestSettingsConstructor:
     def test_check_same_address_columns_must_be_list(self):
         """Test that check_same_address_columns must be a list."""
         with pytest.raises(TypeError, match="check_same_address_columns must be a LIST of strings"):
-            create_settings(check_same_address_columns="not_a_list")  # t
+            create_test_settings(check_same_address_columns="not_a_list")  # t
 
     def test_check_same_address_columns_must_be_zero_or_two_items(self):
         """Test that check_same_address_columns must have 0 or 2 items."""
@@ -104,18 +85,18 @@ class TestSettingsConstructor:
             ValueError,
             match="check_same_address_columns must be a list of ZERO OR TWO strings",
         ):
-            create_settings(check_same_address_columns=["only_one"])
+            create_test_settings(check_same_address_columns=["only_one"])
 
         with pytest.raises(
             ValueError,
             match="check_same_address_columns must be a list of ZERO OR TWO strings",
         ):
-            create_settings(check_same_address_columns=["one", "two", "three"])
+            create_test_settings(check_same_address_columns=["one", "two", "three"])
 
     def test_check_same_address_columns_must_be_strings(self):
         """Test that check_same_address_columns must contain strings."""
         with pytest.raises(TypeError, match="check_same_address_columns must be a list of STRINGS"):
-            create_settings(check_same_address_columns=["valid", 123])  # t
+            create_test_settings(check_same_address_columns=["valid", 123])  # t
 
     def test_check_same_address_true_requires_columns(self):
         """Test that check_same_address=True requires columns to be specified."""
@@ -123,11 +104,11 @@ class TestSettingsConstructor:
             ValueError,
             match="check_same_address is TRUE but there are no columns listed",
         ):
-            create_settings(check_same_address=True, check_same_address_columns=[])
+            create_test_settings(check_same_address=True, check_same_address_columns=[])
 
     def test_check_same_address_false_allows_empty_columns(self):
         """Test that check_same_address=False allows empty columns list."""
-        settings_obj = create_settings(check_same_address=False, check_same_address_columns=[])
+        settings_obj = create_test_settings(check_same_address=False, check_same_address_columns=[])
         assert settings_obj.check_same_address is False
         assert settings_obj.check_same_address_columns == []
 

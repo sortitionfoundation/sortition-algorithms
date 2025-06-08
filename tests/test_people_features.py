@@ -1,10 +1,13 @@
 import pytest
 
 from sortition_algorithms import errors
-from sortition_algorithms.features import FeatureCollection, FeatureValueCounts
-from sortition_algorithms.people import People
 from sortition_algorithms.people_features import MaxRatioResult, PeopleFeatures
-from sortition_algorithms.utils import StrippedDict
+from tests.helpers import (
+    create_people_with_complex_households,
+    create_simple_features,
+    create_test_scenario,
+    create_test_settings,
+)
 
 
 class TestPeopleFeatures:
@@ -12,31 +15,7 @@ class TestPeopleFeatures:
 
     def create_test_people_features(self):
         """Helper to create a test PeopleFeatures object."""
-        columns_to_keep = ["name", "email"]
-        people = People(columns_to_keep)
-
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
-        features.add_feature("age", "young", FeatureValueCounts(min=1, max=3))
-        features.add_feature("age", "old", FeatureValueCounts(min=1, max=3))
-
-        # Add some people
-        for person_id, (name, gender, age) in enumerate([
-            ("John", "male", "young"),
-            ("Jane", "female", "young"),
-            ("Bob", "male", "old"),
-            ("Alice", "female", "old"),
-        ]):
-            person_data = StrippedDict({
-                "id": str(person_id),
-                "name": name,
-                "email": f"{name.lower()}@example.com",
-                "gender": gender,
-                "age": age,
-            })
-            people.add(str(person_id), person_data, features)
-
+        features, people, settings = create_test_scenario(people_count=4)
         return PeopleFeatures(people, features)
 
     def test_people_features_creation_copies_data(self):
@@ -403,36 +382,13 @@ class TestPeopleFeatures:
 
     def create_test_people_features_with_addresses(self):
         """Helper to create PeopleFeatures with address data for testing."""
-        columns_to_keep = ["name", "email", "address1", "address2"]
-        people = People(columns_to_keep)
-
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=5))
-        features.add_feature("age", "young", FeatureValueCounts(min=1, max=3))
-        features.add_feature("age", "old", FeatureValueCounts(min=1, max=3))
-
-        # Add people with address data
-        test_people = [
-            ("John", "male", "young", "123 Main St", "12345"),  # Same address as Jane
-            ("Jane", "female", "young", "123 Main St", "12345"),  # Same address as John
-            ("Bob", "male", "old", "456 Oak Ave", "67890"),  # Different address
-            ("Alice", "female", "old", "789 Pine Rd", "11111"),  # Different address
-            ("Carol", "female", "old", "123 Main St", "12345"),  # Same address as John/Jane
-        ]
-
-        for person_id, (name, gender, age, addr1, addr2) in enumerate(test_people):
-            person_data = StrippedDict({
-                "id": str(person_id),
-                "name": name,
-                "email": f"{name.lower()}@example.com",
-                "gender": gender,
-                "age": age,
-                "address1": addr1,
-                "address2": addr2,
-            })
-            people.add(str(person_id), person_data, features)
-
+        features = create_simple_features()
+        settings = create_test_settings(
+            columns_to_keep=["name", "email", "address1", "address2"],
+            check_same_address=True,
+            check_same_address_columns=["address1", "address2"],
+        )
+        people = create_people_with_complex_households(features, settings)
         return PeopleFeatures(
             people, features, check_same_address=True, check_same_address_columns=["address1", "address2"]
         )

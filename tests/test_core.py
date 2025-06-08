@@ -1,50 +1,16 @@
-from pathlib import Path
-
 import pytest
 
 from sortition_algorithms.core import run_stratification
-from sortition_algorithms.features import FeatureCollection, FeatureValueCounts
-from sortition_algorithms.people import People
-from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import StrippedDict
+from tests.helpers import create_gender_only_features, create_simple_people, create_test_scenario, create_test_settings
 
 
 def test_run_stratification_basic_success():
     """Test basic successful run of stratification algorithm."""
-    # Create People object
-    columns_to_keep = ["gender", "age"]
-    people = People(columns_to_keep)
-
-    # Create features first
-    features = FeatureCollection()
-    features.add_feature("gender", "male", FeatureValueCounts(min=1, max=4))
-    features.add_feature("gender", "female", FeatureValueCounts(min=1, max=4))
-    features.add_feature("age", "young", FeatureValueCounts(min=1, max=4))
-    features.add_feature("age", "old", FeatureValueCounts(min=1, max=4))
-
-    # Add people to the collection
-    people_data = [
-        {"id": "1", "gender": "male", "age": "young"},
-        {"id": "2", "gender": "female", "age": "young"},
-        {"id": "3", "gender": "male", "age": "old"},
-        {"id": "4", "gender": "female", "age": "old"},
-        {"id": "5", "gender": "male", "age": "young"},
-        {"id": "6", "gender": "female", "age": "old"},
-    ]
-
-    for person_data in people_data:
-        people.add(person_data["id"], StrippedDict(person_data), features)
-
-    # Create settings
-    settings = Settings(
-        id_column="id",
-        columns_to_keep=columns_to_keep,
-        check_same_address=False,
-        check_same_address_columns=[],
+    # Create test scenario with coordinated objects
+    features, people, settings = create_test_scenario(
+        people_count=6,
         max_attempts=10,
         selection_algorithm="maximin",
-        random_number_seed=42,
-        json_file_path=Path("/dev/null"),
     )
 
     # Run stratification
@@ -68,35 +34,10 @@ def test_run_stratification_basic_success():
 
 def test_run_stratification_infeasible_quotas():
     """Test run_stratification with infeasible quotas."""
-    # Create People object
-    columns_to_keep = ["gender"]
-    people = People(columns_to_keep)
-
     # Create features where it's impossible to select the desired number
-    features = FeatureCollection()
-    features.add_feature("gender", "male", FeatureValueCounts(min=1, max=1))
-    features.add_feature("gender", "female", FeatureValueCounts(min=1, max=1))
-
-    # Add test data - only 2 people total
-    people_data = [
-        {"id": "1", "gender": "male"},
-        {"id": "2", "gender": "female"},
-    ]
-
-    for person_data in people_data:
-        people.add(person_data["id"], StrippedDict(person_data), features)
-
-    # Create settings
-    settings = Settings(
-        id_column="id",
-        columns_to_keep=columns_to_keep,
-        check_same_address=False,
-        check_same_address_columns=[],
-        max_attempts=2,
-        selection_algorithm="maximin",
-        random_number_seed=42,
-        json_file_path=Path("/dev/null"),
-    )
+    features = create_gender_only_features(min_val=1, max_val=1)
+    settings = create_test_settings(columns_to_keep=["name"])
+    people = create_simple_people(features, settings, count=2)
 
     # Should raise exception for invalid desired number (can't select 4 from 2 total)
     with pytest.raises(Exception, match="out of the range"):
@@ -110,38 +51,11 @@ def test_run_stratification_infeasible_quotas():
 
 def test_run_stratification_multiple_attempts():
     """Test run_stratification with retry logic."""
-    # Create People object
-    columns_to_keep = ["gender"]
-    people = People(columns_to_keep)
-
-    # Create features with loose constraints that should allow selection
-    features = FeatureCollection()
-    features.add_feature("gender", "male", FeatureValueCounts(min=1, max=3))
-    features.add_feature("gender", "female", FeatureValueCounts(min=1, max=3))
-
-    # Add test data
-    people_data = [
-        {"id": "1", "gender": "male"},
-        {"id": "2", "gender": "female"},
-        {"id": "3", "gender": "male"},
-        {"id": "4", "gender": "female"},
-        {"id": "5", "gender": "male"},
-        {"id": "6", "gender": "female"},
-    ]
-
-    for person_data in people_data:
-        people.add(person_data["id"], StrippedDict(person_data), features)
-
-    # Create settings with limited attempts
-    settings = Settings(
-        id_column="id",
-        columns_to_keep=columns_to_keep,
-        check_same_address=False,
-        check_same_address_columns=[],
+    # Create test scenario that should succeed
+    features, people, settings = create_test_scenario(
+        people_count=6,
         max_attempts=3,
         selection_algorithm="maximin",
-        random_number_seed=42,
-        json_file_path=Path("/dev/null"),
     )
 
     # Run stratification with a feasible request
