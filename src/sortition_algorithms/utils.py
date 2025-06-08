@@ -2,6 +2,13 @@ import secrets
 from collections.abc import Mapping
 
 
+def print_ret(message: str) -> str:
+    """Print and return a message for output collection."""
+    # TODO: should we replace this with logging or similar?
+    print(message)
+    return message
+
+
 def strip_str_int(value: str | int) -> str:
     return str(value).strip()
 
