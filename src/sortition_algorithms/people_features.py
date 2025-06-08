@@ -2,6 +2,7 @@ import csv
 import secrets
 import typing
 from collections import defaultdict
+from collections.abc import Iterable
 from copy import deepcopy
 
 from attrs import define
@@ -229,6 +230,17 @@ class PeopleFeatures:
                     )
 
         return output_messages
+
+
+def simple_add_selected(person_keys: Iterable[str], people: People, features: FeatureCollection) -> None:
+    """
+    Just add the person to the selected counts for the feature values for that person.
+    Don't do the more complex handling of the full PeopleFeatures.add_selected()
+    """
+    for person_key in person_keys:
+        person = people.get_person_dict(person_key)
+        for feature_name in features.feature_names:
+            features.add_selected(feature_name, person[feature_name])
 
 
 class WeightedSample:

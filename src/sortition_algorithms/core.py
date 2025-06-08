@@ -1,3 +1,6 @@
+from copy import deepcopy
+
+from sortition_algorithms import errors
 from sortition_algorithms.committee_generation import (
     EPS2,
     GUROBI_AVAILABLE,
@@ -9,6 +12,7 @@ from sortition_algorithms.committee_generation import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
+from sortition_algorithms.people_features import simple_add_selected
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import print_ret, secrets_uniform
 
@@ -270,3 +274,239 @@ def find_random_sample(
     committee_lottery = lottery_rounding(committees, probabilities, number_selections)
 
     return committee_lottery, output_lines
+
+
+def _initial_print_category_info(
+    features: FeatureCollection,
+    people: People,
+) -> list[str]:
+    """Generate HTML table showing category/feature statistics.
+
+    Args:
+        features: FeatureCollection with min/max targets
+        people: People object with pool members
+        number_people_wanted: Target number of people to select
+
+    Returns:
+        List containing HTML table as single string
+    """
+    # Build HTML table header
+    report_msg = [
+        "<table border='1' cellpadding='5'><tr><th colspan='2'>Category</th><th>Initially</th><th>Want</th></tr>"
+    ]
+    # Make a working copy and update counts
+    features_working = deepcopy(features)
+    simple_add_selected(people, people, features_working)
+
+    # Generate table rows
+    for feature, value, fv_counts in features_working.feature_values_counts():
+        report_msg.append(
+            f"<tr><td>{feature}</td><td>{value}</td>"
+            f"<td>{fv_counts.selected}</td><td>[{fv_counts.min},{fv_counts.max}]</td></tr>"
+        )
+
+    report_msg.append("</table>")
+    return ["".join(report_msg)]
+
+
+def _print_category_info(
+    features: FeatureCollection,
+    people: People,
+    people_selected: list[frozenset[str]],
+    number_people_wanted: int,
+) -> list[str]:
+    """Generate HTML table showing category/feature statistics.
+
+    Args:
+        features: FeatureCollection with min/max targets
+        people: People object with pool members
+        people_selected: List of selected committees (empty for initial state)
+        number_people_wanted: Target number of people to select
+
+    Returns:
+        List containing HTML table as single string
+    """
+    if len(people_selected) != 1:
+        return [
+            "<p>We do not calculate target details for multiple selections - please see your output files.</p>",
+        ]
+
+    # Build HTML table header
+    report_msg = [
+        "<table border='1' cellpadding='5'><tr><th colspan='2'>Category</th><th>Selected</th><th>Want</th></tr>"
+    ]
+
+    # Make a working copy and update counts
+    features_working = deepcopy(features)
+    simple_add_selected(people_selected[0], people, features_working)
+
+    # Generate table rows
+    for feature, value, fv_counts in features_working.feature_values_counts():
+        percent_selected = fv_counts.percent_selected(number_people_wanted)
+        report_msg.append(
+            f"<tr><td>{feature}</td><td>{value}</td>"
+            f"<td>{fv_counts.selected} ({percent_selected:.2f}%)</td>"
+            f"<td>[{fv_counts.min},{fv_counts.max}]</td></tr>"
+        )
+
+    report_msg.append("</table>")
+    return ["".join(report_msg)]
+
+
+def _check_category_selected(
+    features: FeatureCollection,
+    people: People,
+    people_selected: list[frozenset[str]],
+    number_selections: int,
+) -> tuple[bool, list[str]]:
+    """Check if selected committee meets all feature value targets.
+
+    Args:
+        features: FeatureCollection with min/max targets
+        people: People object with pool members
+        people_selected: List of selected committees
+        number_selections: Number of selections made
+
+    Returns:
+        Tuple of (success, output_messages)
+    """
+    if number_selections > 1:
+        return True, [
+            "<p>No target checks done for multiple selections - please see your output files.</p>",
+        ]
+
+    if len(people_selected) != 1:
+        return True, [""]
+
+    hit_targets = True
+    last_feature_fail = ""
+
+    # Make working copy and count selected people
+    from copy import deepcopy
+
+    features_working = deepcopy(features)
+
+    simple_add_selected(people_selected[0], people, features_working)
+
+    # Check if quotas are met
+    for (
+        feature_name,
+        value_name,
+        value_counts,
+    ) in features_working.feature_values_counts():
+        if value_counts.selected < value_counts.min or value_counts.selected > value_counts.max:
+            hit_targets = False
+            last_feature_fail = f"{feature_name}: {value_name}"
+
+    report_msg = (
+        ""
+        if hit_targets
+        else f"<p>Failed to get minimum or got more than maximum in (at least) category: {last_feature_fail}</p>"
+    )
+    return hit_targets, [report_msg]
+
+
+def run_stratification(
+    features: FeatureCollection,
+    people: People,
+    number_people_wanted: int,
+    settings: Settings,
+    test_selection: bool = False,
+    number_selections: int = 1,
+) -> tuple[bool, list[frozenset[str]], list[str]]:
+    """Run stratified random selection with retry logic.
+
+    Args:
+        features: FeatureCollection with min/max quotas for each feature value
+        people: People object containing the pool of candidates
+        number_people_wanted: Desired size of the panel
+        settings: Settings object containing configuration
+        test_selection: If True, don't randomize (for testing only)
+        number_selections: Number of panels to return
+
+    Returns:
+        Tuple of (success, selected_committees, output_lines)
+        - success: Whether selection succeeded within max attempts
+        - selected_committees: List of committees (frozensets of person IDs)
+        - output_lines: Debug and status messages
+
+    Raises:
+        Exception: If number_people_wanted is outside valid range for any feature
+        ValueError: For invalid parameters
+        RuntimeError: If required solver is not available
+        InfeasibleQuotasError: If quotas cannot be satisfied
+    """
+    # Check if desired number is within feature constraints
+    features.check_desired(number_people_wanted)
+
+    # Set random seed if specified
+    if settings.random_number_seed:
+        import random
+
+        random.seed(settings.random_number_seed)
+
+    success = False
+    output_lines = []
+
+    if test_selection:
+        output_lines.append(
+            "<b style='color: red'>WARNING: Panel is not selected at random! Only use for testing!</b><br>",
+        )
+
+    output_lines.append("<b>Initial: (selected = 0)</b>")
+    output_lines += _initial_print_category_info(
+        features,
+        people,
+    )
+    people_selected: list[frozenset[str]] = []
+
+    tries = 0
+    for tries in range(settings.max_attempts):
+        people_selected = []
+
+        output_lines.append(f"<b>Trial number: {tries}</b>")
+
+        try:
+            people_selected, new_output_lines = find_random_sample(
+                features,
+                people,
+                number_people_wanted,
+                settings,
+                settings.selection_algorithm,
+                test_selection,
+                number_selections,
+            )
+            output_lines += new_output_lines
+
+            # Check if targets were met (only works for number_selections = 1)
+            new_output_lines = _print_category_info(
+                features,
+                people,
+                people_selected,
+                number_people_wanted,
+            )
+            success, check_output_lines = _check_category_selected(
+                features,
+                people,
+                people_selected,
+                number_selections,
+            )
+
+            if success:
+                output_lines.append("<b>SUCCESS!!</b> Final:")
+                output_lines += new_output_lines + check_output_lines
+                break
+
+        except (ValueError, RuntimeError) as err:
+            output_lines.append(str(err))
+            break
+        except errors.InfeasibleQuotasError as err:
+            output_lines += err.output
+            break
+        except errors.SelectionError as serr:
+            output_lines.append(f"Failed: Selection Error thrown: {serr}")
+
+    if not success:
+        output_lines.append(f"Failed {tries} times... gave up.")
+
+    return success, people_selected, output_lines

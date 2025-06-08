@@ -61,6 +61,9 @@ class FeatureValueCounts:
             msg = "SELECTION IMPOSSIBLE: FAIL - no one/not enough left after deletion."
             raise errors.SelectionError(msg)
 
+    def percent_selected(self, number_people_wanted: int) -> float:
+        return self.selected * 100 / float(number_people_wanted)
+
 
 class FeatureValues:
     """
