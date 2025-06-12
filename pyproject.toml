@@ -78,11 +78,17 @@ ignore_missing_imports = true
 ignore_errors = true
 
 [[tool.mypy.overrides]]
+module = "oauth2client.*"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
 module = "sortition_algorithms.committee_generation"
 disallow_any_unimported = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: mark tests as slow (deselect with '-m \"not slow\"')"]
 
 [tool.ruff]
 target-version = "py312"

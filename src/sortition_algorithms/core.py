@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from copy import deepcopy
 
 from sortition_algorithms import errors
@@ -15,6 +16,91 @@ from sortition_algorithms.people import People
 from sortition_algorithms.people_features import simple_add_selected
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import print_ret, secrets_uniform
+
+
+def multi_selection_to_table(multi_selections: list[frozenset[str]]) -> list[list[str]]:
+    header_row = [f"Assembly {index}" for index in range(len(multi_selections))]
+    # put all the assemblies in columns of the output
+    return [header_row, *(list(selection_keys) for selection_keys in multi_selections)]
+
+
+def person_list_to_table(
+    person_keys: Iterable[str],
+    people: People,
+    features: FeatureCollection,
+    settings: Settings,
+) -> list[list[str]]:
+    rows = [
+        [
+            settings.id_column,
+            *settings.columns_to_keep,
+            *list(features.feature_names),
+        ],
+    ]
+    for pkey in person_keys:
+        person_dict = people.get_person_dict(pkey)
+        rows.append([
+            pkey,
+            *(person_dict[col] for col in settings.columns_to_keep),
+            *(person_dict[feature] for feature in features.feature_names),
+        ])
+    return rows
+
+
+def selected_remaining_tables(
+    full_people: People,
+    people_selected: frozenset[str],
+    features: FeatureCollection,
+    settings: Settings,
+) -> tuple[list[list[str]], list[list[str]], list[str]]:
+    """
+    write some text
+
+    people_selected is a single frozenset[str] - it must be unwrapped before being passed
+    to this function.
+    """
+    people_working = deepcopy(full_people)
+    output_lines: list[str] = []
+
+    people_selected_rows = person_list_to_table(people_selected, people_working, features, settings)
+
+    # now delete the selected people (and maybe also those at the same address)
+    num_same_address_deleted = 0
+    for pkey in people_selected:
+        # if check address then delete all those at this address (will NOT delete the one we want as well)
+        if settings.check_same_address:
+            pkey_to_delete = list(people_working.matching_address(pkey, settings.check_same_address_columns))
+            num_same_address_deleted += len(pkey_to_delete) + 1
+            # then delete this/these people at the same address from the reserve/remaining pool
+            people_working.remove_many([pkey, *pkey_to_delete])
+        else:
+            people_working.remove(pkey)
+
+    # add the columns to keep into remaining people
+    # as above all these values are all in people_working but this is tidier...
+    people_remaining_rows = person_list_to_table(people_working, people_working, features, settings)
+    return people_selected_rows, people_remaining_rows, output_lines
+
+    # TODO: put this code somewhere more suitable
+    # maybe in strat app only?
+    """
+    dupes = self._output_selected_remaining(
+        settings,
+        people_selected_rows,
+        people_remaining_rows,
+    )
+    if settings.check_same_address and self.gen_rem_tab == "on":
+        output_lines.append(
+            f"Deleted {num_same_address_deleted} people from remaining file who had the same "
+            f"address as selected people.",
+        )
+        m = min(30, len(dupes))
+        output_lines.append(
+            f"In the remaining tab there are {len(dupes)} people who share the same address as "
+            f"someone else in the tab. We highlighted the first {m} of these. "
+            f"The full list of lines is {dupes}",
+        )
+    """
 
 
 def pipage_rounding(marginals: list[tuple[int, float]]) -> list[int]:

@@ -9,7 +9,7 @@ def print_ret(message: str) -> str:
     return message
 
 
-def strip_str_int(value: str | int) -> str:
+def strip_str_int(value: str | int | float) -> str:
     return str(value).strip()
 
 

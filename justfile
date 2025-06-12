@@ -1,4 +1,4 @@
-default: test
+default: testfast
 
 # Install the virtual environment and install the pre-commit hooks
 install:
@@ -21,6 +21,11 @@ check:
 test:
 	@echo "🚀 Testing code: Running pytest"
 	@uv run python -m pytest --tb=short --cov --cov-config=pyproject.toml --cov-report=html
+
+# Test the code with pytest
+testfast:
+	@echo "🚀 Testing code: Running pytest"
+	@uv run python -m pytest -m "not slow" --tb=short --cov --cov-config=pyproject.toml --cov-report=html
 
 # Build wheel file
 build: clean-build

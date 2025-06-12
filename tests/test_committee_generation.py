@@ -17,7 +17,9 @@ from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import StrippedDict
 
 
-def convert_categories_to_features(categories_dict: dict[str, dict[str, dict[str, int]]]) -> FeatureCollection:
+def convert_categories_to_features(
+    categories_dict: dict[str, dict[str, dict[str, int]]],
+) -> FeatureCollection:
     """Convert old categories format to FeatureCollection."""
     features = FeatureCollection()
 
@@ -29,7 +31,12 @@ def convert_categories_to_features(categories_dict: dict[str, dict[str, dict[str
             max_flex = constraints.get("max_flex", max_val)
 
             value_counts = FeatureValueCounts(
-                min=min_val, max=max_val, min_flex=min_flex, max_flex=max_flex, selected=0, remaining=0
+                min=min_val,
+                max=max_val,
+                min_flex=min_flex,
+                max_flex=max_flex,
+                selected=0,
+                remaining=0,
             )
             features.add_feature(feature_name, value_name, value_counts)
 
@@ -37,7 +44,9 @@ def convert_categories_to_features(categories_dict: dict[str, dict[str, dict[str
 
 
 def convert_people_data(
-    people_dict: dict[str, dict[str, str]], columns_data: dict[str, dict[str, str]], features: FeatureCollection
+    people_dict: dict[str, dict[str, str]],
+    columns_data: dict[str, dict[str, str]],
+    features: FeatureCollection,
 ) -> People:
     """Convert old people format to People object."""
     # Determine what columns to keep from the columns_data
@@ -59,7 +68,10 @@ def convert_people_data(
     return people
 
 
-def create_settings(check_same_address: bool = False, check_same_address_columns: list[str] | None = None) -> Settings:
+def create_settings(
+    check_same_address: bool = False,
+    check_same_address_columns: list[str] | None = None,
+) -> Settings:
     """Create Settings object with the given parameters."""
     if check_same_address_columns is None:
         check_same_address_columns = []
@@ -68,7 +80,7 @@ def create_settings(check_same_address: bool = False, check_same_address_columns
 
     settings = Settings(
         id_column="id",
-        columns_to_keep=check_same_address_columns if check_same_address_columns else [],
+        columns_to_keep=(check_same_address_columns if check_same_address_columns else []),
         check_same_address=check_same_address,
         check_same_address_columns=check_same_address_columns,
         max_attempts=100,
@@ -113,7 +125,10 @@ def create_example_from_old_format(
 example1 = create_example_from_old_format(
     {
         "age": {"child": {"min": 1, "max": 2}, "adult": {"min": 1, "max": 2}},
-        "franchise": {"simpsons": {"min": 1, "max": 2}, "ducktales": {"min": 1, "max": 2}},
+        "franchise": {
+            "simpsons": {"min": 1, "max": 2},
+            "ducktales": {"min": 1, "max": 2},
+        },
     },
     {
         "lisa": {"age": "child", "franchise": "simpsons"},
@@ -135,7 +150,10 @@ example1 = create_example_from_old_format(
 example2 = create_example_from_old_format(
     {
         "age": {"child": {"min": 1, "max": 2}, "adult": {"min": 1, "max": 2}},
-        "franchise": {"simpsons": {"min": 1, "max": 2}, "ducktales": {"min": 1, "max": 2}},
+        "franchise": {
+            "simpsons": {"min": 1, "max": 2},
+            "ducktales": {"min": 1, "max": 2},
+        },
     },
     {
         "lisa": {"age": "child", "franchise": "simpsons"},
@@ -208,7 +226,10 @@ example4 = create_example_from_old_format(
 example5 = create_example_from_old_format(
     {
         "gender": {"female": {"min": 1, "max": 1}, "male": {"min": 4, "max": 4}},
-        "political": {"liberal": {"min": 4, "max": 4}, "conservative": {"min": 1, "max": 1}},
+        "political": {
+            "liberal": {"min": 4, "max": 4},
+            "conservative": {"min": 1, "max": 1},
+        },
     },
     {
         "adam": {"gender": "male", "political": "liberal"},
@@ -251,12 +272,36 @@ example6_categories: dict[str, dict[str, dict[str, int]]] = {
 }
 example6_people: dict[str, dict[str, str]] = {}
 for i in range(1, 11):
-    example6_people["p" + str(i)] = {"f1": "v1", "f2": "v1", "f3": "v3"}  # 10 people of kind A
-    example6_people["p" + str(i + 10)] = {"f1": "v1", "f2": "v3", "f3": "v1"}  # 10 people of kind B
-    example6_people["p" + str(i + 20)] = {"f1": "v3", "f2": "v1", "f3": "v1"}  # 10 people of kind C
-    example6_people["p" + str(i + 30)] = {"f1": "v2", "f2": "v2", "f3": "v3"}  # 10 people of kind D
-    example6_people["p" + str(i + 40)] = {"f1": "v2", "f2": "v3", "f3": "v2"}  # 10 people of kind E
-    example6_people["p" + str(i + 50)] = {"f1": "v3", "f2": "v2", "f3": "v2"}  # 10 people of kind F
+    example6_people["p" + str(i)] = {
+        "f1": "v1",
+        "f2": "v1",
+        "f3": "v3",
+    }  # 10 people of kind A
+    example6_people["p" + str(i + 10)] = {
+        "f1": "v1",
+        "f2": "v3",
+        "f3": "v1",
+    }  # 10 people of kind B
+    example6_people["p" + str(i + 20)] = {
+        "f1": "v3",
+        "f2": "v1",
+        "f3": "v1",
+    }  # 10 people of kind C
+    example6_people["p" + str(i + 30)] = {
+        "f1": "v2",
+        "f2": "v2",
+        "f3": "v3",
+    }  # 10 people of kind D
+    example6_people["p" + str(i + 40)] = {
+        "f1": "v2",
+        "f2": "v3",
+        "f3": "v2",
+    }  # 10 people of kind E
+    example6_people["p" + str(i + 50)] = {
+        "f1": "v3",
+        "f2": "v2",
+        "f3": "v2",
+    }  # 10 people of kind F
 example6_people["p61"] = {"f1": "v3", "f2": "v3", "f3": "v3"}  # 1 extra person
 example6_columns_data: dict[str, dict[str, str]] = {
     pid: {"home": str(i % 10), "street": "A"} for i, pid in enumerate(example6_people.keys())
@@ -474,6 +519,7 @@ def test_maximin_no_address_example5() -> None:
     assert abs(marginals["grace"] - 1 / 2) < 10 ** (-precision)
 
 
+@pytest.mark.slow
 def test_maximin_no_address_example6() -> None:
     """Test maximin without address constraints on example6."""
     features = deepcopy(example6.features)
@@ -549,6 +595,7 @@ def test_nash_no_address_example5() -> None:
     assert abs(marginals["grace"] - 3 / 7) < 10 ** (-precision)
 
 
+@pytest.mark.slow
 def test_nash_no_address_example6() -> None:
     """Test Nash without address constraints on example6."""
     features = deepcopy(example6.features)

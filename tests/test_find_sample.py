@@ -15,11 +15,11 @@ from tests.helpers import (
 class TestFindRandomSampleLegacy:
     """Test the find_random_sample_legacy function."""
 
-    def create_test_data(self):
+    def create_test_data(self, person_count: int = 6):
         """Create test people and features for selection testing."""
         features = create_simple_features(gender_min=1, gender_max=2, age_min=1, age_max=2)
         settings = create_test_settings(columns_to_keep=["name", "email"])
-        people = create_simple_people(features, settings, count=6)
+        people = create_simple_people(features, settings, count=person_count)
         return people, features
 
     def test_basic_selection(self):
@@ -46,7 +46,7 @@ class TestFindRandomSampleLegacy:
         # Run selection multiple times to check quota adherence
         for _ in range(5):
             # Create fresh test data each time since legacy function modifies it
-            people, features = self.create_test_data()
+            people, features = self.create_test_data(8)
             committees, messages = find_random_sample_legacy(people, features, 4)
             selected_people = committees[0]
 
@@ -211,7 +211,7 @@ class TestFindRandomSampleLegacy:
 
     def test_feature_constraints_validation(self):
         """Test that feature constraints are properly validated."""
-        people, features = self.create_test_data()
+        people, features = self.create_test_data(8)
 
         # This should work with the given quotas
         committees, messages = find_random_sample_legacy(people, features, 4)

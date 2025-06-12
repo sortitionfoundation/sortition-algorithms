@@ -154,7 +154,7 @@ def _ensure_settings_keep_address_columns(settings: Settings) -> None:
 
 def read_in_people(
     people_head: list[str],
-    people_body: list[dict[str, str | int]],
+    people_body: Iterable[dict[str, str]],
     features: FeatureCollection,
     settings: Settings,
 ) -> tuple[People, list[str]]:
