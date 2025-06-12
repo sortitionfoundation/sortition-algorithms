@@ -1,5 +1,4 @@
 import tomllib
-from pathlib import Path
 
 import pytest
 from cattrs import ClassValidationError
@@ -47,7 +46,6 @@ class TestSettingsConstructor:
                 max_attempts=3,
                 selection_algorithm="legacy",
                 random_number_seed=0,
-                json_file_path=Path("/some/path.json"),
             )
 
     def test_columns_to_keep_must_be_list(self):
@@ -71,7 +69,6 @@ class TestSettingsConstructor:
                 max_attempts=3,
                 selection_algorithm="legacy",
                 random_number_seed=0,
-                json_file_path=Path("/some/path.json"),
             )
 
     def test_check_same_address_columns_must_be_list(self):
@@ -123,7 +120,6 @@ class TestSettingsConstructor:
                 max_attempts="not_an_int",  # t
                 selection_algorithm="legacy",
                 random_number_seed=0,
-                json_file_path=Path("/some/path.json"),
             )
 
     def test_random_number_seed_must_be_int(self):
@@ -137,7 +133,6 @@ class TestSettingsConstructor:
                 max_attempts=100,
                 selection_algorithm="legacy",
                 random_number_seed="not_an_int",  # t
-                json_file_path=Path("/some/path.json"),
             )
 
 
@@ -158,10 +153,7 @@ random_number_seed = 42
         settings_file_path = tmp_path / "settings.toml"
         settings_file_path.write_text(toml_content)
 
-        json_file_path = tmp_path / "test.json"
-        settings_obj, message = settings.Settings.load_from_file(
-            settings_file_path=settings_file_path, json_file_path=json_file_path
-        )
+        settings_obj, message = settings.Settings.load_from_file(settings_file_path=settings_file_path)
 
         assert settings_obj.id_column == "test_id"
         assert settings_obj.check_same_address is True
@@ -170,19 +162,15 @@ random_number_seed = 42
         assert settings_obj.columns_to_keep == ["name", "email", "phone"]
         assert settings_obj.selection_algorithm == "nash"
         assert settings_obj.random_number_seed == 42
-        assert settings_obj.json_file_path == json_file_path
         assert message == ""
 
     def test_load_from_nonexistent_file_creates_default(self, tmp_path):
         """Test that loading from a non-existent file creates a default settings file."""
         settings_file_path = tmp_path / "new_settings.toml"
-        json_file_path = tmp_path / "test.json"
 
         assert not settings_file_path.exists()
 
-        settings_obj, message = settings.Settings.load_from_file(
-            settings_file_path=settings_file_path, json_file_path=json_file_path
-        )
+        settings_obj, message = settings.Settings.load_from_file(settings_file_path=settings_file_path)
 
         # Check that the file was created
         assert settings_file_path.exists()
@@ -196,7 +184,6 @@ random_number_seed = 42
         assert settings_obj.selection_algorithm == "maximin"
         assert settings_obj.max_attempts == 100
         assert settings_obj.random_number_seed == 0
-        assert settings_obj.json_file_path == json_file_path
 
     def test_load_with_check_same_address_false(self, tmp_path):
         """Test loading settings with check_same_address set to false."""
@@ -212,10 +199,7 @@ random_number_seed = 0
         settings_file_path = tmp_path / "settings.toml"
         settings_file_path.write_text(toml_content)
 
-        json_file_path = tmp_path / "test.json"
-        settings_obj, message = settings.Settings.load_from_file(
-            settings_file_path=settings_file_path, json_file_path=json_file_path
-        )
+        settings_obj, message = settings.Settings.load_from_file(settings_file_path=settings_file_path)
 
         assert settings_obj.check_same_address is False
         assert settings_obj.check_same_address_columns == []  # Should be reset to empty list
@@ -236,12 +220,11 @@ random_number_seed = 0
         settings_file_path = tmp_path / "settings.toml"
         settings_file_path.write_text(invalid_toml)
 
-        json_file_path = tmp_path / "test.json"
         with pytest.raises(
             ClassValidationError,
             match="While structuring Settings",
         ) as excinfo:
-            settings.Settings.load_from_file(settings_file_path=settings_file_path, json_file_path=json_file_path)
+            settings.Settings.load_from_file(settings_file_path=settings_file_path)
         assert excinfo.group_contains(
             ValueError,
             match="check_same_address is TRUE but",
@@ -256,6 +239,5 @@ this is not valid TOML syntax [[[
         settings_file_path = tmp_path / "settings.toml"
         settings_file_path.write_text(malformed_toml)
 
-        json_file_path = tmp_path / "test.json"
         with pytest.raises(tomllib.TOMLDecodeError):
-            settings.Settings.load_from_file(settings_file_path=settings_file_path, json_file_path=json_file_path)
+            settings.Settings.load_from_file(settings_file_path=settings_file_path)

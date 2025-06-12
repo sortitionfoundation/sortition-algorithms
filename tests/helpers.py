@@ -1,7 +1,6 @@
 """ABOUTME: Test helper functions for creating common test objects and scenarios.
-ABOUTME: Provides standardized ways to create Settings, People, and FeatureCollection objects."""
-
-from pathlib import Path
+ABOUTME: Provides standardized ways to create Settings, People, and FeatureCollection objects.
+"""
 
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
@@ -44,7 +43,6 @@ def create_test_settings(
         max_attempts=max_attempts,
         selection_algorithm=selection_algorithm,
         random_number_seed=random_number_seed,
-        json_file_path=Path("/dev/null"),
         **kwargs,
     )
 
@@ -67,8 +65,18 @@ def create_simple_features(
         FeatureCollection with gender (male/female) and age (young/old) features
     """
     features_data = [
-        {"feature": "gender", "value": "male", "min": str(gender_min), "max": str(gender_max)},
-        {"feature": "gender", "value": "female", "min": str(gender_min), "max": str(gender_max)},
+        {
+            "feature": "gender",
+            "value": "male",
+            "min": str(gender_min),
+            "max": str(gender_max),
+        },
+        {
+            "feature": "gender",
+            "value": "female",
+            "min": str(gender_min),
+            "max": str(gender_max),
+        },
         {"feature": "age", "value": "young", "min": str(age_min), "max": str(age_max)},
         {"feature": "age", "value": "old", "min": str(age_min), "max": str(age_max)},
     ]
@@ -89,8 +97,18 @@ def create_gender_only_features(min_val: int = 1, max_val: int = 5) -> FeatureCo
         FeatureCollection with gender feature only
     """
     features_data = [
-        {"feature": "gender", "value": "male", "min": str(min_val), "max": str(max_val)},
-        {"feature": "gender", "value": "female", "min": str(min_val), "max": str(max_val)},
+        {
+            "feature": "gender",
+            "value": "male",
+            "min": str(min_val),
+            "max": str(max_val),
+        },
+        {
+            "feature": "gender",
+            "value": "female",
+            "min": str(min_val),
+            "max": str(max_val),
+        },
     ]
 
     head = ["feature", "value", "min", "max"]

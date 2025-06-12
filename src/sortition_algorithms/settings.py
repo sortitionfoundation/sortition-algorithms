@@ -72,8 +72,6 @@ class Settings:
     max_attempts: int = field(validator=validators.instance_of(int))
     selection_algorithm: str = field()
     random_number_seed: int = field(validator=validators.instance_of(int))
-    # this is for a JSON file for Google Docs access
-    json_file_path: Path
 
     @columns_to_keep.validator
     def check_columns_to_keep(self, attribute: Any, value: Any) -> None:
@@ -92,7 +90,6 @@ class Settings:
         cls,
         *,
         settings_file_path: Path,
-        json_file_path: Path,
     ) -> tuple["Settings", str]:
         messages: list[str] = []
         if not settings_file_path.is_file():
@@ -110,5 +107,4 @@ class Settings:
                 "<b>WARNING</b>: Settings file is such that we do NOT check if respondents have same address."
             )
             settings["check_same_address_columns"] = []
-        settings["json_file_path"] = json_file_path
         return structure(settings, cls), "\n".join(messages)

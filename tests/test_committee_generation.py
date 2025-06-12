@@ -76,8 +76,6 @@ def create_settings(
     if check_same_address_columns is None:
         check_same_address_columns = []
 
-    from pathlib import Path
-
     settings = Settings(
         id_column="id",
         columns_to_keep=(check_same_address_columns if check_same_address_columns else []),
@@ -86,7 +84,6 @@ def create_settings(
         max_attempts=100,
         selection_algorithm="maximin",
         random_number_seed=0,
-        json_file_path=Path("/path/to/dummy.json"),
     )
     return settings
 

@@ -45,7 +45,6 @@ def get_settings(algorithm="leximin"):
         max_attempts=100,
         selection_algorithm=algorithm,
         random_number_seed=0,
-        json_file_path=Path.home() / "secret_do_not_commit.json",
     )
 
 

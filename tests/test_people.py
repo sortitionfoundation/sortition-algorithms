@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from sortition_algorithms import errors
@@ -149,7 +147,6 @@ class TestHelperFunctions:
             max_attempts=100,
             selection_algorithm="legacy",
             random_number_seed=0,
-            json_file_path=Path("/path/to/test.json"),
         )
 
         _ensure_settings_keep_address_columns(settings)
@@ -169,7 +166,6 @@ class TestHelperFunctions:
             max_attempts=100,
             selection_algorithm="legacy",
             random_number_seed=0,
-            json_file_path=Path("/path/to/test.json"),
         )
 
         _ensure_settings_keep_address_columns(settings)
@@ -198,7 +194,6 @@ class TestReadInPeople:
             max_attempts=100,
             selection_algorithm="legacy",
             random_number_seed=0,
-            json_file_path=Path("/path/to/test.json"),
         )
 
         people_head = ["id", "name", "email", "gender", "age"]
