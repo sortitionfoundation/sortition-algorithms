@@ -20,8 +20,10 @@ dependencies = [
   "attrs>=25.3.0",
   "cattrs>=25.1.0",
   "cvxpy>=1.6.5",
+  "gspread>=6.2.1",
   "mip==1.15.0",
   "numpy>=2.2.6",
+  "oauth2client>=4.1.3",
 ]
 
 [project.urls]
@@ -30,9 +32,7 @@ Repository = "https://github.com/sortitionfoundation/sortition-algorithms"
 Documentation = "https://sortitionfoundation.github.io/sortition-algorithms/"
 
 [project.optional-dependencies]
-gurobi = [
-    "gurobipy>=12.0.2",
-]
+gurobi = ["gurobipy>=12.0.2"]
 
 [dependency-groups]
 dev = [
