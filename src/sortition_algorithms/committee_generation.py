@@ -19,7 +19,7 @@ from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import print_ret, secrets_uniform
+from sortition_algorithms.utils import print_ret, random_provider
 
 # Tolerance for numerical comparisons
 EPS = 0.0005
@@ -480,7 +480,7 @@ def _run_multiplicative_weights_phase(
 
     # Each agent has a weight between 0.99 and 1
     # Note that if all start with weight `1` then we can end up with some committees having wrong number of results
-    weights = {agent_id: secrets_uniform(0.99, 1.0) for agent_id in agent_vars}
+    weights = {agent_id: random_provider().uniform(0.99, 1.0) for agent_id in agent_vars}
 
     for i in range(multiplicative_weights_rounds):
         # Find a feasible committee such that the sum of weights of its members is maximal

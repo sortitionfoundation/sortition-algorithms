@@ -15,7 +15,7 @@ from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
 from sortition_algorithms.people_features import simple_add_selected
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import print_ret, secrets_uniform
+from sortition_algorithms.utils import print_ret, random_provider, set_random_provider
 
 
 def multi_selection_to_table(multi_selections: list[frozenset[str]]) -> list[list[str]]:
@@ -123,7 +123,7 @@ def pipage_rounding(marginals: list[tuple[int, float]]) -> list[int]:
             return outcomes
         if len(marginals) == 1:
             obj, prob = marginals[0]
-            if secrets_uniform(0.0, 1.0) < prob:
+            if random_provider().uniform(0.0, 1.0) < prob:
                 outcomes.append(obj)
             marginals = []
         else:
@@ -151,7 +151,7 @@ def pipage_rounding(marginals: list[tuple[int, float]]) -> list[int]:
             dec0_inc1_amount = min(prob0, 1.0 - prob1)
             choice_probability = dec0_inc1_amount / (inc0_dec1_amount + dec0_inc1_amount)
 
-            if secrets_uniform(0.0, 1.0) < choice_probability:  # increase prob0 and decrease prob1
+            if random_provider().uniform(0.0, 1.0) < choice_probability:  # increase prob0 and decrease prob1
                 prob0 += inc0_dec1_amount
                 prob1 -= inc0_dec1_amount
             else:
@@ -526,10 +526,9 @@ def run_stratification(
     features.check_desired(number_people_wanted)
 
     # Set random seed if specified
-    if settings.random_number_seed:
-        import random
-
-        random.seed(settings.random_number_seed)
+    # If the seed is zero or None, we use the secrets module, as it is better
+    # from a security point of view
+    set_random_provider(settings.random_number_seed)
 
     success = False
     output_lines = []

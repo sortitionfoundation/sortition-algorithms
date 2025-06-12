@@ -1,5 +1,4 @@
 import csv
-import secrets
 import typing
 from collections import defaultdict
 from collections.abc import Iterable
@@ -11,6 +10,7 @@ from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
 from sortition_algorithms.settings import Settings
+from sortition_algorithms.utils import random_provider
 
 
 @define(kw_only=True, slots=True)
@@ -186,7 +186,7 @@ class PeopleFeatures:
                 result_feature_name = feature_name
                 result_feature_value = feature_value
                 # from 1 to remaining
-                random_person_index = secrets.randbelow(fv_counts.remaining) + 1
+                random_person_index = random_provider().randbelow(fv_counts.remaining) + 1
 
         # If no valid category found, all categories must be at their max or have max=0
         if not result_feature_name:
@@ -262,7 +262,7 @@ class WeightedSample:
 
     def value_for(self, feature_name: str) -> str:
         # S311 is random numbers for crypto - but this is just for a sample file
-        return secrets.choice(self.weighted[feature_name])
+        return random_provider().choice(self.weighted[feature_name])
 
 
 def create_readable_sample_file(
