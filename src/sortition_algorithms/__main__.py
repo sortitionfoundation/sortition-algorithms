@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from sortition_algorithms import adapters, core
+from sortition_algorithms import adapters, core, people_features
 from sortition_algorithms.settings import Settings
 
 
@@ -56,5 +56,15 @@ def gsheet() -> None:
 
 
 @cli.command()
-def gen_sample() -> None:
-    pass
+@click.argument("settings_file")
+@click.argument("features_csv")
+@click.argument("people_csv")
+@click.option("-n", "--number-wanted", type=int)
+def gen_sample(settings_file: str, features_csv: str, people_csv: str, number_wanted: int) -> None:
+    adapter = adapters.CSVAdapter()
+    settings, msg = Settings.load_from_file(settings_file_path=Path(settings_file))
+    echo_all([msg])
+    features, msgs = adapter.load_features_from_file(Path(features_csv))
+    echo_all(msgs)
+    with open(people_csv, "w", newline="") as people_f:
+        people_features.create_readable_sample_file(features, people_f, number_wanted, settings)
