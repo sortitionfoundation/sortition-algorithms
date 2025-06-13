@@ -30,20 +30,14 @@ def person_list_to_table(
     features: FeatureCollection,
     settings: Settings,
 ) -> list[list[str]]:
-    rows = [
-        [
-            settings.id_column,
-            *settings.columns_to_keep,
-            *list(features.feature_names),
-        ],
-    ]
+    cols_to_use = settings.columns_to_keep[:]
+    # we want to avoid duplicate columns if they are in both features and columns_to_keep
+    extra_features = [name for name in features.feature_names if name not in cols_to_use]
+    cols_to_use += extra_features
+    rows = [[settings.id_column, *cols_to_use]]
     for pkey in person_keys:
         person_dict = people.get_person_dict(pkey)
-        rows.append([
-            pkey,
-            *(person_dict[col] for col in settings.columns_to_keep),
-            *(person_dict[feature] for feature in features.feature_names),
-        ])
+        rows.append([pkey, *(person_dict[col] for col in cols_to_use)])
     return rows
 
 

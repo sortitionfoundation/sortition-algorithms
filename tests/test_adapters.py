@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from sortition_algorithms import core
 from sortition_algorithms.adapters import CSVAdapter
 from sortition_algorithms.committee_generation import GUROBI_AVAILABLE
 from sortition_algorithms.core import run_stratification
@@ -18,10 +19,15 @@ features_content = features_csv_path.read_text("utf8")
 candidates_content = candidates_csv_path.read_text("utf8")
 candidates_lines = [line.strip() for line in candidates_content.split("\n") if line.strip()]
 
-dummy = """
-The header line of candidates.csv is:
-nationbuilder_id,first_name,last_name,email,mobile_number,primary_address1,primary_address2,primary_city,primary_zip,gender,age_bracket,geo_bucket,edu_level
-"""
+# do the string so we can split lines more nicely
+selected_str = "p52,p140,p6,p71,p21,p1,p10,p103,p19,p84,p56,p88,p48,p112,p38,p119,p67,p45,p76,p79,p137,p100"
+selected = frozenset(selected_str.split(","))
+
+# The header line of candidates.csv is
+csv_header = (
+    "nationbuilder_id,first_name,last_name,mobile_number,email,primary_address1,"
+    "primary_address2,primary_city,primary_zip,gender,age_bracket,geo_bucket,edu_level"
+)
 
 
 def get_settings(algorithm="legacy"):
@@ -60,8 +66,8 @@ def test_csv_selection_happy_path_defaults(algorithm):
     Expectations:
         Given default settings and an easy selection, we should get selected and remaining.
     """
-    settings = get_settings(algorithm)
     adapter = CSVAdapter()
+    settings = get_settings(algorithm)
     features, _ = adapter.load_features_from_str(features_content)
     people, people_msgs = adapter.load_people_from_str(candidates_content, settings, features)
     # people_cats.number_people_to_select = PEOPLE_TO_SELECT
@@ -74,6 +80,7 @@ def test_csv_selection_happy_path_defaults(algorithm):
     assert success
     assert len(people_selected) == 1
     assert len(people_selected[0]) == PEOPLE_TO_SELECT
+    print(people_selected[0])
 
 
 def test_csv_load_feature_from_file_or_str_give_same_output():
@@ -90,6 +97,23 @@ def test_csv_load_people_from_file_or_str_give_same_output():
     people_from_file, _ = adapter.load_people_from_file(candidates_csv_path, settings, features)
     people_from_str, _ = adapter.load_people_from_str(candidates_content, settings, features)
     assert people_from_file == people_from_str
+
+
+def test_csv_output_selected_remaining():
+    adapter = CSVAdapter()
+    settings = get_settings()
+    features, _ = adapter.load_features_from_str(features_content)
+    people, _ = adapter.load_people_from_str(candidates_content, settings, features)
+
+    selected_rows, remaining_rows, _ = core.selected_remaining_tables(people, selected, features, settings)
+    adapter.output_selected_remaining(selected_rows, remaining_rows)
+
+    selected_content = adapter.selected_file.getvalue()
+    selected_lines = selected_content.splitlines()
+    assert selected_lines[0] == csv_header
+    remaining_content = adapter.remaining_file.getvalue()
+    remaining_lines = remaining_content.splitlines()
+    assert remaining_lines[0] == csv_header
 
 
 # TODO: test output_selected_remaining
