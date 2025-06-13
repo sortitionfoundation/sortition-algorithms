@@ -9,6 +9,8 @@ copyright: Maintained by <a href="https://sortitionfoundation.org">sortitionfoun
 
 nav:
   - Home: index.md
+  - Usage: usage.md
+  - CLI: cli.md
   - Modules: modules.md
 plugins:
   - search
