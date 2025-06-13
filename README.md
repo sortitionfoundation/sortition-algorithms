@@ -11,49 +11,74 @@ A package containing algorithms for sortition - democratic lotteries.
 - **Github repository**: <https://github.com/sortitionfoundation/sortition-algorithms/>
 - **Documentation** <https://sortitionfoundation.github.io/sortition-algorithms/>
 
-## Getting started with your project
+## About
 
-### 1. Create a New Repository
+Random stratified selection software. The algorithms are described in [this paper (open access)](https://www.nature.com/articles/s41586-021-03788-6).
 
-First, create a repository on GitHub with the same name as this project, and then run the following commands:
+Other relevant papers:
 
-```bash
-git init -b main
-git add .
-git commit -m "init commit"
-git remote add origin git@github.com:sortitionfoundation/sortition-algorithms.git
-git push -u origin main
+- Procaccia et al. [Is Sortition Both Representative and Fair?](https://procaccia.info/wp-content/uploads/2022/06/repfair.pdf)
+- Tiago c Peixoto
+  - [Reflections on the representativeness of citizens’ assemblies and similar innovations](https://democracyspot.net/2023/02/22/reflections-on-the-representativeness-of-citizens-assemblies-and-similar-innovations/) and
+  - [How representative is it really? A correspondence on sortition](https://www.publicdeliberation.net/how-representative-is-it-really-a-correspondence-on-sortition/)
+
+## Installing the library
+
+```sh
+pip install sortition-algorithms
 ```
 
-### 2. Set Up Your Development Environment
+(Or `uv add ...` or ...)
 
-Then, install the environment and the pre-commit hooks with
+### Optional dependencies
 
-```bash
-make install
+There are two sets of optional dependencies:
+
+```sh
+# Install the library to use the leximin algorithm
+# This requires a commercial/academic license to use
+pip install 'sortition-algorithms[gurobi]'
+
+# Install the basic Command Line Interface
+pip install 'sortition-algorithms[cli]'
 ```
 
-This will also generate your `uv.lock` file
+## The Command Line Interface
 
-### 3. Run the pre-commit hooks
+There is a basic command line interface as part of this package. As much as anything it is to show
+you example code that will exercise the library. See the docs for more details.
 
-Initially, the CI/CD pipeline might be failing due to formatting issues. To resolve those run:
+## Starting Development
 
-```bash
-uv run pre-commit run -a
+### Prerequisites
+
+The recommended prerequisites are:
+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- [justfile](https://github.com/casey/just?tab=readme-ov-file#installation)
+- [pre-commit](https://pre-commit.com/)
+
+### Set Up
+
+To install a virtualenv with the required dependencies and set up pre-commit hooks:
+
+```sh
+just install
 ```
 
-### 4. Commit the changes
+### Get going
 
-Lastly, commit the changes made by the two steps above to your repository.
+```sh
+# run all the tests
+just test
 
-```bash
-git add .
-git commit -m 'Fix formatting issues'
-git push origin main
+# run all the tests that aren't slow
+just test
+
+# run all the code quality checks
+just check
 ```
 
-You are now ready to start development on your project!
 The CI/CD pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
 
 To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
