@@ -12,12 +12,6 @@ class People:
     def __init__(self, columns_to_keep: list[str]) -> None:
         self._columns_to_keep = columns_to_keep
         self._full_data: dict[str, dict[str, str]] = {}
-        # TODO: review if we need to keep this separate - it is `self.columns_data` in the old code
-        # maybe it can just be a property:
-        # return {k, v for k, v in self.full_data.items() if k in self.columns_to_keep}
-        # actually that dict comprehension would need to be done for every
-        # sub dict in the original - bit more work
-        self._col_to_keep_data: dict[str, dict[str, str]] = {}
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
@@ -52,17 +46,14 @@ class People:
         # then get the other column values we need
         # this is address, name etc that we need to keep for output file
         # we don't check anything here - it's just for user convenience
-        person_col_to_keep_data: dict[str, str] = {}
         for col in self._columns_to_keep:
-            person_col_to_keep_data[col] = person_full_data[col] = data[col]
+            person_full_data[col] = data[col]
 
         # add all the data to our people object
         self._full_data[person_key] = person_full_data
-        self._col_to_keep_data[person_key] = person_col_to_keep_data
 
     def remove(self, person_key: str) -> None:
         del self._full_data[person_key]
-        del self._col_to_keep_data[person_key]
 
     def remove_many(self, person_keys: Iterable[str]) -> None:
         for key in person_keys:
