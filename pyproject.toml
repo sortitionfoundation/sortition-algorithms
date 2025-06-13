@@ -26,6 +26,9 @@ dependencies = [
   "oauth2client>=4.1.3",
 ]
 
+[project.scripts]
+sortition = "sortition_algorithms.__main__:cli"
+
 [project.urls]
 Homepage = "https://sortitionfoundation.github.io/sortition-algorithms/"
 Repository = "https://github.com/sortitionfoundation/sortition-algorithms"
@@ -33,6 +36,9 @@ Documentation = "https://sortitionfoundation.github.io/sortition-algorithms/"
 
 [project.optional-dependencies]
 gurobi = ["gurobipy>=12.0.2"]
+cli = [
+    "click>=8.2.1",
+]
 
 [dependency-groups]
 dev = [

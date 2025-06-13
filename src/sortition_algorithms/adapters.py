@@ -32,8 +32,8 @@ def _stringify_records(
 
 class CSVAdapter:
     def __init__(self) -> None:
-        self.selected_file = StringIO()
-        self.remaining_file = StringIO()
+        self.selected_file: TextIO = StringIO()
+        self.remaining_file: TextIO = StringIO()
         self.features_loaded = False
         self.people_loaded = False
         self.enable_selected_file_download = False
