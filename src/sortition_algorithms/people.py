@@ -1,5 +1,6 @@
 from collections import defaultdict
 from collections.abc import ItemsView, Iterable, Iterator
+from typing import Any
 
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
@@ -17,6 +18,11 @@ class People:
         # actually that dict comprehension would need to be done for every
         # sub dict in the original - bit more work
         self._col_to_keep_data: dict[str, dict[str, str]] = {}
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self._full_data == other._full_data and self._columns_to_keep == self._columns_to_keep
 
     @property
     def count(self) -> int:

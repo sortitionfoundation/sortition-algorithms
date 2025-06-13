@@ -1,5 +1,6 @@
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
+from typing import Any
 
 from attrs import define
 
@@ -78,6 +79,11 @@ class FeatureValues:
     def __init__(self) -> None:
         self.feature_values: dict[str, FeatureValueCounts] = {}
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self.feature_values == other.feature_values
+
     def add_value_counts(self, value_name: str, fv_counts: FeatureValueCounts) -> None:
         self.feature_values[value_name] = fv_counts
 
@@ -130,6 +136,11 @@ class FeatureCollection:
 
     def __init__(self) -> None:
         self.collection: dict[str, FeatureValues] = defaultdict(FeatureValues)
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self.collection == other.collection
 
     def add_feature(self, feature_name: str, value_name: str, fv_counts: FeatureValueCounts) -> None:
         self.collection[feature_name].add_value_counts(value_name, fv_counts)

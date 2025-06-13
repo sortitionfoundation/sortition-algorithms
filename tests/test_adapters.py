@@ -12,8 +12,10 @@ ALGORITHMS = ("legacy", "maximin", "leximin", "nash") if GUROBI_AVAILABLE else (
 PEOPLE_TO_SELECT = 22
 
 test_path = Path(__file__).parent
-features_content = (test_path / "fixtures/features.csv").read_text("utf8")
-candidates_content = (test_path / "fixtures/candidates.csv").read_text("utf8")
+features_csv_path = test_path / "fixtures/features.csv"
+candidates_csv_path = test_path / "fixtures/candidates.csv"
+features_content = features_csv_path.read_text("utf8")
+candidates_content = candidates_csv_path.read_text("utf8")
 candidates_lines = [line.strip() for line in candidates_content.split("\n") if line.strip()]
 
 dummy = """
@@ -22,7 +24,7 @@ nationbuilder_id,first_name,last_name,email,mobile_number,primary_address1,prima
 """
 
 
-def get_settings(algorithm="leximin"):
+def get_settings(algorithm="legacy"):
     columns_to_keep = [
         "first_name",
         "last_name",
@@ -72,6 +74,22 @@ def test_csv_selection_happy_path_defaults(algorithm):
     assert success
     assert len(people_selected) == 1
     assert len(people_selected[0]) == PEOPLE_TO_SELECT
+
+
+def test_csv_load_feature_from_file_or_str_give_same_output():
+    adapter = CSVAdapter()
+    feature_from_file, _ = adapter.load_features_from_file(features_csv_path)
+    feature_from_str, _ = adapter.load_features_from_str(features_content)
+    assert feature_from_file == feature_from_str
+
+
+def test_csv_load_people_from_file_or_str_give_same_output():
+    adapter = CSVAdapter()
+    settings = get_settings()
+    features, _ = adapter.load_features_from_str(features_content)
+    people_from_file, _ = adapter.load_people_from_file(candidates_csv_path, settings, features)
+    people_from_str, _ = adapter.load_people_from_str(candidates_content, settings, features)
+    assert people_from_file == people_from_str
 
 
 # TODO: test output_selected_remaining
