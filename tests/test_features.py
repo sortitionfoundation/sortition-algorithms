@@ -211,6 +211,22 @@ class TestReadInFeaturesErrorHandling:
         with pytest.raises(ValueError, match="Found MORE THAN 1 column named 'min'"):
             read_in_features(head, body)
 
+    def test_extra_headers_ignored(self):
+        """Test that missing required headers raise appropriate error."""
+        head = [
+            "feature",
+            "value",
+            "min",
+            "max",
+            "suggest min",
+            "suggest max",
+        ]  # extra "suggest min/max" headers
+        body = [{"feature": "gender", "value": "male", "min": "1", "max": "2"}]
+        features, _ = read_in_features(head, body)
+
+        assert features.feature_names == ["gender"]
+        assert dict(features.feature_values())["gender"] == ["male"]
+
     def test_blank_feature_name_skipped(self):
         """Test that rows with blank feature names are skipped."""
         head = FEATURE_FILE_FIELD_NAMES

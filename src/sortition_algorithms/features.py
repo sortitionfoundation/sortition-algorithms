@@ -32,6 +32,7 @@ FEATURE_FILE_FIELD_NAMES_FLEX_OLD = (
     "min_flex",
     "max_flex",
 )
+ALL_FEATURE_FIELD_NAMES = frozenset([*FEATURE_FILE_FIELD_NAMES_FLEX, *FEATURE_FILE_FIELD_NAMES_OLD])
 
 MAX_FLEX_UNSET = -1
 
@@ -242,30 +243,33 @@ def _normalise_col_names(row: dict[str, str]) -> dict[str, str]:
     return row
 
 
-def _feature_headers_flex(headers: list[str]) -> bool:
+def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
     """
     Determine if the headers match either the required ones, or required plus flex fields.
     Return True if the flex headers are present, False if not.
 
+    It is fine to have extra headers - they will just be ignored.
+
     If an invalid set of headers are present, report details.
     """
+    filtered_headers = [h for h in headers if h in ALL_FEATURE_FIELD_NAMES]
     # check that the fieldnames are (at least) what we expect, and only once.
     # BUT (for reverse compatibility) let min_flex and max_flex be optional.
-    if sorted(headers) in (
+    if sorted(filtered_headers) in (
         sorted(FEATURE_FILE_FIELD_NAMES),
         sorted(FEATURE_FILE_FIELD_NAMES_OLD),
     ):
-        return False
-    if sorted(headers) in (
+        return False, filtered_headers
+    if sorted(filtered_headers) in (
         sorted(FEATURE_FILE_FIELD_NAMES_FLEX),
         sorted(FEATURE_FILE_FIELD_NAMES_FLEX_OLD),
     ):
-        return True
+        return True, filtered_headers
     # below here we are reporting errors with the headers
     messages: list[str] = []
-    required_fields = FEATURE_FILE_FIELD_NAMES if "feature" in headers else FEATURE_FILE_FIELD_NAMES_OLD
+    required_fields = FEATURE_FILE_FIELD_NAMES if "feature" in filtered_headers else FEATURE_FILE_FIELD_NAMES_OLD
     for field_name in required_fields:
-        feature_head_field_name_count = headers.count(field_name)
+        feature_head_field_name_count = filtered_headers.count(field_name)
         if feature_head_field_name_count == 0 and (field_name != "min_flex" and field_name != "max_flex"):
             messages.append(f"Did not find required column name '{field_name}' in the input")
         elif feature_head_field_name_count > 1:
@@ -330,10 +334,10 @@ def read_in_features(
     """
     features = FeatureCollection()
     msg: list[str] = []
-    features_flex = _feature_headers_flex(list(features_head))
+    features_flex, filtered_headers = _feature_headers_flex(list(features_head))
     for row in features_body:
         # check the set of keys in the row are the same as the headers
-        assert set(row.keys()) == set(features_head)
+        assert set(filtered_headers) <= set(row.keys())
         stripped_row = utils.StrippedDict(_normalise_col_names(row))
         if not stripped_row["feature"]:
             continue
