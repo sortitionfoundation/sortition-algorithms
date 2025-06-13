@@ -123,14 +123,14 @@ class GSheetAdapter:
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
     ]
-    highlight: ClassVar = {
+    hl_light_blue: ClassVar = {
         "backgroundColor": {
             "red": 153 / 255,
             "green": 204 / 255,
             "blue": 255 / 255,
         }
     }
-    highlight2: ClassVar = {"backgroundColor": {"red": 5, "green": 2.5, "blue": 0}}
+    hl_orange: ClassVar = {"backgroundColor": {"red": 5, "green": 2.5, "blue": 0}}
 
     def __init__(self, auth_json_path: Path, gen_rem_tab: str = "on") -> None:
         self.auth_json_path = auth_json_path
@@ -265,7 +265,7 @@ class GSheetAdapter:
             0,
         )
         tab_original_selected.update(people_selected_rows)
-        tab_original_selected.format("A1:U1", self.highlight)
+        tab_original_selected.format("A1:U1", self.hl_light_blue)
         dupes: list[int] = []
         if self.gen_rem_tab == "on":
             tab_remaining = self._clear_or_create_tab(
@@ -274,7 +274,7 @@ class GSheetAdapter:
                 -1,
             )
             tab_remaining.update(people_remaining_rows)
-            tab_remaining.format("A1:U1", self.highlight)
+            tab_remaining.format("A1:U1", self.hl_light_blue)
             # highlight any people in remaining tab at the same address
             # TODO: do we ever actually hit this code? We should have deleted
             # all the people who might have been duplicates in selected_remaining_tables()
@@ -291,7 +291,7 @@ class GSheetAdapter:
                             dupes_set.add(j + 1)
                 dupes = sorted(dupes_set)
                 for i in range(min(30, len(dupes))):
-                    tab_remaining.format(str(dupes[i]), self.highlight2)
+                    tab_remaining.format(str(dupes[i]), self.hl_orange)
         return dupes
 
     def output_multi_selections(
@@ -305,4 +305,4 @@ class GSheetAdapter:
             0,
         )
         tab_original_selected.update(multi_selections)
-        tab_original_selected.format("A1:U1", self.highlight)
+        tab_original_selected.format("A1:U1", self.hl_light_blue)
