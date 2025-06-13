@@ -1,2 +1,10 @@
+::: sortition_algorithms.adapters
+::: sortition_algorithms.committee_generation
+::: sortition_algorithms.core
+::: sortition_algorithms.errors
 ::: sortition_algorithms.features
+::: sortition_algorithms.find_sample
+::: sortition_algorithms.people_features
+::: sortition_algorithms.people
 ::: sortition_algorithms.settings
+::: sortition_algorithms.utils
