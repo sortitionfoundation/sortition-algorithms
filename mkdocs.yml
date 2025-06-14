@@ -9,8 +9,12 @@ copyright: Maintained by <a href="https://sortitionfoundation.org">sortitionfoun
 
 nav:
   - Home: index.md
-  - Usage: usage.md
+  - Quick Start: quickstart.md
+  - Concepts: concepts.md
   - CLI: cli.md
+  - Adapters: adapters.md
+  - Advanced: advanced.md
+  - API Reference: api-reference.md
   - Modules: modules.md
 plugins:
   - search

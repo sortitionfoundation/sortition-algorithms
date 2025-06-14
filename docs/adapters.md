@@ -38,13 +38,13 @@ For data already in memory:
 
 ```python
 # Load from string content
-features_csv = \"\"\"feature,value,min,max
+features_csv = """feature,value,min,max
 Gender,Male,45,55
-Gender,Female,45,55\"\"\"
+Gender,Female,45,55"""
 
-people_csv = \"\"\"id,Name,Gender
+people_csv = """id,Name,Gender
 p001,Alice,Female
-p002,Bob,Male\"\"\"
+p002,Bob,Male"""
 
 features, msgs = adapter.load_features_from_str(features_csv)
 people, msgs = adapter.load_people_from_str(people_csv, settings, features)
@@ -64,10 +64,10 @@ def csv_selection_workflow():
 
     # Load data
     features, msgs = adapter.load_features_from_file(Path("demographics.csv"))
-    print("\\n".join(msgs))
+    print("\n".join(msgs))
 
     people, msgs = adapter.load_people_from_file(Path("candidates.csv"), settings, features)
-    print("\\n".join(msgs))
+    print("\n".join(msgs))
 
     # Run selection
     success, panels, msgs = run_stratification(features, people, 100, settings)
@@ -89,7 +89,7 @@ def csv_selection_workflow():
         print(f"Selected {len(panels[0])} people successfully")
     else:
         print("Selection failed")
-        print("\\n".join(msgs))
+        print("\n".join(msgs))
 ```
 
 ### GSheetAdapter
@@ -117,10 +117,10 @@ adapter = GSheetAdapter(
 
 # Load data from Google Sheet
 features, msgs = adapter.load_features("My Spreadsheet", "Demographics")
-print("\\n".join(msgs))
+print("\n".join(msgs))
 
 people, msgs = adapter.load_people("Candidates", settings, features)
-print("\\n".join(msgs))
+print("\n".join(msgs))
 
 # Configure output tabs
 adapter.selected_tab_name = "Selected Panel"
@@ -147,12 +147,12 @@ def gsheet_selection_workflow():
     # Load data
     features, msgs = adapter.load_features("Citizen Panel 2024", "Demographics")
     if features is None:
-        print("Failed to load features:", "\\n".join(msgs))
+        print("Failed to load features:", "\n".join(msgs))
         return
 
     people, msgs = adapter.load_people("Candidates", settings, features)
     if people is None:
-        print("Failed to load people:", "\\n".join(msgs))
+        print("Failed to load people:", "\n".join(msgs))
         return
 
     # Run selection
@@ -175,7 +175,7 @@ def gsheet_selection_workflow():
         if dupes:
             print(f"Warning: {len(dupes)} people in remaining pool share addresses")
     else:
-        print("Selection failed:", "\\n".join(msgs))
+        print("Selection failed:", "\n".join(msgs))
 ```
 
 #### Google Sheets Data Format
@@ -183,17 +183,19 @@ def gsheet_selection_workflow():
 Your spreadsheet should be structured as follows:
 
 **Demographics Tab:**
-| feature | value | min | max |
-|---------|-------|-----|-----|
-| Gender  | Male  | 45  | 55  |
-| Gender  | Female| 45  | 55  |
-| Age     | 18-30 | 20  | 30  |
+
+| feature | value  | min | max |
+| ------- | ------ | --- | --- |
+| Gender  | Male   | 45  | 55  |
+| Gender  | Female | 45  | 55  |
+| Age     | 18-30  | 20  | 30  |
 
 **Candidates Tab:**
-| id | Name | Email | Gender | Age | Location | Address | Postcode |
-|----|------|-------|--------|-----|----------|---------|----------|
-| p001 | Alice Smith | alice@email.com | Female | 18-30 | Urban | 123 Main St | 12345 |
-| p002 | Bob Jones | bob@email.com | Male | 31-50 | Rural | 456 Oak Ave | 67890 |
+
+| id   | Name        | Email             | Gender | Age   | Location | Address     | Postcode |
+| ---- | ----------- | ----------------- | ------ | ----- | -------- | ----------- | -------- |
+| p001 | Alice Smith | <alice@email.com> | Female | 18-30 | Urban    | 123 Main St | 12345    |
+| p002 | Bob Jones   | <bob@email.com>   | Male   | 31-50 | Rural    | 456 Oak Ave | 67890    |
 
 ## Writing Custom Adapters
 
@@ -208,14 +210,14 @@ from sortition_algorithms import FeatureCollection, People, Settings
 from typing import Protocol
 
 class SortitionAdapter(Protocol):
-    \"\"\"Protocol defining the adapter interface.\"\"\"
+    """Protocol defining the adapter interface."""
 
     def load_features(self, source_info: str, **kwargs) -> tuple[FeatureCollection, list[str]]:
-        \"\"\"Load feature definitions from data source.
+        """Load feature definitions from data source.
 
         Returns:
             (features, messages) - features object and status messages
-        \"\"\"
+        """
         ...
 
     def load_people(
@@ -225,11 +227,11 @@ class SortitionAdapter(Protocol):
         features: FeatureCollection,
         **kwargs
     ) -> tuple[People, list[str]]:
-        \"\"\"Load candidate pool from data source.
+        """Load candidate pool from data source.
 
         Returns:
             (people, messages) - people object and status messages
-        \"\"\"
+        """
         ...
 
     def output_selected_remaining(
@@ -238,7 +240,7 @@ class SortitionAdapter(Protocol):
         remaining_rows: list[list[str]],
         **kwargs
     ) -> None:
-        \"\"\"Export selection results to data source.\"\"\"
+        """Export selection results to data source."""
         ...
 ```
 
@@ -257,7 +259,7 @@ from sortition_algorithms.features import read_in_features
 from sortition_algorithms.people import read_in_people
 
 class ExcelAdapter:
-    \"\"\"Adapter for Excel files using openpyxl.\"\"\"
+    """Adapter for Excel files using openpyxl."""
 
     def __init__(self) -> None:
         self.workbook: openpyxl.Workbook | None = None
@@ -268,7 +270,7 @@ class ExcelAdapter:
         excel_file: Path,
         sheet_name: str = "Demographics"
     ) -> tuple[FeatureCollection, list[str]]:
-        \"\"\"Load features from Excel file.\"\"\"
+        """Load features from Excel file."""
         workbook = openpyxl.load_workbook(excel_file)
 
         if sheet_name not in workbook.sheetnames:
@@ -297,7 +299,7 @@ class ExcelAdapter:
         features: FeatureCollection,
         sheet_name: str = "Candidates"
     ) -> tuple[People, list[str]]:
-        \"\"\"Load people from Excel file.\"\"\"
+        """Load people from Excel file."""
         workbook = openpyxl.load_workbook(excel_file)
 
         if sheet_name not in workbook.sheetnames:
@@ -327,7 +329,7 @@ class ExcelAdapter:
         selected_sheet: str = "Selected",
         remaining_sheet: str = "Remaining"
     ) -> None:
-        \"\"\"Export results to Excel file.\"\"\"
+        """Export results to Excel file."""
         workbook = openpyxl.Workbook()
 
         # Remove default sheet
@@ -345,7 +347,7 @@ class ExcelAdapter:
         workbook.save(output_file)
 
     def _write_data_to_sheet(self, sheet: Worksheet, data: list[list[str]]) -> None:
-        \"\"\"Write data rows to worksheet.\"\"\"
+        """Write data rows to worksheet."""
         for row_idx, row_data in enumerate(data, 1):
             for col_idx, cell_value in enumerate(row_data, 1):
                 sheet.cell(row=row_idx, column=col_idx, value=cell_value)
@@ -392,7 +394,7 @@ from sortition_algorithms.features import read_in_features
 from sortition_algorithms.people import read_in_people
 
 class SQLiteAdapter:
-    \"\"\"Adapter for SQLite databases.\"\"\"
+    """Adapter for SQLite databases."""
 
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
@@ -401,7 +403,7 @@ class SQLiteAdapter:
         self,
         table_name: str = "features"
     ) -> tuple[FeatureCollection, list[str]]:
-        \"\"\"Load features from database table.\"\"\"
+        """Load features from database table."""
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
 
@@ -429,7 +431,7 @@ class SQLiteAdapter:
         table_name: str = "candidates",
         where_clause: str = ""
     ) -> tuple[People, list[str]]:
-        \"\"\"Load people from database table.\"\"\"
+        """Load people from database table."""
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
 
@@ -461,7 +463,7 @@ class SQLiteAdapter:
         selected_table: str = "selected_panel",
         remaining_table: str = "remaining_pool"
     ) -> None:
-        \"\"\"Export results to database tables.\"\"\"
+        """Export results to database tables."""
         conn = sqlite3.connect(self.db_path)
 
         try:
@@ -487,7 +489,7 @@ class SQLiteAdapter:
         table_name: str,
         headers: list[str]
     ) -> None:
-        \"\"\"Create table with columns based on headers.\"\"\"
+        """Create table with columns based on headers."""
         conn.execute(f"DROP TABLE IF EXISTS {table_name}")
 
         columns = ", ".join(f"{header} TEXT" for header in headers)
@@ -500,7 +502,7 @@ class SQLiteAdapter:
         headers: list[str],
         data_rows: list[list[str]]
     ) -> None:
-        \"\"\"Insert data rows into table.\"\"\"
+        """Insert data rows into table."""
         placeholders = ", ".join("?" * len(headers))
         query = f"INSERT INTO {table_name} VALUES ({placeholders})"
 
@@ -535,7 +537,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 class CachingAdapter:
-    \"\"\"Wrapper that adds caching to any adapter.\"\"\"
+    """Wrapper that adds caching to any adapter."""
 
     def __init__(self, base_adapter: Any, cache_dir: Path, cache_ttl_hours: int = 24):
         self.base_adapter = base_adapter
@@ -570,7 +572,7 @@ Add data validation to any adapter:
 
 ```python
 class ValidatingAdapter:
-    \"\"\"Wrapper that adds validation to any adapter.\"\"\"
+    """Wrapper that adds validation to any adapter."""
 
     def __init__(self, base_adapter: Any):
         self.base_adapter = base_adapter
@@ -585,7 +587,7 @@ class ValidatingAdapter:
         return people, msgs
 
     def _validate_people(self, people: People) -> list[str]:
-        \"\"\"Validate people data quality.\"\"\"
+        """Validate people data quality."""
         msgs = []
 
         # Check for duplicate IDs
@@ -689,7 +691,7 @@ with DatabaseAdapter() as adapter:
 import pandas as pd
 
 class PandasAdapter:
-    \"\"\"Adapter for pandas DataFrames.\"\"\"
+    """Adapter for pandas DataFrames."""
 
     def load_features_from_dataframe(
         self, df: pd.DataFrame
@@ -711,7 +713,7 @@ import csv
 from io import StringIO
 
 class S3Adapter:
-    \"\"\"Adapter for files stored in AWS S3.\"\"\"
+    """Adapter for files stored in AWS S3."""
 
     def __init__(self, bucket_name: str):
         self.bucket_name = bucket_name

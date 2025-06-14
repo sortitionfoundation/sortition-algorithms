@@ -20,9 +20,11 @@ Sortition has ancient roots in Athenian democracy, where citizens were chosen by
 ### Features and Feature Values
 
 **Features** are demographic characteristics used for stratification:
+
 - Gender, Age, Education, Income, Location, etc.
 
 **Feature Values** are the specific categories within each feature:
+
 - Gender: Male, Female, Non-binary
 - Age: 18-30, 31-50, 51-65, 65+
 - Location: Urban, Suburban, Rural
@@ -60,6 +62,7 @@ A critical feature for ensuring true representativeness is **address checking** 
 ### Why Address Checking Matters
 
 Without address checking, you might accidentally select:
+
 - Multiple family members with similar views
 - Several housemates from a shared address
 - People who influence each other's opinions
@@ -78,6 +81,7 @@ settings = Settings(
 ```
 
 When someone is selected:
+
 1. The algorithm identifies anyone else with matching values in the specified columns
 2. Those people are removed from the remaining pool
 3. This ensures geographic and household diversity
@@ -85,11 +89,13 @@ When someone is selected:
 ### Address Column Strategies
 
 **Single column approach**:
+
 ```python
 check_same_address_columns = ["Full_Address"]
 ```
 
 **Multi-column approach** (more flexible):
+
 ```python
 check_same_address_columns = ["Street", "City", "Postcode"]
 ```
@@ -101,21 +107,25 @@ check_same_address_columns = ["Street", "City", "Postcode"]
 Different algorithms optimize for different fairness criteria:
 
 ### Maximin (Default)
+
 - **Goal**: Maximize the minimum selection probability
 - **Good for**: Ensuring no group is severely underrepresented
 - **Trade-off**: May not optimize overall fairness
 
 ### Nash
+
 - **Goal**: Maximize the product of all selection probabilities
 - **Good for**: Balanced representation across all groups
 - **Trade-off**: Complex optimization, harder to interpret
 
 ### Leximin
+
 - **Goal**: Lexicographic maximin (requires Gurobi license)
 - **Good for**: Strict fairness guarantees
 - **Trade-off**: Requires commercial solver
 
 ### Legacy
+
 - **Goal**: Backwards compatibility with older implementations
 - **Good for**: Reproducing historical selections
 - **Trade-off**: Less sophisticated than modern algorithms
@@ -123,35 +133,45 @@ Different algorithms optimize for different fairness criteria:
 ## The Selection Process
 
 ### 1. Feasibility Checking
+
 Before selection begins, the algorithm verifies that quotas are achievable:
+
 ```python
 features.check_desired(number_people_wanted=100)
 ```
 
 ### 2. Algorithm Execution
+
 The chosen algorithm finds an optimal probability distribution over possible committees.
 
 ### 3. Lottery Rounding
+
 The probability distribution is converted to concrete selections using randomized rounding.
 
 ### 4. Validation
+
 Selected committees are checked against quotas to ensure targets were met.
 
 ## Randomness and Reproducibility
 
 ### Random Seeds
+
 For reproducible results (e.g., for auditing), set a random seed:
+
 ```python
 settings = Settings(random_number_seed=42)
 ```
 
 ### Security Considerations
+
 For production use, avoid fixed seeds. The library uses Python's `secrets` module when no seed is specified.
 
 ## Data Quality Considerations
 
 ### Feature Consistency
+
 Ensure feature values are consistent between your quotas file and candidate data:
+
 ```csv
 # demographics.csv
 Gender,Male,45,55
@@ -164,13 +184,17 @@ person3,M,...       # ❌ Abbreviation mismatch
 ```
 
 ### Missing Data
+
 The library requires complete demographic data. Handle missing values before import:
+
 - Impute missing values
 - Create "Unknown" categories
 - Exclude incomplete records
 
 ### Data Validation
+
 The library performs extensive validation:
+
 - Checks for unknown feature values
 - Verifies quota feasibility
 - Validates candidate pool size
@@ -180,6 +204,7 @@ The library performs extensive validation:
 ### Common Errors
 
 **InfeasibleQuotasError**: Your quotas cannot be satisfied
+
 ```python
 # Too restrictive - asking for 90+ males in a pool of 100
 Gender,Male,90,100
@@ -187,10 +212,12 @@ Gender,Female,90,100
 ```
 
 **SelectionError**: General selection failures
+
 - Insufficient candidates in a category
 - Conflicting constraints
 
 **ValueError**: Invalid parameters
+
 - Negative quotas
 - Invalid algorithm names
 
@@ -204,16 +231,19 @@ Gender,Female,90,100
 ## Best Practices
 
 ### Quota Design
+
 - **Start conservative**: Use wider ranges initially, then narrow if needed
 - **Consider interactions**: Age and education might be correlated
 - **Plan for edge cases**: What if you have few candidates in a category?
 
 ### Data Preparation
+
 - **Standardize values**: Consistent capitalization and spelling
 - **Validate completeness**: No missing demographic data
 - **Test with samples**: Verify your setup with small test runs
 
 ### Address Checking
+
 - **Clean addresses first**: Standardize formatting before using address checking
 - **Consider geography**: Urban areas might need tighter address matching
 - **Balance household diversity vs. other constraints**: Address checking reduces your effective pool size

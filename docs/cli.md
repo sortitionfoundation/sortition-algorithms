@@ -79,6 +79,7 @@ Options:
 ### Example Files
 
 **demographics.csv** (feature definitions):
+
 ```csv
 feature,value,min,max
 Gender,Male,45,55
@@ -91,6 +92,7 @@ Location,Rural,40,60
 ```
 
 **candidates.csv** (candidate pool):
+
 ```csv
 id,Name,Email,Gender,Age,Location,Address,Postcode
 p001,Alice Smith,alice@email.com,Female,18-30,Urban,123 Main St,12345
@@ -100,6 +102,7 @@ p003,Carol Davis,carol@email.com,Female,51+,Urban,789 Pine Rd,12345
 ```
 
 **config.toml** (settings):
+
 ```toml
 # Reproducible results
 random_number_seed = 42
@@ -169,6 +172,9 @@ for size in "${SIZES[@]}"; do
 done
 ```
 
+Note that to actually do selections with multiple sizes, you'd also need to be
+adjusting the min and max values in the quotas at the same time.
+
 ## Google Sheets Workflow
 
 For organizations using Google Sheets for data management.
@@ -226,17 +232,19 @@ python -m sortition_algorithms gsheet \
 Your Google Sheet should have tabs structured like this:
 
 **Demographics tab**:
+
 | feature | value | min | max |
 |---------|-------|-----|-----|
-| Gender  | Male  | 45  | 55  |
-| Gender  | Female| 45  | 55  |
-| Age     | 18-30 | 20  | 30  |
+| Gender | Male | 45 | 55 |
+| Gender | Female| 45 | 55 |
+| Age | 18-30 | 20 | 30 |
 
 **Candidates tab**:
+
 | id | Name | Email | Gender | Age | Location |
 |----|------|-------|--------|-----|----------|
-| p001 | Alice | alice@email.com | Female | 18-30 | Urban |
-| p002 | Bob | bob@email.com | Male | 31-50 | Rural |
+| p001 | Alice | <alice@email.com> | Female | 18-30 | Urban |
+| p002 | Bob | <bob@email.com> | Male | 31-50 | Rural |
 
 ## Sample Generation
 
@@ -298,12 +306,12 @@ id_column = "id"  # Column name containing unique IDs
 
 ### Algorithm Comparison
 
-| Algorithm | Pros | Cons | Use Case |
-|-----------|------|------|----------|
-| `maximin` | Fair to minorities | May not optimize overall | Default choice |
-| `nash` | Balanced overall | Complex optimization | Large diverse pools |
-| `leximin` | Strongest fairness | Requires Gurobi license | Academic/research |
-| `legacy` | Backwards compatible | Less sophisticated | Historical consistency |
+| Algorithm | Pros                 | Cons                     | Use Case               |
+| --------- | -------------------- | ------------------------ | ---------------------- |
+| `maximin` | Fair to minorities   | May not optimize overall | Default choice         |
+| `nash`    | Balanced overall     | Complex optimization     | Large diverse pools    |
+| `leximin` | Strongest fairness   | Requires Gurobi license  | Academic/research      |
+| `legacy`  | Backwards compatible | Less sophisticated       | Historical consistency |
 
 ## Common Workflows
 
@@ -372,21 +380,25 @@ python -m sortition_algorithms csv \
 ### Common Errors
 
 **"Selection failed"**
+
 - Check that quota minimums don't exceed panel size
 - Verify feature values match between files
 - Review constraint feasibility
 
 **"File not found"**
+
 - Use absolute paths or verify working directory
 - Check file permissions
 - Ensure files exist before running
 
 **"Invalid feature values"**
+
 - Verify exact string matching between demographics.csv and candidates.csv
 - Check for typos, case sensitivity, extra spaces
 - Review non-ASCII characters
 
 **"Authentication failed" (Google Sheets)**
+
 - Verify credentials.json is correct and accessible
 - Check that service account has access to the spreadsheet
 - Ensure APIs are enabled in Google Cloud Console
@@ -445,9 +457,9 @@ on:
   workflow_dispatch:
     inputs:
       panel_size:
-        description: 'Number of people to select'
+        description: "Number of people to select"
         required: true
-        default: '100'
+        default: "100"
 
 jobs:
   select:
@@ -456,7 +468,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
       - run: pip install 'sortition-algorithms[cli]'
       - run: |
           python -m sortition_algorithms csv \

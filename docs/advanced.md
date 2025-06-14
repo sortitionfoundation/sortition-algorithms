@@ -9,6 +9,7 @@ This guide covers complex scenarios, optimization techniques, troubleshooting st
 Each algorithm optimizes for different fairness criteria:
 
 #### Maximin Algorithm (Default)
+
 **Objective**: Maximize the minimum selection probability across all groups.
 
 ```python
@@ -16,17 +17,20 @@ settings = Settings(selection_algorithm="maximin")
 ```
 
 **When to use**:
+
 - Default choice for most applications
 - Ensures no group is severely underrepresented
 - Good for citizen assemblies and deliberative panels
 
 **Trade-offs**:
+
 - May not optimize overall fairness
 - Can be conservative in selection choices
 
 **Example scenario**: A panel where ensuring minimum representation for small minorities is crucial.
 
 #### Nash Algorithm
+
 **Objective**: Maximize the product of all selection probabilities.
 
 ```python
@@ -34,17 +38,20 @@ settings = Settings(selection_algorithm="nash")
 ```
 
 **When to use**:
+
 - Large, diverse candidate pools
 - When you want balanced representation across all groups
 - Academic research requiring mathematical optimality
 
 **Trade-offs**:
+
 - More complex optimization
 - May be harder to explain to stakeholders
 
 **Example scenario**: Research study requiring theoretically optimal fairness across all demographic groups.
 
 #### Leximin Algorithm
+
 **Objective**: Lexicographic maximin optimization (requires Gurobi license).
 
 ```python
@@ -52,11 +59,13 @@ settings = Settings(selection_algorithm="leximin")
 ```
 
 **When to use**:
+
 - Academic research requiring strongest fairness guarantees
 - When you have access to Gurobi (commercial/academic license)
 - High-stakes selections where maximum fairness is essential
 
 **Trade-offs**:
+
 - Requires commercial solver (Gurobi)
 - More computationally intensive
 - May be overkill for routine selections
@@ -64,6 +73,7 @@ settings = Settings(selection_algorithm="leximin")
 **Example scenario**: Government-sponsored citizen assembly where mathematical proof of fairness is required.
 
 #### Legacy Algorithm
+
 **Objective**: Backwards compatibility with earlier implementations.
 
 ```python
@@ -71,11 +81,13 @@ settings = Settings(selection_algorithm="legacy")
 ```
 
 **When to use**:
+
 - Reproducing historical selections
 - Comparison studies
 - Specific compatibility requirements
 
 **Trade-offs**:
+
 - Less sophisticated than modern algorithms
 - May not provide optimal fairness
 
@@ -148,7 +160,7 @@ For scenarios where some demographic groups need stronger representation:
 
 ```python
 def create_weighted_features():
-    \"\"\"Create features with weighted quotas for underrepresented groups.\"\"\"
+    """Create features with weighted quotas for underrepresented groups."""
 
     # Standard proportional representation
     base_features = [
@@ -172,14 +184,14 @@ def create_weighted_features():
     return create_features_from_list(weighted_features)
 
 def create_features_from_list(feature_list):
-    \"\"\"Helper to create FeatureCollection from tuples.\"\"\"
+    """Helper to create FeatureCollection from tuples."""
     import csv
     from io import StringIO
 
     # Convert to CSV format
-    csv_content = "feature,value,min,max\\n"
+    csv_content = "feature,value,min,max\n"
     for feature, value, min_val, max_val in feature_list:
-        csv_content += f"{feature},{value},{min_val},{max_val}\\n"
+        csv_content += f"{feature},{value},{min_val},{max_val}\n"
 
     # Use CSV adapter to create FeatureCollection
     adapter = CSVAdapter()
@@ -193,7 +205,7 @@ Automatically adjust quotas based on available candidates:
 
 ```python
 def adjust_quotas_for_availability(features: FeatureCollection, people: People) -> FeatureCollection:
-    \"\"\"Adjust quotas based on actual candidate availability.\"\"\"
+    """Adjust quotas based on actual candidate availability."""
 
     # Count available people in each category
     category_counts = {}
@@ -232,7 +244,7 @@ For complex quota relationships:
 
 ```python
 def hierarchical_quota_validation(features: FeatureCollection, panel_size: int) -> list[str]:
-    \"\"\"Validate hierarchical quota constraints.\"\"\"
+    """Validate hierarchical quota constraints."""
     warnings = []
 
     # Example: Age + Education constraints
@@ -274,7 +286,7 @@ def optimize_for_large_datasets():
     return settings
 
 def batch_process_candidates(people_file: Path, batch_size: int = 10000):
-    \"\"\"Process large candidate files in batches.\"\"\"
+    """Process large candidate files in batches."""
 
     # Read file in chunks
     import pandas as pd
@@ -299,7 +311,7 @@ For memory-constrained environments:
 
 ```python
 def memory_efficient_selection():
-    \"\"\"Demonstrate memory-efficient patterns.\"\"\"
+    """Demonstrate memory-efficient patterns."""
 
     # Use generators instead of loading all data at once
     def load_people_generator(file_path: Path):
@@ -335,7 +347,7 @@ import concurrent.futures
 from multiprocessing import Pool
 
 def parallel_selections(features, people, panel_sizes: list[int]):
-    \"\"\"Run multiple selections in parallel.\"\"\"
+    """Run multiple selections in parallel."""
 
     def run_single_selection(panel_size):
         settings = Settings(random_number_seed=None)  # Different seed each time
@@ -348,7 +360,7 @@ def parallel_selections(features, people, panel_sizes: list[int]):
     return results
 
 def concurrent_algorithm_comparison(features, people, panel_size: int):
-    \"\"\"Compare algorithms concurrently.\"\"\"
+    """Compare algorithms concurrently."""
 
     algorithms = ["maximin", "nash"]
 
@@ -379,9 +391,10 @@ def concurrent_algorithm_comparison(features, people, panel_size: int):
 **Symptoms**: `InfeasibleQuotasError` exception
 
 **Diagnosis**:
+
 ```python
 def diagnose_quota_feasibility(features: FeatureCollection, panel_size: int):
-    \"\"\"Analyze why quotas might be infeasible.\"\"\"
+    """Analyze why quotas might be infeasible."""
 
     issues = []
 
@@ -405,7 +418,7 @@ def diagnose_quota_feasibility(features: FeatureCollection, panel_size: int):
     return issues
 
 def suggest_quota_fixes(features: FeatureCollection, people: People, panel_size: int):
-    \"\"\"Suggest quota adjustments to make selection feasible.\"\"\"
+    """Suggest quota adjustments to make selection feasible."""
 
     suggestions = []
 
@@ -432,6 +445,7 @@ def suggest_quota_fixes(features: FeatureCollection, people: People, panel_size:
 ```
 
 **Solutions**:
+
 1. **Reduce minimum quotas**: Lower the minimum requirements
 2. **Increase maximum quotas**: Allow more flexibility
 3. **Expand candidate pool**: Recruit more candidates in underrepresented categories
@@ -442,9 +456,10 @@ def suggest_quota_fixes(features: FeatureCollection, people: People, panel_size:
 **Symptoms**: Unexpected selection results, warnings about data inconsistencies
 
 **Diagnosis**:
+
 ```python
 def audit_data_quality(people: People, features: FeatureCollection):
-    \"\"\"Comprehensive data quality audit.\"\"\"
+    """Comprehensive data quality audit."""
 
     issues = []
 
@@ -484,7 +499,7 @@ def audit_data_quality(people: People, features: FeatureCollection):
     return issues
 
 def clean_data_automatically(people_data: list[dict], features: FeatureCollection):
-    \"\"\"Automatically clean common data issues.\"\"\"
+    """Automatically clean common data issues."""
 
     cleaned_data = []
 
@@ -516,13 +531,14 @@ def clean_data_automatically(people_data: list[dict], features: FeatureCollectio
 **Symptoms**: Long runtime, memory errors, timeouts
 
 **Diagnosis**:
+
 ```python
 import time
 import psutil
 import tracemalloc
 
 def profile_selection_performance():
-    \"\"\"Profile memory and CPU usage during selection.\"\"\"
+    """Profile memory and CPU usage during selection."""
 
     # Start memory tracing
     tracemalloc.start()
@@ -560,7 +576,7 @@ Enable detailed debugging:
 
 ```python
 def debug_selection_process():
-    \"\"\"Run selection with comprehensive debugging.\"\"\"
+    """Run selection with comprehensive debugging."""
 
     import logging
 
@@ -663,7 +679,7 @@ from pathlib import Path
 from datetime import datetime
 
 def batch_processing_pipeline():
-    \"\"\"Complete pipeline for batch processing multiple selections.\"\"\"
+    """Complete pipeline for batch processing multiple selections."""
 
     parser = argparse.ArgumentParser(description='Batch sortition processing')
     parser.add_argument('--input-dir', type=Path, required=True)
@@ -704,7 +720,7 @@ def batch_processing_pipeline():
     return results_summary
 
 def process_single_configuration(input_dir: Path, output_dir: Path, algorithm: str, panel_size: int):
-    \"\"\"Process a single algorithm/panel size combination.\"\"\"
+    """Process a single algorithm/panel size combination."""
 
     # Load data
     adapter = CSVAdapter()
@@ -755,13 +771,13 @@ from email.mime.text import MimeText
 from email.mime.multipart import MimeMultipart
 
 class SelectionMonitor:
-    \"\"\"Monitor selection processes and send alerts.\"\"\"
+    """Monitor selection processes and send alerts."""
 
     def __init__(self, email_config: dict):
         self.email_config = email_config
 
     def monitor_selection(self, features, people, panel_size, settings):
-        \"\"\"Run selection with monitoring and alerting.\"\"\"
+        """Run selection with monitoring and alerting."""
 
         start_time = datetime.now()
 
@@ -769,7 +785,7 @@ class SelectionMonitor:
             # Pre-flight checks
             issues = self._pre_flight_checks(features, people, panel_size)
             if issues:
-                self._send_alert("Pre-flight check failed", "\\n".join(issues))
+                self._send_alert("Pre-flight check failed", "\n".join(issues))
                 return False, [], issues
 
             # Run selection
@@ -780,7 +796,7 @@ class SelectionMonitor:
                 analysis = self._analyze_results(people, panels[0], features)
                 self._send_success_notification(analysis)
             else:
-                self._send_alert("Selection failed", "\\n".join(msgs))
+                self._send_alert("Selection failed", "\n".join(msgs))
 
             return success, panels, msgs
 
@@ -793,7 +809,7 @@ class SelectionMonitor:
             print(f"Selection completed in {duration}")
 
     def _pre_flight_checks(self, features, people, panel_size):
-        \"\"\"Run pre-flight checks before selection.\"\"\"
+        """Run pre-flight checks before selection."""
         issues = []
 
         # Check pool size
@@ -807,7 +823,7 @@ class SelectionMonitor:
         return issues
 
     def _analyze_results(self, people, selected_panel, features):
-        \"\"\"Analyze selection results for quality metrics.\"\"\"
+        """Analyze selection results for quality metrics."""
 
         analysis = {
             'panel_size': len(selected_panel),
@@ -827,12 +843,12 @@ class SelectionMonitor:
         return analysis
 
     def _send_alert(self, subject: str, message: str):
-        \"\"\"Send email alert.\"\"\"
+        """Send email alert."""
         # Implementation depends on your email setup
         print(f"ALERT - {subject}: {message}")
 
     def _send_success_notification(self, analysis: dict):
-        \"\"\"Send success notification with analysis.\"\"\"
+        """Send success notification with analysis."""
         message = f"Selection completed successfully. Panel size: {analysis['panel_size']}"
         print(f"SUCCESS - {message}")
 ```

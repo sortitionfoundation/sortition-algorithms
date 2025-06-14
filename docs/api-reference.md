@@ -16,10 +16,11 @@ def run_stratification(
     settings: Settings,
     test_selection: bool = False,
     number_selections: int = 1,
-) -> tuple[bool, list[frozenset[str]], list[str]]
+) -> tuple[bool, list[frozenset[str]], list[str]]:
 ```
 
 **Parameters:**
+
 - `features`: FeatureCollection with min/max quotas for each feature value
 - `people`: People object containing the pool of candidates
 - `number_people_wanted`: Desired size of the panel
@@ -28,17 +29,20 @@ def run_stratification(
 - `number_selections`: Number of panels to return (usually 1)
 
 **Returns:**
+
 - `success`: Whether selection succeeded within max attempts
 - `selected_committees`: List of committees (frozensets of person IDs)
 - `output_lines`: Debug and status messages
 
 **Raises:**
+
 - `InfeasibleQuotasError`: If quotas cannot be satisfied
 - `SelectionError`: For various failure cases
 - `ValueError`: For invalid parameters
 - `RuntimeError`: If required solver is not available
 
 **Example:**
+
 ```python
 success, panels, messages = run_stratification(
     features, people, 100, Settings()
@@ -60,18 +64,21 @@ def find_random_sample(
     selection_algorithm: str = "maximin",
     test_selection: bool = False,
     number_selections: int = 1,
-) -> tuple[list[frozenset[str]], list[str]]
+) -> tuple[list[frozenset[str]], list[str]]:
 ```
 
 **Parameters:**
+
 - `selection_algorithm`: One of "maximin", "leximin", "nash", or "legacy"
 - Other parameters same as `run_stratification()`
 
 **Returns:**
+
 - `committee_lottery`: List of committees (may contain duplicates)
 - `output_lines`: Debug strings
 
 **Example:**
+
 ```python
 committees, messages = find_random_sample(
     features, people, 50, settings, "nash"
@@ -88,21 +95,24 @@ def selected_remaining_tables(
     people_selected: frozenset[str],
     features: FeatureCollection,
     settings: Settings,
-) -> tuple[list[list[str]], list[list[str]], list[str]]
+) -> tuple[list[list[str]], list[list[str]], list[str]]:
 ```
 
 **Parameters:**
+
 - `full_people`: Original People object
 - `people_selected`: Single frozenset of selected person IDs
 - `features`: FeatureCollection used for selection
 - `settings`: Settings object
 
 **Returns:**
+
 - `selected_rows`: Table with selected people data
 - `remaining_rows`: Table with remaining people data
 - `output_lines`: Additional information messages
 
 **Example:**
+
 ```python
 selected_table, remaining_table, info = selected_remaining_tables(
     people, selected_panel, features, settings
@@ -121,13 +131,15 @@ with open("selected.csv", "w", newline="") as f:
 Load feature definitions from a CSV file.
 
 ```python
-def read_in_features(features_file: str | Path) -> FeatureCollection
+def read_in_features(features_file: str | Path) -> FeatureCollection:
 ```
 
 **Parameters:**
+
 - `features_file`: Path to CSV file with feature definitions
 
 **Expected CSV format:**
+
 ```csv
 feature,value,min,max
 Gender,Male,45,55
@@ -136,9 +148,11 @@ Age,18-30,20,30
 ```
 
 **Returns:**
+
 - `FeatureCollection`: Object containing all features and quotas
 
 **Example:**
+
 ```python
 features = read_in_features("demographics.csv")
 ```
@@ -152,15 +166,17 @@ def read_in_people(
     people_file: str | Path,
     settings: Settings,
     features: FeatureCollection
-) -> People
+) -> People:
 ```
 
 **Parameters:**
+
 - `people_file`: Path to CSV file with candidate data
 - `settings`: Settings object for configuration
 - `features`: FeatureCollection for validation
 
 **Expected CSV format:**
+
 ```csv
 id,Name,Gender,Age,Email
 p001,Alice,Female,18-30,alice@example.com
@@ -168,9 +184,11 @@ p002,Bob,Male,31-50,bob@example.com
 ```
 
 **Returns:**
+
 - `People`: Object containing candidate pool
 
 **Example:**
+
 ```python
 people = read_in_people("candidates.csv", settings, features)
 ```
@@ -190,10 +208,11 @@ class Settings:
         max_attempts: int = 10,
         columns_to_keep: list[str] | None = None,
         id_column: str = "id",
-    )
+    ):
 ```
 
 **Parameters:**
+
 - `random_number_seed`: Fixed seed for reproducible results (None = random)
 - `check_same_address`: Enable household diversity checking
 - `check_same_address_columns`: Columns that define an address
@@ -205,17 +224,19 @@ class Settings:
 **Class Methods:**
 
 #### Settings.load_from_file()
+
 ```python
 @classmethod
 def load_from_file(
     cls,
     settings_file_path: Path
-) -> tuple[Settings, str]
+) -> tuple[Settings, str]:
 ```
 
 Load settings from a TOML file.
 
 **Example settings.toml:**
+
 ```toml
 random_number_seed = 42
 check_same_address = true
@@ -226,10 +247,12 @@ columns_to_keep = ["Name", "Email", "Phone"]
 ```
 
 **Returns:**
+
 - `Settings`: Configured settings object
 - `str`: Status message
 
 **Example:**
+
 ```python
 settings, msg = Settings.load_from_file(Path("config.toml"))
 print(msg)  # "Settings loaded from config.toml"
@@ -245,18 +268,19 @@ Handles CSV file input and output operations.
 class CSVAdapter:
     def load_features_from_file(
         self, features_file: Path
-    ) -> tuple[FeatureCollection, list[str]]
+    ) -> tuple[FeatureCollection, list[str]]:
 
     def load_people_from_file(
         self, people_file: Path, settings: Settings, features: FeatureCollection
-    ) -> tuple[People, list[str]]
+    ) -> tuple[People, list[str]]:
 
     def output_selected_remaining(
         self, selected_rows: list[list[str]], remaining_rows: list[list[str]]
-    ) -> None
+    ) -> None:
 ```
 
 **Example:**
+
 ```python
 adapter = CSVAdapter()
 features, msgs = adapter.load_features_from_file(Path("features.csv"))
@@ -278,26 +302,28 @@ class GSheetAdapter:
         self,
         credentials_file: Path,
         gen_rem_tab: str = "on"
-    )
+    ):
 
     def load_features(
         self, gsheet_name: str, tab_name: str
-    ) -> tuple[FeatureCollection | None, list[str]]
+    ) -> tuple[FeatureCollection | None, list[str]]:
 
     def load_people(
         self, tab_name: str, settings: Settings, features: FeatureCollection
-    ) -> tuple[People | None, list[str]]
+    ) -> tuple[People | None, list[str]]:
 
     def output_selected_remaining(
         self, selected_rows: list[list[str]], remaining_rows: list[list[str]], settings: Settings
-    ) -> None
+    ) -> None:
 ```
 
 **Parameters:**
+
 - `credentials_file`: Path to Google API credentials JSON
 - `gen_rem_tab`: "on" or "off" to control remaining tab generation
 
 **Example:**
+
 ```python
 adapter = GSheetAdapter(Path("credentials.json"))
 features, msgs = adapter.load_features("My Spreadsheet", "Demographics")
@@ -315,15 +341,16 @@ adapter.output_selected_remaining(selected_table, remaining_table, settings)
 Container for demographic features and their quotas.
 
 **Key Methods:**
+
 ```python
-def check_desired(self, number_people_wanted: int) -> None
+def check_desired(self, number_people_wanted: int) -> None:
     # Validates that quotas are achievable for the desired panel size
     # Raises exception if infeasible
 
-def feature_names(self) -> list[str]
+def feature_names(self) -> list[str]:
     # Returns list of all feature names
 
-def feature_values_counts(self) -> Iterator[tuple[str, str, FeatureValueCounts]]
+def feature_values_counts(self) -> Iterator[tuple[str, str, FeatureValueCounts]]:
     # Iterate over all feature values and their count objects
 ```
 
@@ -332,14 +359,15 @@ def feature_values_counts(self) -> Iterator[tuple[str, str, FeatureValueCounts]]
 Container for the candidate pool.
 
 **Key Methods:**
+
 ```python
-def __len__(self) -> int
+def __len__(self) -> int:
     # Number of people in the pool
 
-def __iter__(self) -> Iterator[str]
+def __iter__(self) -> Iterator[str]:
     # Iterate over person IDs
 
-def get_person_dict(self, person_id: str) -> dict[str, str]
+def get_person_dict(self, person_id: str) -> dict[str, str]:
     # Get all data for a specific person
 
 def matching_address(
@@ -347,16 +375,17 @@ def matching_address(
 ) -> list[str]:
     # Find people with matching address to given person
 
-def remove(self, person_id: str) -> None
+def remove(self, person_id: str) -> None:
     # Remove person from pool
 
-def remove_many(self, person_ids: list[str]) -> None
+def remove_many(self, person_ids: list[str]) -> None:
     # Remove multiple people from pool
 ```
 
 ## Error Classes
 
 ### InfeasibleQuotasError
+
 Raised when quotas cannot be satisfied with the available candidate pool.
 
 ```python
@@ -365,9 +394,11 @@ class InfeasibleQuotasError(Exception):
 ```
 
 **Attributes:**
+
 - `output`: List of diagnostic messages explaining the infeasibility
 
 ### SelectionError
+
 General error for selection process failures.
 
 ```python
@@ -378,6 +409,7 @@ class SelectionError(Exception):
 ## Utility Functions
 
 ### set_random_provider()
+
 Configure the random number generator for reproducible results.
 
 ```python
@@ -385,9 +417,11 @@ def set_random_provider(seed: int | None) -> None
 ```
 
 **Parameters:**
+
 - `seed`: Random seed (None for secure random)
 
 **Example:**
+
 ```python
 set_random_provider(42)  # Reproducible results
 set_random_provider(None)  # Secure random
@@ -406,48 +440,4 @@ SelectionResult = list[Committee]
 
 # Tables are lists of rows (lists of strings)
 Table = list[list[str]]
-```
-
-## Examples by Use Case
-
-### Basic Programmatic Usage
-```python
-from sortition_algorithms import run_stratification, read_in_features, read_in_people, Settings
-
-settings = Settings()
-features = read_in_features("features.csv")
-people = read_in_people("people.csv", settings, features)
-
-success, panels, msgs = run_stratification(features, people, 50, settings)
-```
-
-### With Address Checking
-```python
-settings = Settings(
-    check_same_address=True,
-    check_same_address_columns=["Address", "Postcode"]
-)
-```
-
-### Multiple Selection Algorithms
-```python
-# Try different algorithms
-for algorithm in ["maximin", "nash", "leximin"]:
-    settings = Settings(selection_algorithm=algorithm)
-    success, panels, msgs = run_stratification(features, people, 50, settings)
-    if success:
-        print(f"{algorithm}: {len(panels[0])} selected")
-```
-
-### Export Results
-```python
-from sortition_algorithms import selected_remaining_tables
-import csv
-
-selected_table, remaining_table, _ = selected_remaining_tables(
-    people, panels[0], features, settings
-)
-
-with open("results.csv", "w", newline="") as f:
-    csv.writer(f).writerows(selected_table)
 ```
