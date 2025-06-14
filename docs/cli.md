@@ -1,10 +1,47 @@
 # Command Line Interface
 
-If you install `sortition_algorithms[cli]` you will be able to the CLI (command line interface):
+The CLI provides a convenient way to run sortition algorithms without writing Python code. It's ideal for:
 
-```sh
-$ sortition --help
-Usage: sortition [OPTIONS] COMMAND [ARGS]...
+- **One-off selections**: Quick panel selections for events or research
+- **Batch processing**: Running multiple selections with scripts
+- **Non-programmers**: Teams who prefer command-line tools
+- **Integration**: Incorporating sortition into existing workflows
+
+## Installation
+
+Install the CLI with optional dependencies:
+
+```bash
+# Basic installation
+pip install 'sortition-algorithms[cli]'
+
+# With Gurobi support for leximin algorithm
+pip install 'sortition-algorithms[cli,gurobi]'
+```
+
+## Quick Start
+
+```bash
+# Check installation
+python -m sortition_algorithms --help
+
+# Basic CSV selection
+python -m sortition_algorithms csv \
+  --settings config.toml \
+  --features-csv demographics.csv \
+  --people-csv candidates.csv \
+  --selected-csv selected.csv \
+  --remaining-csv remaining.csv \
+  --number-wanted 100
+```
+
+## Commands Overview
+
+The CLI provides three main commands:
+
+```bash
+$ python -m sortition_algorithms --help
+Usage: python -m sortition_algorithms [OPTIONS] COMMAND [ARGS]...
 
   A command line tool to exercise the sortition algorithms.
 
@@ -12,127 +49,434 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  csv         Do sortition with CSV files.
-  gen-sample  Generate a sample CSV file of people compatible with...
-  gsheet      Do sortition with Google Spreadsheets.
+  csv         Do sortition with CSV files
+  gen-sample  Generate sample CSV file compatible with features
+  gsheet      Do sortition with Google Spreadsheets
 ```
 
-This allows you to select a sample using the algorithms using data in CSV files or Google Spreadsheet.
-It can also create a sample file based on a feature file.
+## CSV Workflow
 
-## CSV Usage
+The most common usage pattern for working with local CSV files.
 
-Help text:
+### Command Reference
 
-```sh
-$ sortition csv --help
-Usage: sortition csv [OPTIONS]
+```bash
+$ python -m sortition_algorithms csv --help
+Usage: python -m sortition_algorithms csv [OPTIONS]
 
   Do sortition with CSV files.
 
 Options:
-  -S, --settings FILE             Settings for the sortition run. Will auto-
-                                  create if not present.  [required]
-  -f, --features-csv FILE         Path to CSV with features defined.
-                                  [required]
-  -p, --people-csv FILE           Path to CSV with people defined.  [required]
-  -s, --selected-csv FILE         Path to CSV file to write selected people
-                                  to.  [required]
-  -r, --remaining-csv FILE        Path to CSV file to write remaining people
-                                  to.  [required]
-  -n, --number-wanted INTEGER RANGE
-                                  Number of people to select.  [x>=1;
-                                  required]
+  -S, --settings FILE             Settings file (TOML format) [required]
+  -f, --features-csv FILE         CSV with demographic features [required]
+  -p, --people-csv FILE           CSV with candidate pool [required]
+  -s, --selected-csv FILE         Output: selected people [required]
+  -r, --remaining-csv FILE        Output: remaining people [required]
+  -n, --number-wanted INTEGER     Number of people to select [required]
   --help                          Show this message and exit.
 ```
 
-Example:
+### Example Files
 
-```sh
-$ sortition csv \
-  --number-wanted 22 \
-  --settings path/to/sf_stratification_settings.toml \
-  --features-csv tests/fixtures/features.csv \
-  --people-csv tests/fixtures/candidates.csv \
-  --selected-csv selected.csv \
-  --remaining-csv remaining.csv
+**demographics.csv** (feature definitions):
+```csv
+feature,value,min,max
+Gender,Male,45,55
+Gender,Female,45,55
+Age,18-30,20,30
+Age,31-50,35,45
+Age,51+,25,35
+Location,Urban,40,60
+Location,Rural,40,60
 ```
 
-In the above example, the first 3 files must exist and will be read from. The last 2 will be written to.
+**candidates.csv** (candidate pool):
+```csv
+id,Name,Email,Gender,Age,Location,Address,Postcode
+p001,Alice Smith,alice@email.com,Female,18-30,Urban,123 Main St,12345
+p002,Bob Jones,bob@email.com,Male,31-50,Rural,456 Oak Ave,67890
+p003,Carol Davis,carol@email.com,Female,51+,Urban,789 Pine Rd,12345
+...
+```
 
-## Google Spreadsheets Usage
+**config.toml** (settings):
+```toml
+# Reproducible results
+random_number_seed = 42
 
-Help text:
+# Household diversity
+check_same_address = true
+check_same_address_columns = ["Address", "Postcode"]
 
-```sh
-$ sortition gsheet --help
-Usage: sortition gsheet [OPTIONS]
+# Algorithm choice
+selection_algorithm = "maximin"
+max_attempts = 10
+
+# Output customization
+columns_to_keep = ["Name", "Email", "Phone"]
+id_column = "id"
+```
+
+### Basic Selection
+
+```bash
+python -m sortition_algorithms csv \
+  --settings config.toml \
+  --features-csv demographics.csv \
+  --people-csv candidates.csv \
+  --selected-csv selected.csv \
+  --remaining-csv remaining.csv \
+  --number-wanted 100
+```
+
+### Using Environment Variables
+
+Set commonly used paths as environment variables:
+
+```bash
+export SORTITION_SETTINGS="config.toml"
+export SORTITION_FEATURES="demographics.csv"
+export SORTITION_PEOPLE="candidates.csv"
+
+python -m sortition_algorithms csv \
+  -s selected.csv \
+  -r remaining.csv \
+  -n 100
+```
+
+### Batch Processing
+
+Create a script for multiple selections:
+
+```bash
+#!/bin/bash
+# batch_selection.sh
+
+SETTINGS="config.toml"
+FEATURES="demographics.csv"
+PEOPLE="candidates.csv"
+SIZES=(50 75 100 125 150)
+
+for size in "${SIZES[@]}"; do
+    echo "Selecting $size people..."
+    python -m sortition_algorithms csv \
+        --settings "$SETTINGS" \
+        --features-csv "$FEATURES" \
+        --people-csv "$PEOPLE" \
+        --selected-csv "selected_${size}.csv" \
+        --remaining-csv "remaining_${size}.csv" \
+        --number-wanted "$size"
+done
+```
+
+## Google Sheets Workflow
+
+For organizations using Google Sheets for data management.
+
+### Setup Requirements
+
+1. **Google Cloud Project**: Create a project in Google Cloud Console
+2. **Enable APIs**: Enable Google Sheets API and Google Drive API
+3. **Service Account**: Create service account credentials
+4. **Share Sheet**: Share your spreadsheet with the service account email
+
+### Command Reference
+
+```bash
+$ python -m sortition_algorithms gsheet --help
+Usage: python -m sortition_algorithms gsheet [OPTIONS]
 
   Do sortition with Google Spreadsheets.
 
 Options:
-  -S, --settings FILE             Settings for the sortition run. Will auto-
-                                  create if not present.  [required]
-  --auth-json-file FILE           Path to file with OAuth2 details to access
-                                  google account.  [required]
-  --gen-rem-tab / --no-gen-rem-tab
-                                  Generate a 'Remaining' tab.
-  -g, --gsheet-name TEXT          Name of GDoc Spreadsheet to use.  [required]
-  -f, --feature-tab-name TEXT     Name of tab containing features/categories.
-                                  [required]
-  -p, --people-tab-name TEXT      Name of tab containing people/respondents.
-                                  [required]
-  -s, --selected-tab-name TEXT    Name of tab to write selected people to.
-                                  [required]
-  -r, --remaining-tab-name TEXT   Name of tab to write remaining people to.
-  -n, --number-wanted INTEGER RANGE
-                                  Number of people to select.  [x>=1;
-                                  required]
+  -S, --settings FILE             Settings file (TOML format) [required]
+  --auth-json-file FILE           Google API credentials JSON [required]
+  --gen-rem-tab / --no-gen-rem-tab Generate 'Remaining' tab [default: true]
+  -g, --gsheet-name TEXT          Spreadsheet name [required]
+  -f, --feature-tab-name TEXT     Features tab name [default: Categories]
+  -p, --people-tab-name TEXT      People tab name [default: Categories]
+  -s, --selected-tab-name TEXT    Selected output tab [default: Selected]
+  -r, --remaining-tab-name TEXT   Remaining output tab [default: Remaining]
+  -n, --number-wanted INTEGER     Number of people to select [required]
   --help                          Show this message and exit.
 ```
 
-Example:
+### Authentication Setup
 
-```sh
-$ sortition gsheet \
-  --number-wanted 52 \
-  --auth-json-file path/to/secret_do_not_commit.json \
-  --settings path/to/sf_stratification_settings.toml \
-  --gsheet-name "Google Spreadsheet Name" \
-  --feature-tab-name "Features" \
-  --people-tab-name "Respondents" \
-  --selected-tab-name "Original Selected" \
-  --remaining-tab-name "Remaining - 1"
+1. Download service account credentials JSON file
+2. **Never commit this file to version control**
+3. Store securely and reference by path
+
+### Example Usage
+
+```bash
+python -m sortition_algorithms gsheet \
+  --settings config.toml \
+  --auth-json-file /secure/path/credentials.json \
+  --gsheet-name "Citizen Panel 2024" \
+  --feature-tab-name "Demographics" \
+  --people-tab-name "Candidates" \
+  --selected-tab-name "Selected Panel" \
+  --remaining-tab-name "Reserve Pool" \
+  --number-wanted 120
 ```
 
-## Generating a sample file
+### Spreadsheet Structure
 
-Help text:
+Your Google Sheet should have tabs structured like this:
 
-```sh
-$ sortition gen-sample --help
-Usage: sortition gen-sample [OPTIONS]
+**Demographics tab**:
+| feature | value | min | max |
+|---------|-------|-----|-----|
+| Gender  | Male  | 45  | 55  |
+| Gender  | Female| 45  | 55  |
+| Age     | 18-30 | 20  | 30  |
 
-  Generate a sample CSV file of people compatible with features and settings.
+**Candidates tab**:
+| id | Name | Email | Gender | Age | Location |
+|----|------|-------|--------|-----|----------|
+| p001 | Alice | alice@email.com | Female | 18-30 | Urban |
+| p002 | Bob | bob@email.com | Male | 31-50 | Rural |
+
+## Sample Generation
+
+Generate test data compatible with your feature definitions.
+
+### Command Reference
+
+```bash
+$ python -m sortition_algorithms gen-sample --help
+Usage: python -m sortition_algorithms gen-sample [OPTIONS]
+
+  Generate sample CSV file compatible with features and settings.
 
 Options:
-  -S, --settings FILE             Settings for the sortition run. Will auto-
-                                  create if not present.  [required]
-  -f, --features-csv FILE         Path to CSV with features defined.
-                                  [required]
-  -p, --people-csv FILE           Path to CSV to write sample people to.
-                                  [required]
-  -n, --number-wanted INTEGER RANGE
-                                  Number of people to write.  [x>=1; required]
+  -S, --settings FILE             Settings file [required]
+  -f, --features-csv FILE         Features CSV file [required]
+  -p, --people-csv FILE           Output: generated people CSV [required]
+  -n, --number-wanted INTEGER     Number of people to generate [required]
   --help                          Show this message and exit.
 ```
 
-Example:
+### Example Usage
 
-```sh
-uv run sortition gen-sample \
-  --number-wanted 90 \
-  --settings path/to/sf_stratification_settings.toml \
-  --features-csv tests/fixtures/features.csv \
-  --people-csv sample.csv
+```bash
+# Generate 500 sample people
+python -m sortition_algorithms gen-sample \
+  --settings config.toml \
+  --features-csv demographics.csv \
+  --people-csv sample_candidates.csv \
+  --number-wanted 500
 ```
+
+This creates a CSV with realistic synthetic data that matches your feature definitions - useful for testing quotas and algorithms.
+
+## Configuration Files
+
+### Settings File Format
+
+All settings are optional and have sensible defaults:
+
+```toml
+# config.toml
+
+# Randomization
+random_number_seed = 42  # Set for reproducible results, omit for random
+
+# Address checking for household diversity
+check_same_address = true
+check_same_address_columns = ["Address", "Postcode", "City"]
+
+# Algorithm selection
+selection_algorithm = "maximin"  # "maximin", "nash", "leximin", "legacy"
+max_attempts = 10
+
+# Output customization
+columns_to_keep = ["Name", "Email", "Phone", "Notes"]
+id_column = "id"  # Column name containing unique IDs
+```
+
+### Algorithm Comparison
+
+| Algorithm | Pros | Cons | Use Case |
+|-----------|------|------|----------|
+| `maximin` | Fair to minorities | May not optimize overall | Default choice |
+| `nash` | Balanced overall | Complex optimization | Large diverse pools |
+| `leximin` | Strongest fairness | Requires Gurobi license | Academic/research |
+| `legacy` | Backwards compatible | Less sophisticated | Historical consistency |
+
+## Common Workflows
+
+### Standard Selection Process
+
+```bash
+# 1. Prepare your data files
+# 2. Configure settings
+# 3. Run selection
+python -m sortition_algorithms csv \
+  --settings config.toml \
+  --features-csv demographics.csv \
+  --people-csv candidates.csv \
+  --selected-csv selected.csv \
+  --remaining-csv remaining.csv \
+  --number-wanted 100
+
+# 4. Review results
+head selected.csv
+wc -l remaining.csv
+```
+
+### With Address Checking
+
+Ensure household diversity by preventing multiple selections from the same address:
+
+```toml
+# config.toml
+check_same_address = true
+check_same_address_columns = ["Address", "Postcode"]
+```
+
+### Reproducible Selections
+
+For auditable results, use a fixed random seed:
+
+```toml
+# config.toml
+random_number_seed = 20241214  # Use today's date or similar
+```
+
+### Testing Quotas
+
+Use sample generation to test if your quotas are achievable:
+
+```bash
+# Generate large sample
+python -m sortition_algorithms gen-sample \
+  --settings config.toml \
+  --features-csv demographics.csv \
+  --people-csv test_pool.csv \
+  --number-wanted 1000
+
+# Test selection
+python -m sortition_algorithms csv \
+  --settings config.toml \
+  --features-csv demographics.csv \
+  --people-csv test_pool.csv \
+  --selected-csv test_selected.csv \
+  --remaining-csv test_remaining.csv \
+  --number-wanted 100
+```
+
+## Troubleshooting
+
+### Common Errors
+
+**"Selection failed"**
+- Check that quota minimums don't exceed panel size
+- Verify feature values match between files
+- Review constraint feasibility
+
+**"File not found"**
+- Use absolute paths or verify working directory
+- Check file permissions
+- Ensure files exist before running
+
+**"Invalid feature values"**
+- Verify exact string matching between demographics.csv and candidates.csv
+- Check for typos, case sensitivity, extra spaces
+- Review non-ASCII characters
+
+**"Authentication failed" (Google Sheets)**
+- Verify credentials.json is correct and accessible
+- Check that service account has access to the spreadsheet
+- Ensure APIs are enabled in Google Cloud Console
+
+### Debug Tips
+
+**Verbose output**: The CLI provides detailed messages about the selection process.
+
+**Test with smaller numbers**: If selection fails, try reducing `--number-wanted` to isolate the issue.
+
+**Check intermediate files**: Use `gen-sample` to create test data and verify your workflow.
+
+**Environment variables**: Set `SORTITION_SETTINGS` to avoid repeating file paths.
+
+### Getting Help
+
+```bash
+# General help
+python -m sortition_algorithms --help
+
+# Command-specific help
+python -m sortition_algorithms csv --help
+python -m sortition_algorithms gsheet --help
+python -m sortition_algorithms gen-sample --help
+```
+
+## Integration Examples
+
+### Shell Scripts
+
+```bash
+#!/bin/bash
+# run_selection.sh
+
+set -e  # Exit on error
+
+echo "Starting selection process..."
+
+python -m sortition_algorithms csv \
+  --settings "${SORTITION_SETTINGS}" \
+  --features-csv "${FEATURES_FILE}" \
+  --people-csv "${PEOPLE_FILE}" \
+  --selected-csv "selected_$(date +%Y%m%d).csv" \
+  --remaining-csv "remaining_$(date +%Y%m%d).csv" \
+  --number-wanted "${PANEL_SIZE}"
+
+echo "Selection completed successfully!"
+```
+
+### CI/CD Integration
+
+```yaml
+# .github/workflows/selection.yml
+name: Run Selection
+on:
+  workflow_dispatch:
+    inputs:
+      panel_size:
+        description: 'Number of people to select'
+        required: true
+        default: '100'
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install 'sortition-algorithms[cli]'
+      - run: |
+          python -m sortition_algorithms csv \
+            --settings config.toml \
+            --features-csv data/demographics.csv \
+            --people-csv data/candidates.csv \
+            --selected-csv selected.csv \
+            --remaining-csv remaining.csv \
+            --number-wanted ${{ github.event.inputs.panel_size }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: selection-results
+          path: |
+            selected.csv
+            remaining.csv
+```
+
+## Next Steps
+
+- **[Core Concepts](concepts.md)** - Understand the theory behind sortition
+- **[API Reference](api-reference.md)** - For programmatic usage
+- **[Data Adapters](adapters.md)** - Custom data sources and formats
+- **[Advanced Usage](advanced.md)** - Complex scenarios and optimization

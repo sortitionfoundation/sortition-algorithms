@@ -13,7 +13,42 @@ A package containing algorithms for sortition - democratic lotteries.
 
 ## About
 
-Random stratified selection software. The algorithms are described in [this paper (open access)](https://www.nature.com/articles/s41586-021-03788-6).
+This library implements algorithms for **sortition** - the random selection of representative citizen panels (also known as citizens' assemblies, juries, or deliberative panels). Unlike simple random sampling, these algorithms use **stratified selection** to ensure the chosen panel reflects the demographic composition of the broader population.
+
+### What is Sortition?
+
+Sortition creates representative groups by randomly selecting people while respecting demographic quotas. For example, if your population is 52% women and 48% men, sortition ensures your panel maintains similar proportions rather than risking an all-male or all-female selection through pure chance.
+
+### Key Features
+
+- **Stratified Random Selection**: Respects demographic quotas while maintaining randomness
+- **Household Diversity**: Optional address checking to ensure geographic and household spread
+- **Multiple Algorithms**: Choose from maximin, leximin, nash, or legacy selection methods
+- **Flexible Data Sources**: Works with CSV files, Google Sheets, or direct Python data structures
+- **Transparency**: Detailed reporting of selection process and quota fulfillment
+
+### Quick Example
+
+```python
+from sortition_algorithms import run_stratification, read_in_features, read_in_people, Settings
+
+# Load your data
+features = read_in_features("demographics.csv")  # Age, Gender, Location quotas
+people = read_in_people("candidates.csv", Settings(), features)
+
+# Select a representative panel of 100 people
+success, selected_panels, messages = run_stratification(
+    features, people, number_people_wanted=100, settings=Settings()
+)
+
+if success:
+    panel = selected_panels[0]  # Set of selected person IDs
+    print(f"Selected {len(panel)} people for the panel")
+```
+
+### Research Background
+
+The algorithms are described in [this paper (open access)](https://www.nature.com/articles/s41586-021-03788-6).
 
 Other relevant papers:
 
@@ -45,8 +80,35 @@ pip install 'sortition-algorithms[cli]'
 
 ## The Command Line Interface
 
-There is a basic command line interface as part of this package. As much as anything it is to show
-you example code that will exercise the library. See the docs for more details.
+The library includes a CLI for common operations:
+
+```bash
+# CSV workflow
+python -m sortition_algorithms csv \
+  --settings config.toml \
+  --features-csv demographics.csv \
+  --people-csv candidates.csv \
+  --selected-csv selected.csv \
+  --remaining-csv remaining.csv \
+  --number-wanted 100
+
+# Google Sheets workflow
+python -m sortition_algorithms gsheet \
+  --settings config.toml \
+  --auth-json-file credentials.json \
+  --gsheet-name "Citizen Panel Selection" \
+  --number-wanted 100
+```
+
+## Documentation
+
+For detailed usage instructions, API reference, and advanced examples:
+
+- **[Quick Start Guide](https://sortitionfoundation.github.io/sortition-algorithms/quickstart/)** - Get up and running quickly
+- **[Core Concepts](https://sortitionfoundation.github.io/sortition-algorithms/concepts/)** - Understand sortition and stratified selection
+- **[API Reference](https://sortitionfoundation.github.io/sortition-algorithms/api-reference/)** - Complete function documentation
+- **[CLI Usage](https://sortitionfoundation.github.io/sortition-algorithms/cli/)** - Command line interface examples
+- **[Data Adapters](https://sortitionfoundation.github.io/sortition-algorithms/adapters/)** - Working with CSV, Google Sheets, and custom data sources
 
 ## Starting Development
 
