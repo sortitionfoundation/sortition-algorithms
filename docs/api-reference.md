@@ -213,7 +213,7 @@ class Settings:
 
 **Parameters:**
 
-- `random_number_seed`: Fixed seed for reproducible results (None = random)
+- `random_number_seed`: Fixed seed for reproducible results (None or 0 = random)
 - `check_same_address`: Enable household diversity checking
 - `check_same_address_columns`: Columns that define an address
 - `selection_algorithm`: "maximin", "leximin", "nash", or "legacy"
@@ -238,7 +238,8 @@ Load settings from a TOML file.
 **Example settings.toml:**
 
 ```toml
-random_number_seed = 42
+id_column = "my_id"
+random_number_seed = 0
 check_same_address = true
 check_same_address_columns = ["Address", "Postcode"]
 selection_algorithm = "maximin"

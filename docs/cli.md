@@ -3,6 +3,7 @@
 The CLI provides a convenient way to run sortition algorithms without writing Python code. It's ideal for:
 
 - **One-off selections**: Quick panel selections for events or research
+- **Sample code**: The code in the command line functions can be the basis for writing your own implementation.
 - **Batch processing**: Running multiple selections with scripts
 - **Non-programmers**: Teams who prefer command-line tools
 - **Integration**: Incorporating sortition into existing workflows
@@ -104,8 +105,8 @@ p003,Carol Davis,carol@email.com,Female,51+,Urban,789 Pine Rd,12345
 **config.toml** (settings):
 
 ```toml
-# Reproducible results
-random_number_seed = 42
+# Set to zero for secure random results
+random_number_seed = 0
 
 # Household diversity
 check_same_address = true
@@ -138,10 +139,10 @@ Set commonly used paths as environment variables:
 
 ```bash
 export SORTITION_SETTINGS="config.toml"
-export SORTITION_FEATURES="demographics.csv"
-export SORTITION_PEOPLE="candidates.csv"
 
 python -m sortition_algorithms csv \
+  --features-csv demographics.csv \
+  --people-csv candidates.csv \
   -s selected.csv \
   -r remaining.csv \
   -n 100
@@ -158,22 +159,20 @@ Create a script for multiple selections:
 SETTINGS="config.toml"
 FEATURES="demographics.csv"
 PEOPLE="candidates.csv"
-SIZES=(50 75 100 125 150)
+AREAS=(north south east west)
+SIZE=50
 
-for size in "${SIZES[@]}"; do
+for area in "${AREAS[@]}"; do
     echo "Selecting $size people..."
     python -m sortition_algorithms csv \
         --settings "$SETTINGS" \
         --features-csv "$FEATURES" \
-        --people-csv "$PEOPLE" \
-        --selected-csv "selected_${size}.csv" \
-        --remaining-csv "remaining_${size}.csv" \
-        --number-wanted "$size"
+        --people-csv "candidates_${area}.csv" \
+        --selected-csv "selected_${area}.csv" \
+        --remaining-csv "remaining_${area}.csv" \
+        --number-wanted "$SIZE"
 done
 ```
-
-Note that to actually do selections with multiple sizes, you'd also need to be
-adjusting the min and max values in the quotas at the same time.
 
 ## Google Sheets Workflow
 
@@ -233,18 +232,18 @@ Your Google Sheet should have tabs structured like this:
 
 **Demographics tab**:
 
-| feature | value | min | max |
-|---------|-------|-----|-----|
-| Gender | Male | 45 | 55 |
-| Gender | Female| 45 | 55 |
-| Age | 18-30 | 20 | 30 |
+| feature | value  | min | max |
+| ------- | ------ | --- | --- |
+| Gender  | Male   | 45  | 55  |
+| Gender  | Female | 45  | 55  |
+| Age     | 18-30  | 20  | 30  |
 
 **Candidates tab**:
 
-| id | Name | Email | Gender | Age | Location |
-|----|------|-------|--------|-----|----------|
-| p001 | Alice | <alice@email.com> | Female | 18-30 | Urban |
-| p002 | Bob | <bob@email.com> | Male | 31-50 | Rural |
+| id   | Name  | Email             | Gender | Age   | Location |
+| ---- | ----- | ----------------- | ------ | ----- | -------- |
+| p001 | Alice | <alice@email.com> | Female | 18-30 | Urban    |
+| p002 | Bob   | <bob@email.com>   | Male   | 31-50 | Rural    |
 
 ## Sample Generation
 
@@ -289,7 +288,7 @@ All settings are optional and have sensible defaults:
 # config.toml
 
 # Randomization
-random_number_seed = 42  # Set for reproducible results, omit for random
+random_number_seed = 0  # Set non-zero for reproducible results, omit for random
 
 # Address checking for household diversity
 check_same_address = true
@@ -381,15 +380,15 @@ python -m sortition_algorithms csv \
 
 **"Selection failed"**
 
-- Check that quota minimums don't exceed panel size
-- Verify feature values match between files
-- Review constraint feasibility
+- Check that the sum of quota minimums for any given features don't exceed panel size (or that maximums are smaller than the panel size).
+- Verify feature values match between files.
+- Review constraint feasibility.
 
 **"File not found"**
 
-- Use absolute paths or verify working directory
-- Check file permissions
-- Ensure files exist before running
+- Use absolute paths or verify working directory.
+- Check file permissions.
+- Ensure files exist before running.
 
 **"Invalid feature values"**
 
@@ -399,92 +398,9 @@ python -m sortition_algorithms csv \
 
 **"Authentication failed" (Google Sheets)**
 
-- Verify credentials.json is correct and accessible
+- Verify `credentials.json` is correct and accessible
 - Check that service account has access to the spreadsheet
 - Ensure APIs are enabled in Google Cloud Console
-
-### Debug Tips
-
-**Verbose output**: The CLI provides detailed messages about the selection process.
-
-**Test with smaller numbers**: If selection fails, try reducing `--number-wanted` to isolate the issue.
-
-**Check intermediate files**: Use `gen-sample` to create test data and verify your workflow.
-
-**Environment variables**: Set `SORTITION_SETTINGS` to avoid repeating file paths.
-
-### Getting Help
-
-```bash
-# General help
-python -m sortition_algorithms --help
-
-# Command-specific help
-python -m sortition_algorithms csv --help
-python -m sortition_algorithms gsheet --help
-python -m sortition_algorithms gen-sample --help
-```
-
-## Integration Examples
-
-### Shell Scripts
-
-```bash
-#!/bin/bash
-# run_selection.sh
-
-set -e  # Exit on error
-
-echo "Starting selection process..."
-
-python -m sortition_algorithms csv \
-  --settings "${SORTITION_SETTINGS}" \
-  --features-csv "${FEATURES_FILE}" \
-  --people-csv "${PEOPLE_FILE}" \
-  --selected-csv "selected_$(date +%Y%m%d).csv" \
-  --remaining-csv "remaining_$(date +%Y%m%d).csv" \
-  --number-wanted "${PANEL_SIZE}"
-
-echo "Selection completed successfully!"
-```
-
-### CI/CD Integration
-
-```yaml
-# .github/workflows/selection.yml
-name: Run Selection
-on:
-  workflow_dispatch:
-    inputs:
-      panel_size:
-        description: "Number of people to select"
-        required: true
-        default: "100"
-
-jobs:
-  select:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-      - run: pip install 'sortition-algorithms[cli]'
-      - run: |
-          python -m sortition_algorithms csv \
-            --settings config.toml \
-            --features-csv data/demographics.csv \
-            --people-csv data/candidates.csv \
-            --selected-csv selected.csv \
-            --remaining-csv remaining.csv \
-            --number-wanted ${{ github.event.inputs.panel_size }}
-      - uses: actions/upload-artifact@v3
-        with:
-          name: selection-results
-          path: |
-            selected.csv
-            remaining.csv
-```
 
 ## Next Steps
 

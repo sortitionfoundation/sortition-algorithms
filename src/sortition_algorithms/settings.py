@@ -43,6 +43,7 @@ columns_to_keep = [
 ]
 
 # selection_algorithm can either be "legacy", "maximin", "leximin", or "nash"
+# see https://sortitionfoundation.github.io/sortition-algorithms/concepts/#selection-algorithms
 selection_algorithm = "maximin"
 
 # random number seed - if this is NOT zero then it is used to set the random number generator seed

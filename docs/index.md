@@ -123,6 +123,8 @@ python -m sortition_algorithms csv \
 | **Leximin** | Academic research               | Strongest fairness guarantees   | Gurobi license |
 | **Legacy**  | Historical compatibility        | Backwards compatible            | None           |
 
+Read [more about the algorithms](concepts.md#selection-algorithms).
+
 ## Real-World Applications
 
 ### Government & Democracy

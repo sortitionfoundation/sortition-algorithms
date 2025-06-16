@@ -108,27 +108,70 @@ Different algorithms optimize for different fairness criteria:
 
 ### Maximin (Default)
 
-- **Goal**: Maximize the minimum selection probability
-- **Good for**: Ensuring no group is severely underrepresented
-- **Trade-off**: May not optimize overall fairness
+**Objective**: Maximize the minimum selection probability across all groups.
+
+**When to use**:
+
+- Default choice for most applications
+- Ensures no group is severely underrepresented
+- Good for citizen assemblies and deliberative panels
+
+**Trade-offs**:
+
+- May not optimize overall fairness
+- Can be conservative in selection choices
+
+**Example scenario**: A panel where ensuring minimum representation for small minorities is crucial.
 
 ### Nash
 
-- **Goal**: Maximize the product of all selection probabilities
-- **Good for**: Balanced representation across all groups
-- **Trade-off**: Complex optimization, harder to interpret
+**Objective**: Maximize the product of all selection probabilities.
+
+**When to use**:
+
+- Large, diverse candidate pools
+- When you want balanced representation across all groups
+- Academic research requiring mathematical optimality
+
+**Trade-offs**:
+
+- More complex optimization
+- May be harder to explain to stakeholders
+
+**Example scenario**: Research study requiring theoretically optimal fairness across all demographic groups.
 
 ### Leximin
 
-- **Goal**: Lexicographic maximin (requires Gurobi license)
-- **Good for**: Strict fairness guarantees
-- **Trade-off**: Requires commercial solver
+**Objective**: Lexicographic maximin optimization (requires Gurobi license).
+
+**When to use**:
+
+- Academic research requiring strongest fairness guarantees
+- When you have access to Gurobi (commercial/academic license)
+- High-stakes selections where maximum fairness is essential
+
+**Trade-offs**:
+
+- Requires commercial solver (Gurobi)
+- More computationally intensive
+- May be overkill for routine selections
+
+**Example scenario**: Government-sponsored citizen assembly where mathematical proof of fairness is required.
 
 ### Legacy
 
-- **Goal**: Backwards compatibility with older implementations
-- **Good for**: Reproducing historical selections
-- **Trade-off**: Less sophisticated than modern algorithms
+**Objective**: Backwards compatibility with earlier implementations.
+
+**When to use**:
+
+- Reproducing historical selections
+- Comparison studies
+- Specific compatibility requirements
+
+**Trade-offs**:
+
+- Less sophisticated than modern algorithms
+- May not provide optimal fairness
 
 ## The Selection Process
 

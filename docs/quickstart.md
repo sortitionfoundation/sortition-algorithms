@@ -30,6 +30,7 @@ Before diving in, understand these key concepts:
 You'll need two CSV files:
 
 **demographics.csv** (features with quotas):
+
 ```csv
 feature,value,min,max
 Gender,Male,45,55
@@ -40,6 +41,7 @@ Age,51+,30,50
 ```
 
 **candidates.csv** (people to select from):
+
 ```csv
 id,Gender,Age,Location
 person1,Male,18-30,Urban
@@ -123,9 +125,13 @@ python -m sortition_algorithms csv \
 Customize behavior with a settings file:
 
 **settings.toml**:
+
 ```toml
+id_column = "my_id"
+
 # Random seed for reproducible results (optional)
-random_number_seed = 42
+# Set to zero to be properly random
+random_number_seed = 0
 
 # Ensure household diversity
 check_same_address = true
@@ -180,6 +186,8 @@ settings.selection_algorithm = "nash"
 # Leximin: Lexicographic maximin (requires Gurobi)
 settings.selection_algorithm = "leximin"
 ```
+
+Read [more about the algorithms](concepts.md#selection-algorithms).
 
 ## What's Next?
 

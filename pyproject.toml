@@ -3,7 +3,10 @@ name = "sortition-algorithms"
 version = "0.9.0"
 description = "A package containing algorithms for sortition - democratic lotteries."
 authors = [
-  { name = "Sortition Foundation", email = "hamish@sortitionfoundation.org" },
+  { name = "Hamish Downer (Sortition Foundation)", email = "hamish@sortitionfoundation.org" },
+  { name = "Brett Hennig (Sortition Foundation)", email = "brett@sortitionfoundation.org" },
+  { name = "Nick Gill (Sortition Foundation)", email = "nick@sortitionfoundation.org" },
+  { name = "Paul Gölz", email = "pgoelz@cs.cmu.edu" },
 ]
 readme = "README.md"
 keywords = ['python']
@@ -36,9 +39,7 @@ Documentation = "https://sortitionfoundation.github.io/sortition-algorithms/"
 
 [project.optional-dependencies]
 gurobi = ["gurobipy>=12.0.2"]
-cli = [
-    "click>=8.2.1",
-]
+cli = ["click>=8.2.1"]
 
 [dependency-groups]
 dev = [
