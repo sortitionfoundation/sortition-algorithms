@@ -173,6 +173,17 @@ Different algorithms optimize for different fairness criteria:
 - Less sophisticated than modern algorithms
 - May not provide optimal fairness
 
+### Research Background
+
+The algorithms are described in [this paper (open access)](https://www.nature.com/articles/s41586-021-03788-6).
+
+Other relevant papers:
+
+- Procaccia et al. [Is Sortition Both Representative and Fair?](https://procaccia.info/wp-content/uploads/2022/06/repfair.pdf)
+- Tiago c Peixoto
+  - [Reflections on the representativeness of citizens’ assemblies and similar innovations](https://democracyspot.net/2023/02/22/reflections-on-the-representativeness-of-citizens-assemblies-and-similar-innovations/) and
+  - [How representative is it really? A correspondence on sortition](https://www.publicdeliberation.net/how-representative-is-it-really-a-correspondence-on-sortition/)
+
 ## The Selection Process
 
 ### 1. Feasibility Checking

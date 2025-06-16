@@ -53,7 +53,6 @@ python -m sortition_algorithms csv \
 
 - **[Advanced Usage](advanced.md)** - Performance optimization, complex scenarios, and troubleshooting
 - **[Algorithm Deep Dive](advanced.md#algorithm-deep-dive)** - Understanding maximin, nash, and leximin algorithms
-- **[Integration Patterns](advanced.md#integration-patterns)** - Web apps, batch processing, and monitoring
 
 ## Key Features
 

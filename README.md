@@ -48,14 +48,7 @@ if success:
 
 ### Research Background
 
-The algorithms are described in [this paper (open access)](https://www.nature.com/articles/s41586-021-03788-6).
-
-Other relevant papers:
-
-- Procaccia et al. [Is Sortition Both Representative and Fair?](https://procaccia.info/wp-content/uploads/2022/06/repfair.pdf)
-- Tiago c Peixoto
-  - [Reflections on the representativeness of citizens’ assemblies and similar innovations](https://democracyspot.net/2023/02/22/reflections-on-the-representativeness-of-citizens-assemblies-and-similar-innovations/) and
-  - [How representative is it really? A correspondence on sortition](https://www.publicdeliberation.net/how-representative-is-it-really-a-correspondence-on-sortition/)
+The algorithms are described in [this paper (open access)](https://www.nature.com/articles/s41586-021-03788-6). Other relevant papers are linked to [from the docs](https://sortitionfoundation.github.io/sortition-algorithms/concepts/#research-background)
 
 ## Installing the library
 
@@ -90,13 +83,6 @@ python -m sortition_algorithms csv \
   --people-csv candidates.csv \
   --selected-csv selected.csv \
   --remaining-csv remaining.csv \
-  --number-wanted 100
-
-# Google Sheets workflow
-python -m sortition_algorithms gsheet \
-  --settings config.toml \
-  --auth-json-file credentials.json \
-  --gsheet-name "Citizen Panel Selection" \
   --number-wanted 100
 ```
 
@@ -143,8 +129,6 @@ just check
 
 The CI/CD pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
 
-To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
-For activating the automatic documentation with MkDocs, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/mkdocs/#enabling-the-documentation-on-github).
 To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/codecov/).
 
 ## Releasing a new version
