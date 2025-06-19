@@ -66,13 +66,23 @@ def check_columns_for_same_address(instance: "Settings", attribute: Any, value: 
 
 @define
 class Settings:
+    """
+    Settings to use when selecting committees. Note that only the first two are required.
+    A minimal example would be:
+
+    Settings(id_column="my_id", columns_to_keep=["name", "email"])
+    """
+
+    # required
     id_column: str = field(validator=validators.instance_of(str))
     columns_to_keep: list[str] = field()
-    check_same_address: bool = field(validator=validators.instance_of(bool))
-    check_same_address_columns: list[str] = field(validator=check_columns_for_same_address)
-    max_attempts: int = field(validator=validators.instance_of(int))
-    selection_algorithm: str = field()
-    random_number_seed: int = field(validator=validators.instance_of(int))
+
+    # fields with defaults
+    check_same_address: bool = field(validator=validators.instance_of(bool), default=False)
+    check_same_address_columns: list[str] = field(validator=check_columns_for_same_address, factory=list)
+    max_attempts: int = field(validator=validators.instance_of(int), default=100)
+    selection_algorithm: str = field(default="maximin")
+    random_number_seed: int = field(validator=validators.instance_of(int), default=0)
 
     @columns_to_keep.validator
     def check_columns_to_keep(self, attribute: Any, value: Any) -> None:

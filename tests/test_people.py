@@ -144,9 +144,6 @@ class TestHelperFunctions:
             columns_to_keep=["name", "email"],
             check_same_address=True,
             check_same_address_columns=["address1", "postcode"],
-            max_attempts=100,
-            selection_algorithm="legacy",
-            random_number_seed=0,
         )
 
         _ensure_settings_keep_address_columns(settings)
@@ -163,9 +160,6 @@ class TestHelperFunctions:
             columns_to_keep=["name", "address1", "email"],  # address1 already present
             check_same_address=True,
             check_same_address_columns=["address1", "postcode"],
-            max_attempts=100,
-            selection_algorithm="legacy",
-            random_number_seed=0,
         )
 
         _ensure_settings_keep_address_columns(settings)
@@ -189,11 +183,6 @@ class TestReadInPeople:
         settings = Settings(
             id_column="id",
             columns_to_keep=["name", "email"],
-            check_same_address=False,
-            check_same_address_columns=[],
-            max_attempts=100,
-            selection_algorithm="legacy",
-            random_number_seed=0,
         )
 
         people_head = ["id", "name", "email", "gender", "age"]

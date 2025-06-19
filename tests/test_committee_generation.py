@@ -81,9 +81,6 @@ def create_settings(
         columns_to_keep=(check_same_address_columns if check_same_address_columns else []),
         check_same_address=check_same_address,
         check_same_address_columns=check_same_address_columns,
-        max_attempts=100,
-        selection_algorithm="maximin",
-        random_number_seed=0,
     )
     return settings
 

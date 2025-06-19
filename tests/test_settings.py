@@ -41,11 +41,6 @@ class TestSettingsConstructor:
             settings.Settings(
                 id_column=123,  # t
                 columns_to_keep=[],
-                check_same_address=False,
-                check_same_address_columns=[],
-                max_attempts=3,
-                selection_algorithm="legacy",
-                random_number_seed=0,
             )
 
     def test_columns_to_keep_must_be_list(self):
@@ -65,10 +60,6 @@ class TestSettingsConstructor:
                 id_column="test",
                 columns_to_keep=[],
                 check_same_address="not_a_bool",  # t
-                check_same_address_columns=[],
-                max_attempts=3,
-                selection_algorithm="legacy",
-                random_number_seed=0,
             )
 
     def test_check_same_address_columns_must_be_list(self):
@@ -115,11 +106,7 @@ class TestSettingsConstructor:
             settings.Settings(
                 id_column="test",
                 columns_to_keep=[],
-                check_same_address=False,
-                check_same_address_columns=[],
                 max_attempts="not_an_int",  # t
-                selection_algorithm="legacy",
-                random_number_seed=0,
             )
 
     def test_random_number_seed_must_be_int(self):
@@ -128,10 +115,6 @@ class TestSettingsConstructor:
             settings.Settings(
                 id_column="test",
                 columns_to_keep=[],
-                check_same_address=False,
-                check_same_address_columns=[],
-                max_attempts=100,
-                selection_algorithm="legacy",
                 random_number_seed="not_an_int",  # t
             )
 

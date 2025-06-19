@@ -50,9 +50,7 @@ def get_settings(algorithm="legacy"):
         columns_to_keep=columns_to_keep,
         check_same_address=True,
         check_same_address_columns=["primary_address1", "primary_zip"],
-        max_attempts=100,
         selection_algorithm=algorithm,
-        random_number_seed=0,
     )
 
 
