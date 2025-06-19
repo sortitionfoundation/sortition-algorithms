@@ -71,7 +71,7 @@ def csv(
 ) -> None:
     """Do sortition with CSV files."""
     adapter = adapters.CSVAdapter()
-    settings_obj, msg = Settings.load_from_file(settings_file_path=Path(settings))
+    settings_obj, msg = Settings.load_from_file(Path(settings))
     echo_all([msg])
     features, msgs = adapter.load_features_from_file(Path(features_csv))
     echo_all(msgs)
@@ -162,7 +162,7 @@ def gsheet(
     """Do sortition with Google Spreadsheets."""
     gen_rem_tab_value = "on" if gen_rem_tab else "off"
     adapter = adapters.GSheetAdapter(Path(auth_json_file), gen_rem_tab_value)
-    settings_obj, msg = Settings.load_from_file(settings_file_path=Path(settings))
+    settings_obj, msg = Settings.load_from_file(Path(settings))
     echo_all([msg])
 
     features, msgs = adapter.load_features(gsheet_name, feature_tab_name)
@@ -221,7 +221,7 @@ def gsheet(
 def gen_sample(settings: str, features_csv: str, people_csv: str, number_wanted: int) -> None:
     """Generate a sample CSV file of people compatible with features and settings."""
     adapter = adapters.CSVAdapter()
-    settings_obj, msg = Settings.load_from_file(settings_file_path=Path(settings))
+    settings_obj, msg = Settings.load_from_file(Path(settings))
     echo_all([msg])
     features, msgs = adapter.load_features_from_file(Path(features_csv))
     echo_all(msgs)

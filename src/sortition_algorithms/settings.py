@@ -89,7 +89,6 @@ class Settings:
     @classmethod
     def load_from_file(
         cls,
-        *,
         settings_file_path: Path,
     ) -> tuple["Settings", str]:
         messages: list[str] = []

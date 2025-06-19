@@ -153,7 +153,7 @@ random_number_seed = 42
         settings_file_path = tmp_path / "settings.toml"
         settings_file_path.write_text(toml_content)
 
-        settings_obj, message = settings.Settings.load_from_file(settings_file_path=settings_file_path)
+        settings_obj, message = settings.Settings.load_from_file(settings_file_path)
 
         assert settings_obj.id_column == "test_id"
         assert settings_obj.check_same_address is True
@@ -170,7 +170,7 @@ random_number_seed = 42
 
         assert not settings_file_path.exists()
 
-        settings_obj, message = settings.Settings.load_from_file(settings_file_path=settings_file_path)
+        settings_obj, message = settings.Settings.load_from_file(settings_file_path)
 
         # Check that the file was created
         assert settings_file_path.exists()
@@ -199,7 +199,7 @@ random_number_seed = 0
         settings_file_path = tmp_path / "settings.toml"
         settings_file_path.write_text(toml_content)
 
-        settings_obj, message = settings.Settings.load_from_file(settings_file_path=settings_file_path)
+        settings_obj, message = settings.Settings.load_from_file(settings_file_path)
 
         assert settings_obj.check_same_address is False
         assert settings_obj.check_same_address_columns == []  # Should be reset to empty list
@@ -224,7 +224,7 @@ random_number_seed = 0
             ClassValidationError,
             match="While structuring Settings",
         ) as excinfo:
-            settings.Settings.load_from_file(settings_file_path=settings_file_path)
+            settings.Settings.load_from_file(settings_file_path)
         assert excinfo.group_contains(
             ValueError,
             match="check_same_address is TRUE but",
@@ -240,4 +240,4 @@ this is not valid TOML syntax [[[
         settings_file_path.write_text(malformed_toml)
 
         with pytest.raises(tomllib.TOMLDecodeError):
-            settings.Settings.load_from_file(settings_file_path=settings_file_path)
+            settings.Settings.load_from_file(settings_file_path)
