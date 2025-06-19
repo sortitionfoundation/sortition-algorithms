@@ -541,6 +541,32 @@ class TestFeatureCollectionMethods:
         assert counts1.max_flex == 7
         assert counts2.max_flex == 7
 
+    def test_feature_collection_get_counts(self):
+        """Test getting counts for a particular feature and value."""
+        features = FeatureCollection()
+        counts1 = FeatureValueCounts(min=1, max=3)
+        counts2 = FeatureValueCounts(min=2, max=4)
+        features.add_feature("gender", "male", counts1)
+        features.add_feature("gender", "female", counts2)
+
+        counts = features.get_counts("gender", "male")
+
+        assert counts == counts1
+
+    def test_feature_collection_get_counts_no_match(self):
+        """Test setting default max_flex values."""
+        features = FeatureCollection()
+        counts1 = FeatureValueCounts(min=1, max=3)
+        counts2 = FeatureValueCounts(min=2, max=4)
+        features.add_feature("gender", "male", counts1)
+        features.add_feature("gender", "female", counts2)
+
+        with pytest.raises(KeyError):
+            features.get_counts("age", "male")
+
+        with pytest.raises(KeyError):
+            features.get_counts("gender", "non-binary-other")
+
 
 class TestFeatureValueCounts:
     """Test the FeatureValueCounts class directly."""

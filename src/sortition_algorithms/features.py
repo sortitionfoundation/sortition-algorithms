@@ -121,6 +121,9 @@ class FeatureValues:
         """
         return sum(c.max for c in self.feature_values.values())
 
+    def get_counts(self, value_name: str) -> FeatureValueCounts:
+        return self.feature_values[value_name]
+
 
 class FeatureCollection:
     """
@@ -158,6 +161,9 @@ class FeatureCollection:
         for feature_name, feature_values in self.collection.items():
             for value, value_counts in feature_values.values_counts():
                 yield feature_name, value, value_counts
+
+    def get_counts(self, feature_name: str, value_name: str) -> FeatureValueCounts:
+        return self.collection[feature_name].get_counts(value_name)
 
     def _safe_max_flex_val(self) -> int:
         if not self.collection:
