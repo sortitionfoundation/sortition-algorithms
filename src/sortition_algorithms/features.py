@@ -157,6 +157,11 @@ class FeatureCollection:
         for feature_name, feature_value in self.collection.items():
             yield feature_name, feature_value.values
 
+    def feature_value_pairs(self) -> Iterator[tuple[str, str]]:
+        for feature_name, feature_value in self.collection.items():
+            for value_name in feature_value.values:
+                yield feature_name, value_name
+
     def feature_values_counts(self) -> Iterator[tuple[str, str, FeatureValueCounts]]:
         for feature_name, feature_values in self.collection.items():
             for value, value_counts in feature_values.values_counts():

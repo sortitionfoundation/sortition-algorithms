@@ -567,6 +567,24 @@ class TestFeatureCollectionMethods:
         with pytest.raises(KeyError):
             features.get_counts("gender", "non-binary-other")
 
+    def test_feature_value_pairs_iterates_through_all(self):
+        features = FeatureCollection()
+        counts = FeatureValueCounts(min=1, max=3)
+        features.add_feature("gender", "male", counts)
+        features.add_feature("gender", "female", counts)
+        features.add_feature("age", "young", counts)
+        features.add_feature("age", "middle-aged", counts)
+        features.add_feature("age", "old", counts)
+
+        feature_values = sorted(features.feature_value_pairs())
+        assert feature_values == [
+            ("age", "middle-aged"),
+            ("age", "old"),
+            ("age", "young"),
+            ("gender", "female"),
+            ("gender", "male"),
+        ]
+
 
 class TestFeatureValueCounts:
     """Test the FeatureValueCounts class directly."""
