@@ -33,13 +33,12 @@ def _reduction_weight(features: FeatureCollection, feature_name: str, value_name
     increasing a quota by 1. This bonus tapers off quickly, reducing from 10 is only
     1.2 times as salient as an increase."""
     # Find the current min quota for this feature-value
-    for fname, vname, vcounts in features.feature_values_counts():
-        if fname == feature_name and vname == value_name:
-            old_quota = vcounts.min
-            if old_quota == 0:
-                return 0  # cannot be relaxed anyway
-            return 1 + 2 / old_quota
-    return 1  # fallback
+    # we assume we are only getting value feature/value names as this is called
+    # while iterating through a loop
+    old_quota = features.get_counts(feature_name, value_name).min
+    if old_quota == 0:
+        return 0  # cannot be relaxed anyway
+    return 1 + 2 / old_quota
 
 
 def _create_relaxation_variables_and_bounds(
@@ -55,12 +54,9 @@ def _create_relaxation_variables_and_bounds(
     Returns:
         tuple of (min_vars, max_vars) - dictionaries mapping feature-value pairs to relaxation variables
     """
-    # Get all feature-value pairs
-    feature_values = [(feature_name, value_name) for feature_name, value_name, _ in features.feature_values_counts()]
-
     # Create relaxation variables for each feature-value pair
-    min_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in feature_values}
-    max_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in feature_values}
+    min_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in features.feature_value_pairs()}
+    max_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in features.feature_value_pairs()}
 
     # Add constraints ensuring relaxations stay within min_flex/max_flex bounds
     for feature_name, value_name, value_counts in features.feature_values_counts():
@@ -237,9 +233,6 @@ def _relax_infeasible_quotas(
     # Create relaxation variables and bounds constraints
     min_vars, max_vars = _create_relaxation_variables_and_bounds(model, features)
 
-    # Get feature-value pairs for objective function
-    feature_values = [(feature_name, value_name) for feature_name, value_name, _ in features.feature_values_counts()]
-
     # For each inclusion set, create constraints to ensure a valid committee exists
     for inclusion_set in ensure_inclusion:
         _add_committee_constraints_for_inclusion_set(
@@ -255,8 +248,8 @@ def _relax_infeasible_quotas(
 
     # Objective: minimize weighted sum of relaxations
     model.objective = mip.xsum(
-        [_reduction_weight(features, *fv) * min_vars[fv] for fv in feature_values]
-        + [max_vars[fv] for fv in feature_values]
+        [_reduction_weight(features, *fv) * min_vars[fv] for fv in features.feature_value_pairs()]
+        + [max_vars[fv] for fv in features.feature_value_pairs()]
     )
 
     # Solve the model and handle errors

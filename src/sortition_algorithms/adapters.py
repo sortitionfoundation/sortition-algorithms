@@ -276,8 +276,6 @@ class GSheetAdapter:
             tab_remaining.update(people_remaining_rows)
             tab_remaining.format("A1:U1", self.hl_light_blue)
             # highlight any people in remaining tab at the same address
-            # TODO: do we ever actually hit this code? We should have deleted
-            # all the people who might have been duplicates in selected_remaining_tables()
             if settings.check_same_address:
                 address_cols: list[int] = [tab_remaining.find(csa).col for csa in settings.check_same_address_columns]  # type: ignore[union-attr]
                 dupes_set: set[int] = set()
