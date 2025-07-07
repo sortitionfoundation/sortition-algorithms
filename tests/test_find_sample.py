@@ -107,7 +107,6 @@ class TestFindRandomSampleLegacy:
             people,
             features,
             2,
-            check_same_address=True,
             check_same_address_columns=["address1", "address2"],
         )
 
@@ -138,8 +137,7 @@ class TestFindRandomSampleLegacy:
             people,
             features,
             2,
-            check_same_address=False,
-            check_same_address_columns=["address1", "address2"],
+            check_same_address_columns=[],
         )
 
         selected_people = committees[0]

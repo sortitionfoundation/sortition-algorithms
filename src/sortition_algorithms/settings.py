@@ -96,6 +96,15 @@ class Settings:
         if value not in SELECTION_ALGORITHMS:
             raise ValueError(f"selection_algorithm {value} is not one of: {', '.join(SELECTION_ALGORITHMS)}")
 
+    @property
+    def normalised_address_columns(self) -> list[str]:
+        """
+        Returns an empty list if address columns should not be checked (or if the columns
+        specified was an empty list). Otherwise return the columns. That way other code can
+        just check if the columns are empty rather than checking the bool separately.
+        """
+        return self.check_same_address_columns if self.check_same_address else []
+
     @classmethod
     def load_from_file(
         cls,

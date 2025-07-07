@@ -19,7 +19,6 @@ from sortition_algorithms.committee_generation.common import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import print_ret
 
 
@@ -265,7 +264,7 @@ def find_distribution_leximin(
     features: FeatureCollection,
     people: People,
     number_people_wanted: int,
-    settings: Settings,
+    check_same_address_columns: list[str],
 ) -> tuple[list[frozenset[str]], list[float], list[str]]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected
     (just like maximin), but breaks ties to maximize the second-lowest probability, breaks further ties to maximize the
@@ -275,7 +274,8 @@ def find_distribution_leximin(
         features: FeatureCollection with min/max quotas
         people: People object with pool members
         number_people_wanted: desired size of the panel
-        settings: Settings object containing configuration
+        check_same_address_columns: Address columns for household identification, or empty
+                                    if no address checking to be done.
 
     Returns:
         tuple of (committees, probabilities, output_lines)
@@ -294,7 +294,9 @@ def find_distribution_leximin(
     grb.setParam("OutputFlag", 0)
 
     # Set up an ILP that can be used for discovering new feasible committees
-    new_committee_model, agent_vars = setup_committee_generation(features, people, number_people_wanted, settings)
+    new_committee_model, agent_vars = setup_committee_generation(
+        features, people, number_people_wanted, check_same_address_columns
+    )
 
     # Find initial committees that cover every possible agent
     committees, covered_agents, initial_output = generate_initial_committees(

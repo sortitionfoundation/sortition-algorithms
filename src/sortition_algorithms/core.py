@@ -241,7 +241,7 @@ def find_random_sample(
     features: FeatureCollection,
     people: People,
     number_people_wanted: int,
-    settings: Settings,
+    check_same_address_columns: list[str],
     selection_algorithm: str = "maximin",
     test_selection: bool = False,
     number_selections: int = 1,
@@ -252,7 +252,7 @@ def find_random_sample(
         features: FeatureCollection with min/max quotas
         people: People object with pool members
         number_people_wanted: desired size of the panel
-        settings: Settings object containing configuration
+        check_same_address_columns: columns for the address to check, or empty list if no check required
         selection_algorithm: one of "legacy", "maximin", "leximin", or "nash"
         test_selection: if set, do not do a random selection, but just return some valid panel.
             Useful for quickly testing whether quotas are satisfiable, but should always be false for actual selection!
@@ -290,7 +290,7 @@ def find_random_sample(
     # Quick test selection using find_any_committee
     if test_selection:
         print("Running test selection.")
-        return find_any_committee(features, people, number_people_wanted, settings)
+        return find_any_committee(features, people, number_people_wanted, check_same_address_columns)
 
     output_lines = []
 
@@ -311,20 +311,19 @@ def find_random_sample(
             people,
             features,
             number_people_wanted,
-            settings.check_same_address,
-            settings.check_same_address_columns,
+            check_same_address_columns,
         )
     elif selection_algorithm == "leximin":
         committees, probabilities, new_output_lines = find_distribution_leximin(
-            features, people, number_people_wanted, settings
+            features, people, number_people_wanted, check_same_address_columns
         )
     elif selection_algorithm == "maximin":
         committees, probabilities, new_output_lines = find_distribution_maximin(
-            features, people, number_people_wanted, settings
+            features, people, number_people_wanted, check_same_address_columns
         )
     elif selection_algorithm == "nash":
         committees, probabilities, new_output_lines = find_distribution_nash(
-            features, people, number_people_wanted, settings
+            features, people, number_people_wanted, check_same_address_columns
         )
     else:
         msg = (
@@ -548,7 +547,7 @@ def run_stratification(
                 features,
                 people,
                 number_people_wanted,
-                settings,
+                settings.normalised_address_columns,
                 settings.selection_algorithm,
                 test_selection,
                 number_selections,

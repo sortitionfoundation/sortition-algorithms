@@ -13,7 +13,6 @@ from sortition_algorithms.committee_generation import (
 )
 from sortition_algorithms.features import FeatureCollection, FeatureValueCounts
 from sortition_algorithms.people import People
-from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import StrippedDict
 
 
@@ -68,29 +67,12 @@ def convert_people_data(
     return people
 
 
-def create_settings(
-    check_same_address: bool = False,
-    check_same_address_columns: list[str] | None = None,
-) -> Settings:
-    """Create Settings object with the given parameters."""
-    if check_same_address_columns is None:
-        check_same_address_columns = []
-
-    settings = Settings(
-        id_column="id",
-        columns_to_keep=(check_same_address_columns if check_same_address_columns else []),
-        check_same_address=check_same_address,
-        check_same_address_columns=check_same_address_columns,
-    )
-    return settings
-
-
 @dataclass
 class Example:
     features: FeatureCollection
     people: People
-    settings_no_address: Settings
-    settings_with_address: Settings
+    no_address_columns: list[str]
+    address_columns: list[str]
     number_people_wanted: int
 
 
@@ -103,14 +85,14 @@ def create_example_from_old_format(
     """Create Example from old test data format."""
     features = convert_categories_to_features(categories)
     people = convert_people_data(people_dict, columns_data, features)
-    settings_no_address = create_settings(False, [])
-    settings_with_address = create_settings(True, ["home", "street"])  # Need exactly 2 columns for address checking
+    no_address_columns = []
+    address_columns = ["home", "street"]  # Need exactly 2 columns for address checking
 
     return Example(
         features=features,
         people=people,
-        settings_no_address=settings_no_address,
-        settings_with_address=settings_with_address,
+        no_address_columns=no_address_columns,
+        address_columns=address_columns,
         number_people_wanted=number_people_wanted,
     )
 
@@ -329,7 +311,6 @@ def allocation_feasible(
     features: FeatureCollection,
     people: People,
     number_people_wanted: int,
-    check_same_address: bool,
     check_same_address_columns: list[str],
 ) -> None:
     """Check that an allocation is feasible."""
@@ -345,7 +326,7 @@ def allocation_feasible(
         assert num_value <= value_counts.max
 
     # Check household constraints
-    if check_same_address:
+    if check_same_address_columns:
         for id1, id2 in combinations(committee, r=2):
             person1_data = people.get_person_dict(id1)
             person2_data = people.get_person_dict(id2)
@@ -360,7 +341,6 @@ def distribution_okay(
     features: FeatureCollection,
     people: People,
     number_people_wanted: int,
-    check_same_address: bool,
     check_same_address_columns: list[str],
     precision: int = 5,
 ) -> None:
@@ -372,7 +352,6 @@ def distribution_okay(
             features,
             people,
             number_people_wanted,
-            check_same_address,
             check_same_address_columns,
         )
 
@@ -384,10 +363,15 @@ def test_maximin_no_address_example1() -> None:
     """Test maximin without address constraints on example1."""
     features = deepcopy(example1.features)
     people = example1.people
-    settings = example1.settings_no_address
+    address_columns = []
     number_people_wanted = example1.number_people_wanted
 
-    committees, probabilities, _ = find_distribution_maximin(features, people, number_people_wanted, settings)
+    committees, probabilities, _ = find_distribution_maximin(
+        features,
+        people,
+        number_people_wanted,
+        address_columns,
+    )
 
     distribution_okay(
         committees,
@@ -395,8 +379,7 @@ def test_maximin_no_address_example1() -> None:
         features,
         people,
         number_people_wanted,
-        settings.check_same_address,
-        settings.check_same_address_columns,
+        address_columns,
     )
 
     # maximin is 1/3, can be achieved uniquely by
@@ -414,20 +397,13 @@ def test_maximin_with_address_example1() -> None:
     """Test maximin with address constraints on example1."""
     features = deepcopy(example1.features)
     people = example1.people
-    settings = example1.settings_with_address
     number_people_wanted = example1.number_people_wanted
 
-    committees, probabilities, _ = find_distribution_maximin(features, people, number_people_wanted, settings)
-
-    distribution_okay(
-        committees,
-        probabilities,
-        features,
-        people,
-        number_people_wanted,
-        settings.check_same_address,
-        settings.check_same_address_columns,
+    committees, probabilities, _ = find_distribution_maximin(
+        features, people, number_people_wanted, example1.address_columns
     )
+
+    distribution_okay(committees, probabilities, features, people, number_people_wanted, example1.address_columns)
 
     # Scrooge and Lisa can no longer be included. E.g. if Scrooge is included, we need a simpsons child for the
     # second position. Only Lisa qualifies, but lives in the same household. Unique maximin among everyone else is:
@@ -445,10 +421,14 @@ def test_maximin_no_address_example3() -> None:
     """Test maximin without address constraints on example3."""
     features = deepcopy(example3.features)
     people = example3.people
-    settings = example3.settings_no_address
     number_people_wanted = example3.number_people_wanted
 
-    committees, probabilities, _ = find_distribution_maximin(features, people, number_people_wanted, settings)
+    committees, probabilities, _ = find_distribution_maximin(
+        features,
+        people,
+        number_people_wanted,
+        example3.no_address_columns,
+    )
 
     distribution_okay(
         committees,
@@ -456,8 +436,7 @@ def test_maximin_no_address_example3() -> None:
         features,
         people,
         number_people_wanted,
-        settings.check_same_address,
-        settings.check_same_address_columns,
+        example3.no_address_columns,
     )
 
     # maximin is 1/3, can be achieved uniquely by
@@ -474,22 +453,25 @@ def test_maximin_no_address_example4_infeasible() -> None:
     """Test maximin on example4 which should be infeasible."""
     features = deepcopy(example4.features)
     people = example4.people
-    settings = example4.settings_no_address
     number_people_wanted = example4.number_people_wanted
 
     # There are no feasible committees at all.
     with pytest.raises(errors.InfeasibleQuotasCantRelaxError):
-        find_distribution_maximin(features, people, number_people_wanted, settings)
+        find_distribution_maximin(features, people, number_people_wanted, example4.no_address_columns)
 
 
 def test_maximin_no_address_example5() -> None:
     """Test maximin without address constraints on example5."""
     features = deepcopy(example5.features)
     people = example5.people
-    settings = example5.settings_no_address
     number_people_wanted = example5.number_people_wanted
 
-    committees, probabilities, _ = find_distribution_maximin(features, people, number_people_wanted, settings)
+    committees, probabilities, _ = find_distribution_maximin(
+        features,
+        people,
+        number_people_wanted,
+        example5.no_address_columns,
+    )
 
     distribution_okay(
         committees,
@@ -497,8 +479,7 @@ def test_maximin_no_address_example5() -> None:
         features,
         people,
         number_people_wanted,
-        settings.check_same_address,
-        settings.check_same_address_columns,
+        example5.no_address_columns,
     )
 
     # maximin is 1/2 (for individuals)
@@ -518,20 +499,13 @@ def test_maximin_no_address_example6() -> None:
     """Test maximin without address constraints on example6."""
     features = deepcopy(example6.features)
     people = example6.people
-    settings = example6.settings_no_address
     number_people_wanted = example6.number_people_wanted
 
-    committees, probabilities, _ = find_distribution_maximin(features, people, number_people_wanted, settings)
-
-    distribution_okay(
-        committees,
-        probabilities,
-        features,
-        people,
-        number_people_wanted,
-        settings.check_same_address,
-        settings.check_same_address_columns,
+    committees, probabilities, _ = find_distribution_maximin(
+        features, people, number_people_wanted, example6.no_address_columns
     )
+
+    distribution_okay(committees, probabilities, features, people, number_people_wanted, example6.no_address_columns)
 
     # The full maximin is 0 because p61 cannot be selected. But our algorithm should aim for the maximin among the
     # remaining agents, which means choosing everyone else with probability 46/60.
@@ -549,22 +523,20 @@ def test_nash_no_address_example4_infeasible() -> None:
     """Test Nash on example4 which should be infeasible."""
     features = deepcopy(example4.features)
     people = example4.people
-    settings = example4.settings_no_address
     number_people_wanted = example4.number_people_wanted
 
     # There are no feasible committees at all.
     with pytest.raises(errors.InfeasibleQuotasCantRelaxError):
-        find_distribution_nash(features, people, number_people_wanted, settings)
+        find_distribution_nash(features, people, number_people_wanted, [])
 
 
 def test_nash_no_address_example5() -> None:
     """Test Nash without address constraints on example5."""
     features = deepcopy(example5.features)
     people = example5.people
-    settings = example5.settings_no_address
     number_people_wanted = example5.number_people_wanted
 
-    committees, probabilities, _ = find_distribution_nash(features, people, number_people_wanted, settings)
+    committees, probabilities, _ = find_distribution_nash(features, people, number_people_wanted, [])
 
     probabilities_well_formed(probabilities, precision=3)
     for committee in committees:
@@ -573,8 +545,7 @@ def test_nash_no_address_example5() -> None:
             features,
             people,
             number_people_wanted,
-            settings.check_same_address,
-            settings.check_same_address_columns,
+            [],
         )
 
     # hand-calculated unique nash optimum
@@ -594,10 +565,11 @@ def test_nash_no_address_example6() -> None:
     """Test Nash without address constraints on example6."""
     features = deepcopy(example6.features)
     people = example6.people
-    settings = example6.settings_no_address
     number_people_wanted = example6.number_people_wanted
 
-    committees, probabilities, _ = find_distribution_nash(features, people, number_people_wanted, settings)
+    committees, probabilities, _ = find_distribution_nash(
+        features, people, number_people_wanted, example6.no_address_columns
+    )
 
     distribution_okay(
         committees,
@@ -605,8 +577,7 @@ def test_nash_no_address_example6() -> None:
         features,
         people,
         number_people_wanted,
-        settings.check_same_address,
-        settings.check_same_address_columns,
+        example6.no_address_columns,
         precision=3,
     )
 

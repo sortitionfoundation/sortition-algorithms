@@ -33,12 +33,10 @@ class PeopleFeatures:
         self,
         people: People,
         features: FeatureCollection,
-        check_same_address: bool = False,
         check_same_address_columns: list[str] | None = None,
     ) -> None:
         self.people = deepcopy(people)
         self.features = deepcopy(features)
-        self.check_same_address = check_same_address
         self.check_same_address_columns = check_same_address_columns or []
 
     def update_features_remaining(self, person_key: str) -> None:
@@ -113,14 +111,14 @@ class PeopleFeatures:
         Selecting a person means:
         - remove the person from our copy of People
         - update the `selected` and `remaining` counts of the FeatureCollection
-        - if check_same_address is True, also remove household members (without adding to selected)
+        - if check_same_address_columns has columns, also remove household members (without adding to selected)
 
         Returns:
-            List of additional people removed due to same address (empty if check_same_address is False)
+            List of additional people removed due to same address (empty if check_same_address_columns is empty)
         """
         # First, find household members if address checking is enabled (before removing the person)
         household_members_removed = []
-        if self.check_same_address and self.check_same_address_columns:
+        if self.check_same_address_columns:
             household_members_removed = list(self.people.matching_address(person_key, self.check_same_address_columns))
 
         # Handle the main person selection

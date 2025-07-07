@@ -10,7 +10,6 @@ def find_random_sample_legacy(
     people: People,
     features: FeatureCollection,
     number_people_wanted: int,
-    check_same_address: bool = False,
     check_same_address_columns: list[str] | None = None,
 ) -> tuple[list[frozenset[str]], list[str]]:
     """
@@ -24,8 +23,8 @@ def find_random_sample_legacy(
         people: People collection
         features: Feature definitions with min/max targets
         number_people_wanted: Number of people to select
-        check_same_address: Whether to remove household members when selecting someone
-        check_same_address_columns: Address columns for household identification
+        check_same_address_columns: Address columns for household identification, or empty
+                                    if no address checking to be done.
 
     Returns:
         Tuple of (selected_committees, output_messages) where:
@@ -39,7 +38,7 @@ def find_random_sample_legacy(
     people_selected: set[str] = set()
 
     # Create PeopleFeatures and initialize
-    people_features = PeopleFeatures(people, features, check_same_address, check_same_address_columns or [])
+    people_features = PeopleFeatures(people, features, check_same_address_columns or [])
     people_features.update_all_features_remaining()
     people_features.prune_for_feature_max_0()
 

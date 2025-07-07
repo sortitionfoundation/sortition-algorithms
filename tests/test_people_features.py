@@ -368,18 +368,6 @@ class TestPeopleFeatures:
                 assert counts.selected == 0
                 assert counts.remaining == 2  # No change for female/old
 
-    def test_select_person_without_address_checking(self):
-        """Test that address checking can be explicitly disabled."""
-        people_features = self.create_test_people_features()
-        people_features.update_all_features_remaining()
-
-        # Even with address columns configured, check_same_address=False means no checking
-        people_features.check_same_address = False
-        people_features.check_same_address_columns = ["address1", "address2"]
-
-        household_members = people_features.select_person("0")
-        assert household_members == []
-
     def create_test_people_features_with_addresses(self):
         """Helper to create PeopleFeatures with address data for testing."""
         features = create_simple_features()
@@ -389,9 +377,7 @@ class TestPeopleFeatures:
             check_same_address_columns=["address1", "address2"],
         )
         people = create_people_with_complex_households(features, settings)
-        return PeopleFeatures(
-            people, features, check_same_address=True, check_same_address_columns=["address1", "address2"]
-        )
+        return PeopleFeatures(people, features, check_same_address_columns=["address1", "address2"])
 
     def test_select_person_with_address_checking(self):
         """Test person selection with automatic household member removal."""

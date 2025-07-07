@@ -6,7 +6,6 @@ import mip
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import print_ret, random_provider
 
 # Tolerance for numerical comparisons
@@ -15,10 +14,7 @@ EPS2 = 0.00000001
 
 
 def setup_committee_generation(
-    features: FeatureCollection,
-    people: People,
-    number_people_wanted: int,
-    settings: Settings,
+    features: FeatureCollection, people: People, number_people_wanted: int, check_same_address_columns: list[str]
 ) -> tuple[mip.model.Model, dict[str, mip.entities.Var]]:
     """Set up the integer linear program for committee generation.
 
@@ -26,7 +22,8 @@ def setup_committee_generation(
         features: FeatureCollection with min/max quotas
         people: People object with pool members
         number_people_wanted: desired size of the panel
-        settings: Settings object containing household checking configuration
+        check_same_address_columns: columns to check for same address, or empty list if
+                                    not checking addresses.
 
     Returns:
         tuple of (MIP model, dict mapping person_id to binary variables)
@@ -58,15 +55,17 @@ def setup_committee_generation(
         model.add_constr(number_feature_value_agents <= value_counts.max)
 
     # Household constraints: at most 1 person per household
-    if settings.check_same_address:
-        for housemates in people.households(settings.check_same_address_columns).values():
+    if check_same_address_columns:
+        for housemates in people.households(check_same_address_columns).values():
             if len(housemates) > 1:
                 model.add_constr(mip.xsum(agent_vars[member_id] for member_id in housemates) <= 1)
 
     # Test feasibility by optimizing once
     status = model.optimize()
     if status == mip.OptimizationStatus.INFEASIBLE:
-        relaxed_features, output_lines = _relax_infeasible_quotas(features, people, number_people_wanted, settings)
+        relaxed_features, output_lines = _relax_infeasible_quotas(
+            features, people, number_people_wanted, check_same_address_columns
+        )
         raise errors.InfeasibleQuotasError(relaxed_features, output_lines)
     if status != mip.OptimizationStatus.OPTIMAL:
         msg = (
@@ -82,7 +81,7 @@ def _relax_infeasible_quotas(
     features: FeatureCollection,
     people: People,
     number_people_wanted: int,
-    settings: Settings,
+    check_same_address_columns: list[str],
     ensure_inclusion: Collection[Iterable[str]] = ((),),
 ) -> tuple[FeatureCollection, list[str]]:
     """Assuming that the quotas are not satisfiable, suggest a minimal relaxation that would be.
@@ -91,7 +90,8 @@ def _relax_infeasible_quotas(
         features: FeatureCollection with min/max quotas
         people: People object with pool members
         number_people_wanted: desired size of the panel
-        settings: Settings object containing check_same_address and check_same_address_columns
+        check_same_address_columns: columns to check for same address, or empty list if
+                                    not checking addresses.
         ensure_inclusion: allows to specify that some panels should contain specific sets of agents. for example,
             passing `(("a",), ("b", "c"))` means that the quotas should be relaxed such that some valid panel contains
             agent "a" and some valid panel contains both agents "b" and "c". the default of `((),)` just requires
@@ -122,7 +122,7 @@ def _relax_infeasible_quotas(
             features,
             min_vars,
             max_vars,
-            settings,
+            check_same_address_columns,
         )
 
     # Objective: minimize weighted sum of relaxations
@@ -190,7 +190,7 @@ def _add_committee_constraints_for_inclusion_set(
     features: FeatureCollection,
     min_vars: dict[tuple[str, str], mip.entities.Var],
     max_vars: dict[tuple[str, str], mip.entities.Var],
-    settings: Settings,
+    check_same_address_columns: list[str],
 ) -> None:
     """Add constraints to ensure a valid committee exists that includes the specified agents.
 
@@ -202,7 +202,8 @@ def _add_committee_constraints_for_inclusion_set(
         features: FeatureCollection with quotas
         min_vars: relaxation variables for minimum quotas
         max_vars: relaxation variables for maximum quotas
-        settings: Settings object containing household checking configuration
+        check_same_address_columns: columns to check for same address, or empty list if
+                                    not checking addresses.
     """
     # Binary variables for each person (selected/not selected)
     agent_vars = {person_id: model.add_var(var_type=mip.BINARY) for person_id in people}
@@ -230,8 +231,8 @@ def _add_committee_constraints_for_inclusion_set(
         model.add_constr(number_feature_value_agents <= value_counts.max + max_vars[fv])
 
     # Household constraints: at most 1 person per household
-    if settings.check_same_address:
-        for housemates in people.households(settings.check_same_address_columns).values():
+    if check_same_address_columns:
+        for housemates in people.households(check_same_address_columns).values():
             if len(housemates) > 1:
                 model.add_constr(mip.xsum(agent_vars[member_id] for member_id in housemates) <= 1)
 

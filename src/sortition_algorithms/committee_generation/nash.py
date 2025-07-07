@@ -13,7 +13,6 @@ from sortition_algorithms.committee_generation.common import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import print_ret
 
 # Tolerance for numerical comparisons
@@ -227,7 +226,7 @@ def find_distribution_nash(
     features: FeatureCollection,
     people: People,
     number_people_wanted: int,
-    settings: Settings,
+    check_same_address_columns: list[str],
 ) -> tuple[list[frozenset[str]], list[float], list[str]]:
     """Find a distribution over feasible committees that maximizes the Nash welfare, i.e., the product of
     selection probabilities over all persons.
@@ -236,7 +235,8 @@ def find_distribution_nash(
         features: FeatureCollection with min/max quotas
         people: People object with pool members
         number_people_wanted: desired size of the panel
-        settings: Settings object containing configuration
+        check_same_address_columns: Address columns for household identification, or empty
+                                    if no address checking to be done.
 
     Returns:
         tuple of (committees, probabilities, output_lines)
@@ -251,7 +251,9 @@ def find_distribution_nash(
     output_lines = [print_ret("Using Nash algorithm.")]
 
     # Set up an ILP used for discovering new feasible committees
-    new_committee_model, agent_vars = setup_committee_generation(features, people, number_people_wanted, settings)
+    new_committee_model, agent_vars = setup_committee_generation(
+        features, people, number_people_wanted, check_same_address_columns
+    )
 
     # Find initial committees that include every possible agent
     committee_set, covered_agents, initial_output = generate_initial_committees(
