@@ -90,7 +90,7 @@ ignore_missing_imports = true
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "sortition_algorithms.committee_generation"
+module = "sortition_algorithms.committee_generation.*"
 disallow_any_unimported = false
 
 [tool.pytest.ini_options]
