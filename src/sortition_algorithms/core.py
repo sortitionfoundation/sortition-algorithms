@@ -9,6 +9,7 @@ from sortition_algorithms.committee_generation import (
     find_distribution_leximin,
     find_distribution_maximin,
     find_distribution_nash,
+    find_random_sample_legacy,
     standardize_distribution,
 )
 from sortition_algorithms.features import FeatureCollection
@@ -306,9 +307,6 @@ def find_random_sample(
 
     # Route to appropriate algorithm
     if selection_algorithm == "legacy":
-        # Import here to avoid circular imports
-        from sortition_algorithms.find_sample import find_random_sample_legacy
-
         return find_random_sample_legacy(
             people,
             features,

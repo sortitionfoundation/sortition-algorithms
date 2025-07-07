@@ -1,8 +1,8 @@
 import pytest
 
 from sortition_algorithms import errors
+from sortition_algorithms.committee_generation.legacy import find_random_sample_legacy
 from sortition_algorithms.features import FeatureValueCounts
-from sortition_algorithms.find_sample import find_random_sample_legacy
 from tests.helpers import (
     create_gender_only_features,
     create_people_with_legacy_addresses,
