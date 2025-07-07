@@ -5,7 +5,7 @@ from typing import Any
 from attrs import define, field, validators
 from cattrs import structure
 
-SELECTION_ALGORITHMS = ("legacy", "maximin", "nash")
+SELECTION_ALGORITHMS = ("legacy", "maximin", "nash", "leximin")
 
 DEFAULT_SETTINGS = """
 # #####################################################################
