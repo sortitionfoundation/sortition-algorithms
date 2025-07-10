@@ -118,6 +118,17 @@ class TestSettingsConstructor:
                 random_number_seed="not_an_int",  # t
             )
 
+    def test_full_columns_to_keep_includes_address_columns(self):
+        """Test that address columns are included"""
+        settings_obj = create_test_settings(columns_to_keep=["a", "b", "c"], check_same_address_columns=["d", "e"])
+        assert settings_obj.full_columns_to_keep == ["a", "b", "c", "d", "e"]
+
+    def test_full_columns_to_keep_excludes_address_column_duplicates(self):
+        """Test that address columns are included, but not added if they are duplicates"""
+        settings_obj = create_test_settings(columns_to_keep=["a", "b", "c"], check_same_address_columns=["d", "c"])
+        # note, no duplicate "c"
+        assert settings_obj.full_columns_to_keep == ["a", "b", "c", "d"]
+
 
 class TestSettingsLoadFromFile:
     """Test the Settings.load_from_file() class method."""

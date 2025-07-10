@@ -141,14 +141,6 @@ def _check_people_head(people_head: list[str], features: FeatureCollection, sett
     )
 
 
-def _ensure_settings_keep_address_columns(settings: Settings) -> None:
-    # let's just merge the check_same_address_columns into columns_to_keep in case they aren't in both
-    # TODO: review this - should we do this in settings rather than here?
-    for col in settings.check_same_address_columns:
-        if col not in settings.columns_to_keep:
-            settings.columns_to_keep.append(col)
-
-
 def read_in_people(
     people_head: list[str],
     people_body: Iterable[dict[str, str]],
@@ -157,8 +149,7 @@ def read_in_people(
 ) -> tuple[People, list[str]]:
     all_msg: list[str] = []
     _check_people_head(people_head, features, settings)
-    _ensure_settings_keep_address_columns(settings)
-    people = People(settings.columns_to_keep)
+    people = People(settings.full_columns_to_keep)
     for index, row in enumerate(people_body):
         stripped_row = StrippedDict(row)
         pkey = stripped_row[settings.id_column]
@@ -167,9 +158,7 @@ def read_in_people(
             all_msg.append(f"<b>WARNING</b>: blank cell found in ID column in row {index} - skipped that line!")
             continue
         people.add(pkey, stripped_row, features)
-    # TODO: should this be done outside this function?
-    # so this function just reads in people but doesn't update the features stuff
-    # people_features = PeopleFeatures(people, features)
-    # people_features.update_all_features_remaining()
-    # people_features.prune_for_feature_max_0()
+    # Note this function just reads in people but doesn't update the features
+    # to generate the remaining and prune those with max 0.
+    # That is done in committee_generation.legacy.find_random_sample_legacy()
     return people, all_msg

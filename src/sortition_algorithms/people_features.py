@@ -81,7 +81,6 @@ class PeopleFeatures:
         Check if any feature_value.max is set to zero. if so delete everyone with that feature value
         NOT DONE: could then check if anyone is left.
         """
-        # TODO: when do we want to do this?
         msg: list[str] = []
         msg.append(f"Number of people: {self.people.count}.")
         total_num_deleted = 0
@@ -275,12 +274,12 @@ def create_readable_sample_file(
         quotechar='"',
         quoting=csv.QUOTE_MINIMAL,
     )
-    example_people_writer.writerow([settings.id_column, *settings.columns_to_keep, *features.feature_names])
+    example_people_writer.writerow([settings.id_column, *settings.full_columns_to_keep, *features.feature_names])
     weighted = WeightedSample(features)
     for x in range(number_people_example_file):
         row = [
             f"p{x}",
-            *[f"{col} {x}" for col in settings.columns_to_keep],
+            *[f"{col} {x}" for col in settings.full_columns_to_keep],
             *[weighted.value_for(f) for f in features.feature_names],
         ]
         example_people_writer.writerow(row)

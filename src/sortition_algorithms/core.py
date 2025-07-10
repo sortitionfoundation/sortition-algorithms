@@ -31,7 +31,7 @@ def person_list_to_table(
     features: FeatureCollection,
     settings: Settings,
 ) -> list[list[str]]:
-    cols_to_use = settings.columns_to_keep[:]
+    cols_to_use = settings.full_columns_to_keep[:]
     # we want to avoid duplicate columns if they are in both features and columns_to_keep
     extra_features = [name for name in features.feature_names if name not in cols_to_use]
     cols_to_use += extra_features

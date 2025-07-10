@@ -5,7 +5,6 @@ from sortition_algorithms.features import FeatureCollection, FeatureValueCounts
 from sortition_algorithms.people import (
     People,
     _check_columns_exist_or_multiple,
-    _ensure_settings_keep_address_columns,
     read_in_people,
 )
 from sortition_algorithms.settings import Settings
@@ -137,7 +136,7 @@ class TestHelperFunctions:
         with pytest.raises(errors.BadDataError, match="MORE THAN 1 'name' column test found"):
             _check_columns_exist_or_multiple(people_head, columns, "test")
 
-    def test_ensure_settings_keep_address_columns(self):
+    def test_full_columns_to_keep_includes_address_columns(self):
         """Test _ensure_settings_keep_address_columns adds missing columns."""
         settings = Settings(
             id_column="id",
@@ -146,14 +145,12 @@ class TestHelperFunctions:
             check_same_address_columns=["address1", "postcode"],
         )
 
-        _ensure_settings_keep_address_columns(settings)
+        assert "address1" in settings.full_columns_to_keep
+        assert "postcode" in settings.full_columns_to_keep
+        assert "name" in settings.full_columns_to_keep
+        assert "email" in settings.full_columns_to_keep
 
-        assert "address1" in settings.columns_to_keep
-        assert "postcode" in settings.columns_to_keep
-        assert "name" in settings.columns_to_keep
-        assert "email" in settings.columns_to_keep
-
-    def test_ensure_settings_keep_address_columns_no_duplicates(self):
+    def test_full_columns_to_keep_has_no_duplicates(self):
         """Test _ensure_settings_keep_address_columns doesn't create duplicates."""
         settings = Settings(
             id_column="id",
@@ -162,11 +159,9 @@ class TestHelperFunctions:
             check_same_address_columns=["address1", "postcode"],
         )
 
-        _ensure_settings_keep_address_columns(settings)
-
         # address1 should only appear once
-        assert settings.columns_to_keep.count("address1") == 1
-        assert "postcode" in settings.columns_to_keep
+        assert settings.full_columns_to_keep.count("address1") == 1
+        assert "postcode" in settings.full_columns_to_keep
 
 
 class TestReadInPeople:
@@ -345,8 +340,8 @@ class TestReadInPeople:
         people, _ = read_in_people(people_head, people_body, features, settings)
 
         # Should succeed and address columns should be added to columns_to_keep
-        assert "address1" in settings.columns_to_keep
-        assert "postcode" in settings.columns_to_keep
+        assert "address1" in settings.full_columns_to_keep
+        assert "postcode" in settings.full_columns_to_keep
         assert people.count == 3
 
     def test_read_in_people_missing_address_column(self):

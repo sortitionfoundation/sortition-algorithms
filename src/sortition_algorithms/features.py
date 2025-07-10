@@ -6,7 +6,6 @@ from attrs import define
 
 from sortition_algorithms import errors, utils
 
-# TODO: put this in docs and link to them from here.
 """
 Note on terminology.  The word "categories" can mean various things, so for this
 code we use the terms "Feature" and "Value".
@@ -18,6 +17,9 @@ In the UI we may use the terms
 
 - "category" to mean "feature" and
 - "bucket" to mean "value".
+
+More in the docs:
+https://sortitionfoundation.github.io/sortition-algorithms/concepts/#features-and-feature-values
 """
 
 FEATURE_FILE_FIELD_NAMES = ("feature", "value", "min", "max")

@@ -105,6 +105,15 @@ class Settings:
         """
         return self.check_same_address_columns if self.check_same_address else []
 
+    @property
+    def full_columns_to_keep(self) -> list[str]:
+        """
+        We always need to keep the address columns, so in case they are not listed in
+        self.columns_to_keep we have this property to have the combined list.
+        """
+        extra_address_columns = [col for col in self.check_same_address_columns if col not in self.columns_to_keep]
+        return [*self.columns_to_keep, *extra_address_columns]
+
     @classmethod
     def load_from_file(
         cls,

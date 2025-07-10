@@ -29,6 +29,8 @@ Sortition has ancient roots in Athenian democracy, where citizens were chosen by
 - Age: 18-30, 31-50, 51-65, 65+
 - Location: Urban, Suburban, Rural
 
+Note that sometimes Features are called "categories" and Feature Values are called "category values".
+
 ### Quotas and Targets
 
 Each feature value has **minimum and maximum quotas** that define the acceptable range for selection:

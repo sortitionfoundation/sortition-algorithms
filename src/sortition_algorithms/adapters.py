@@ -17,9 +17,6 @@ from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
 
-# TODO: should features_loaded and people_loaded be removed?
-# have external thing keep track of it instead?
-
 
 def _stringify_records(
     records: Iterable[dict[str, str | int | float]],
@@ -34,8 +31,6 @@ class CSVAdapter:
     def __init__(self) -> None:
         self.selected_file: TextIO = StringIO()
         self.remaining_file: TextIO = StringIO()
-        self.features_loaded = False
-        self.people_loaded = False
         self.enable_selected_file_download = False
         self.enable_remaining_file_download = False
 
@@ -53,7 +48,6 @@ class CSVAdapter:
         feature_reader = csv.DictReader(file_obj)
         assert feature_reader.fieldnames is not None
         features, msgs = read_in_features(list(feature_reader.fieldnames), feature_reader)
-        self.features_loaded = True
         return features, msgs
 
     def load_people_from_file(
@@ -83,7 +77,6 @@ class CSVAdapter:
         people_str_data = _stringify_records(people_data)
         assert people_data.fieldnames is not None
         people, msgs = read_in_people(list(people_data.fieldnames), people_str_data, features, settings)
-        self.people_loaded = True
         return people, msgs
 
     def _write_rows(self, out_file: TextIO, rows: list[list[str]]) -> None:
@@ -145,8 +138,6 @@ class GSheetAdapter:
         self.new_tab_default_size_cols = 40
         self.g_sheet_name = ""
         self._messages: list[str] = []
-        self.features_loaded = False
-        self.people_loaded = False
         self.gen_rem_tab = gen_rem_tab  # Added for checkbox.
 
     def messages(self) -> list[str]:
@@ -213,7 +204,6 @@ class GSheetAdapter:
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
         features, msgs = read_in_features(feature_head, feature_body)
-        self.features_loaded = True
         self._messages += msgs
         return features, self.messages()
 
@@ -250,7 +240,6 @@ class GSheetAdapter:
         self._messages.append(f"Reading in '{respondents_tab_name}' tab in above Google sheet.")
         people, msgs = read_in_people(people_head, people_body, features, settings)
         self._messages += msgs
-        self.people_loaded = True
         return people, self.messages()
 
     def output_selected_remaining(
