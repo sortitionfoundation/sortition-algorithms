@@ -1,13 +1,13 @@
 import csv
 import typing
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from copy import deepcopy
 
 from attrs import define
 
 from sortition_algorithms import errors
-from sortition_algorithms.features import FeatureCollection
+from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
 from sortition_algorithms.people import People
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import random_provider
@@ -22,9 +22,140 @@ class MaxRatioResult:
     random_person_index: int
 
 
+@define(kw_only=True, slots=True)
+class SelectCounts:
+    min_max: FeatureValueMinMax
+    selected: int = 0
+    remaining: int = 0
+
+    def add_remaining(self) -> None:
+        self.remaining += 1
+
+    def add_selected(self) -> None:
+        self.selected += 1
+
+    def remove_remaining(self) -> None:
+        self.remaining -= 1
+        if self.remaining == 0 and self.selected < self.min_max.min:
+            msg = "SELECTION IMPOSSIBLE: FAIL - no one/not enough left after deletion."
+            raise errors.SelectionError(msg)
+
+    @property
+    def hit_target(self) -> bool:
+        """Return true if selected is between min and max (inclusive)"""
+        return self.selected >= self.min_max.min and self.selected <= self.min_max.max
+
+    def percent_selected(self, number_people_wanted: int) -> float:
+        return self.selected * 100 / float(number_people_wanted)
+
+    @property
+    def people_still_needed(self) -> int:
+        """The number of extra people to select to get to the minimum - it should never be negative"""
+        return max(self.min_max.min - self.selected, 0)
+
+    def sufficient_people(self) -> bool:
+        """
+        Return true if we can still make the minimum. So either:
+        - we have already selected at least the minimum, or
+        - the remaining number is at least as big as the number still required
+        """
+        return self.selected >= self.min_max.min or self.remaining >= self.people_still_needed
+
+
+class SelectValues:
+    """
+    A full set of SelectCounts for each value for a single feature.
+
+    If the feature is gender, the values could be: male, female, non_binary_other
+
+    The values are SelectCount objects - the current counts of the selected people in that feature value.
+    """
+
+    def __init__(self) -> None:
+        self.select_values: dict[str, SelectCounts] = {}
+
+    def __eq__(self, other: typing.Any) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self.select_values == other.select_values
+
+    def add_value_counts(self, value_name: str, fv_counts: FeatureValueMinMax) -> None:
+        self.select_values[value_name] = SelectCounts(min_max=fv_counts)
+
+    def values_counts(self) -> Iterator[tuple[str, SelectCounts]]:
+        yield from self.select_values.items()
+
+    def add_remaining(self, value_name: str) -> None:
+        self.select_values[value_name].add_remaining()
+
+    def add_selected(self, value_name: str) -> None:
+        self.select_values[value_name].add_selected()
+
+    def remove_remaining(self, value_name: str) -> None:
+        self.select_values[value_name].remove_remaining()
+
+    def get_counts(self, value_name: str) -> SelectCounts:
+        return self.select_values[value_name]
+
+
+class SelectCollection:
+    """
+    A full set of features for a stratification.
+
+    The keys here are the names of the features. They could be: gender, age_bracket, education_level etc
+
+    The values are SelectValues objects - the breakdown of the values for a feature.
+
+    This is a parallel set of classes to FeatureCollection. SelectCollection relies on FeatureCollection
+    but not vice versa.
+    """
+
+    def __init__(self) -> None:
+        self.collection: dict[str, SelectValues] = defaultdict(SelectValues)
+
+    @classmethod
+    def from_feature_collection(cls, collection: FeatureCollection) -> "SelectCollection":
+        select_collection = cls()
+        for feature, value, fv_counts in collection.feature_values_counts():
+            select_collection.collection[feature].add_value_counts(value, fv_counts)
+        return select_collection
+
+    def __eq__(self, other: typing.Any) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self.collection == other.collection
+
+    @property
+    def feature_names(self) -> list[str]:
+        return list(self.collection.keys())
+
+    def feature_values_counts(self) -> Iterator[tuple[str, str, SelectCounts]]:
+        for feature_name, feature_values in self.collection.items():
+            for value, value_counts in feature_values.values_counts():
+                yield feature_name, value, value_counts
+
+    def get_counts(self, feature_name: str, value_name: str) -> SelectCounts:
+        return self.collection[feature_name].get_counts(value_name)
+
+    def add_remaining(self, feature: str, value_name: str) -> None:
+        self.collection[feature].add_remaining(value_name)
+
+    def add_selected(self, feature: str, value_name: str) -> None:
+        self.collection[feature].add_selected(value_name)
+
+    def remove_remaining(self, feature: str, value_name: str) -> None:
+        try:
+            self.collection[feature].remove_remaining(value_name)
+        except errors.SelectionError as e:
+            msg = f"Failed removing from {feature}/{value_name}: {e}"
+            raise errors.SelectionError(msg) from None
+
+
 class PeopleFeatures:
     """
     This class manipulates people and features together, making a deepcopy on init.
+
+    It is only used by the legacy method.
     """
 
     # TODO: consider naming: maybe SelectionState
@@ -36,14 +167,15 @@ class PeopleFeatures:
         check_same_address_columns: list[str] | None = None,
     ) -> None:
         self.people = deepcopy(people)
-        self.features = deepcopy(features)
+        self.features = features
+        self.select_collection = SelectCollection.from_feature_collection(self.features)
         self.check_same_address_columns = check_same_address_columns or []
 
     def update_features_remaining(self, person_key: str) -> None:
         # this will blow up if the person does not exist
         person = self.people.get_person_dict(person_key)
         for feature_name in self.features.feature_names:
-            self.features.add_remaining(feature_name, person[feature_name])
+            self.select_collection.add_remaining(feature_name, person[feature_name])
 
     def update_all_features_remaining(self) -> None:
         for person_key in self.people:
@@ -63,7 +195,7 @@ class PeopleFeatures:
                 people_to_delete.append(pkey)
                 for feature in self.features.feature_names:
                     try:
-                        self.features.remove_remaining(feature, person[feature])
+                        self.select_collection.remove_remaining(feature, person[feature])
                     except errors.SelectionError as e:
                         msg = (
                             f"SELECTION IMPOSSIBLE: FAIL in delete_all_in_feature_value() "
@@ -123,15 +255,15 @@ class PeopleFeatures:
         # Handle the main person selection
         person = self.people.get_person_dict(person_key)
         for feature in self.features.feature_names:
-            self.features.remove_remaining(feature, person[feature])
-            self.features.add_selected(feature, person[feature])
+            self.select_collection.remove_remaining(feature, person[feature])
+            self.select_collection.add_selected(feature, person[feature])
         self.people.remove(person_key)
 
         # Then remove household members if any were found
         for household_member_key in household_members_removed:
             household_member = self.people.get_person_dict(household_member_key)
             for feature in self.features.feature_names:
-                self.features.remove_remaining(feature, household_member[feature])
+                self.select_collection.remove_remaining(feature, household_member[feature])
                 # Note: we don't call add_selected() for household members
             self.people.remove(household_member_key)
 
@@ -159,23 +291,22 @@ class PeopleFeatures:
         for (
             feature_name,
             feature_value,
-            fv_counts,
-        ) in self.features.feature_values_counts():
+            select_counts,
+        ) in self.select_collection.feature_values_counts():
             # Check if we have insufficient people to meet minimum requirements
-            people_still_needed = fv_counts.min - fv_counts.selected
-            if fv_counts.selected < fv_counts.min and fv_counts.remaining < people_still_needed:
+            if not select_counts.sufficient_people():
                 msg = (
                     f"SELECTION IMPOSSIBLE: Not enough people remaining in {feature_name}/{feature_value}. "
-                    f"Need {people_still_needed} more, but only {fv_counts.remaining} remaining."
+                    f"Need {select_counts.people_still_needed} more, but only {select_counts.remaining} remaining."
                 )
                 raise errors.SelectionError(msg)
 
             # Skip categories with no remaining people or max = 0
-            if fv_counts.remaining == 0 or fv_counts.max == 0:
+            if select_counts.remaining == 0 or select_counts.min_max.max == 0:
                 continue
 
             # Calculate the priority ratio
-            ratio = people_still_needed / float(fv_counts.remaining)
+            ratio = select_counts.people_still_needed / float(select_counts.remaining)
 
             # Track the highest ratio category
             if ratio > max_ratio:
@@ -183,7 +314,7 @@ class PeopleFeatures:
                 result_feature_name = feature_name
                 result_feature_value = feature_value
                 # from 1 to remaining
-                random_person_index = random_provider().randbelow(fv_counts.remaining) + 1
+                random_person_index = random_provider().randbelow(select_counts.remaining) + 1
 
         # If no valid category found, all categories must be at their max or have max=0
         if not result_feature_name:
@@ -217,9 +348,12 @@ class PeopleFeatures:
         for (
             feature_name,
             feature_value,
-            fv_counts,
-        ) in self.features.feature_values_counts():
-            if feature_value == selected_person_data[feature_name] and fv_counts.selected == fv_counts.max:
+            select_counts,
+        ) in self.select_collection.feature_values_counts():
+            if (
+                feature_value == selected_person_data[feature_name]
+                and select_counts.selected == select_counts.min_max.max
+            ):
                 num_deleted, num_left = self.delete_all_with_feature_value(feature_name, feature_value)
                 if num_deleted > 0:
                     output_messages.append(
@@ -229,7 +363,7 @@ class PeopleFeatures:
         return output_messages
 
 
-def simple_add_selected(person_keys: Iterable[str], people: People, features: FeatureCollection) -> None:
+def simple_add_selected(person_keys: Iterable[str], people: People, features: SelectCollection) -> None:
     """
     Just add the person to the selected counts for the feature values for that person.
     Don't do the more complex handling of the full PeopleFeatures.add_selected()

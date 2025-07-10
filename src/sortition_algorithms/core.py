@@ -14,7 +14,7 @@ from sortition_algorithms.committee_generation import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.people_features import simple_add_selected
+from sortition_algorithms.people_features import SelectCollection, simple_add_selected
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import print_ret, random_provider, set_random_provider
 
@@ -372,14 +372,14 @@ def _initial_print_category_info(
         "<table border='1' cellpadding='5'><tr><th colspan='2'>Category</th><th>Initially</th><th>Want</th></tr>"
     ]
     # Make a working copy and update counts
-    features_working = deepcopy(features)
-    simple_add_selected(people, people, features_working)
+    select_collection = SelectCollection.from_feature_collection(features)
+    simple_add_selected(people, people, select_collection)
 
     # Generate table rows
-    for feature, value, fv_counts in features_working.feature_values_counts():
+    for feature, value, fv_counts in select_collection.feature_values_counts():
         report_msg.append(
             f"<tr><td>{feature}</td><td>{value}</td>"
-            f"<td>{fv_counts.selected}</td><td>[{fv_counts.min},{fv_counts.max}]</td></tr>"
+            f"<td>{fv_counts.selected}</td><td>[{fv_counts.min_max.min},{fv_counts.min_max.max}]</td></tr>"
         )
 
     report_msg.append("</table>")
@@ -414,16 +414,16 @@ def _print_category_info(
     ]
 
     # Make a working copy and update counts
-    features_working = deepcopy(features)
-    simple_add_selected(people_selected[0], people, features_working)
+    select_collection = SelectCollection.from_feature_collection(features)
+    simple_add_selected(people_selected[0], people, select_collection)
 
     # Generate table rows
-    for feature, value, fv_counts in features_working.feature_values_counts():
+    for feature, value, fv_counts in select_collection.feature_values_counts():
         percent_selected = fv_counts.percent_selected(number_people_wanted)
         report_msg.append(
             f"<tr><td>{feature}</td><td>{value}</td>"
             f"<td>{fv_counts.selected} ({percent_selected:.2f}%)</td>"
-            f"<td>[{fv_counts.min},{fv_counts.max}]</td></tr>"
+            f"<td>[{fv_counts.min_max.min},{fv_counts.min_max.max}]</td></tr>"
         )
 
     report_msg.append("</table>")
@@ -459,19 +459,17 @@ def _check_category_selected(
     last_feature_fail = ""
 
     # Make working copy and count selected people
-    from copy import deepcopy
+    select_collection = SelectCollection.from_feature_collection(features)
 
-    features_working = deepcopy(features)
-
-    simple_add_selected(people_selected[0], people, features_working)
+    simple_add_selected(people_selected[0], people, select_collection)
 
     # Check if quotas are met
     for (
         feature_name,
         value_name,
         value_counts,
-    ) in features_working.feature_values_counts():
-        if value_counts.selected < value_counts.min or value_counts.selected > value_counts.max:
+    ) in select_collection.feature_values_counts():
+        if not value_counts.hit_target:
             hit_targets = False
             last_feature_fail = f"{feature_name}: {value_name}"
 

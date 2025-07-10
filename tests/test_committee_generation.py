@@ -11,7 +11,7 @@ from sortition_algorithms.committee_generation import (
     find_distribution_maximin,
     find_distribution_nash,
 )
-from sortition_algorithms.features import FeatureCollection, FeatureValueCounts
+from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import StrippedDict
 
@@ -29,13 +29,11 @@ def convert_categories_to_features(
             min_flex = constraints.get("min_flex", min_val)
             max_flex = constraints.get("max_flex", max_val)
 
-            value_counts = FeatureValueCounts(
+            value_counts = FeatureValueMinMax(
                 min=min_val,
                 max=max_val,
                 min_flex=min_flex,
                 max_flex=max_flex,
-                selected=0,
-                remaining=0,
             )
             features.add_feature(feature_name, value_name, value_counts)
 

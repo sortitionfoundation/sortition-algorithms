@@ -2,7 +2,7 @@ import pytest
 
 from sortition_algorithms import errors
 from sortition_algorithms.committee_generation.legacy import find_random_sample_legacy
-from sortition_algorithms.features import FeatureValueCounts
+from sortition_algorithms.features import FeatureValueMinMax
 from tests.helpers import (
     create_gender_only_features,
     create_people_with_legacy_addresses,
@@ -162,7 +162,7 @@ class TestFindRandomSampleLegacy:
 
         # Create features with males allowed but females not wanted
         features = create_gender_only_features(min_val=1, max_val=2)
-        features.add_feature("gender", "female", FeatureValueCounts(min=0, max=0))  # Don't want any females
+        features.add_feature("gender", "female", FeatureValueMinMax(min=0, max=0))  # Don't want any females
 
         settings = create_test_settings(columns_to_keep=["name"])
         people = create_simple_people(features, settings, count=3)

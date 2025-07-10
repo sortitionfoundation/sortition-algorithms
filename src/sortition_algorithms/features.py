@@ -4,7 +4,7 @@ from typing import Any
 
 from attrs import define
 
-from sortition_algorithms import errors, utils
+from sortition_algorithms import utils
 
 """
 Note on terminology.  The word "categories" can mean various things, so for this
@@ -40,11 +40,9 @@ MAX_FLEX_UNSET = -1
 
 
 @define(kw_only=True, slots=True)
-class FeatureValueCounts:
+class FeatureValueMinMax:
     min: int
     max: int
-    selected: int = 0
-    remaining: int = 0
     min_flex: int = 0
     max_flex: int = MAX_FLEX_UNSET
 
@@ -53,21 +51,6 @@ class FeatureValueCounts:
         if self.max_flex == MAX_FLEX_UNSET:
             self.max_flex = max_flex
 
-    def add_remaining(self) -> None:
-        self.remaining += 1
-
-    def add_selected(self) -> None:
-        self.selected += 1
-
-    def remove_remaining(self) -> None:
-        self.remaining -= 1
-        if self.remaining == 0 and self.selected < self.min:
-            msg = "SELECTION IMPOSSIBLE: FAIL - no one/not enough left after deletion."
-            raise errors.SelectionError(msg)
-
-    def percent_selected(self, number_people_wanted: int) -> float:
-        return self.selected * 100 / float(number_people_wanted)
-
 
 class FeatureValues:
     """
@@ -75,19 +58,18 @@ class FeatureValues:
 
     If the feature is gender, the values could be: male, female, non_binary_other
 
-    The values are FeatureValueCounts objects - the min, max and current counts of the
-    selected people in that feature value.
+    The values are FeatureValueCounts objects - the min and max for that feature value.
     """
 
     def __init__(self) -> None:
-        self.feature_values: dict[str, FeatureValueCounts] = {}
+        self.feature_values: dict[str, FeatureValueMinMax] = {}
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
             return False
         return self.feature_values == other.feature_values
 
-    def add_value_counts(self, value_name: str, fv_counts: FeatureValueCounts) -> None:
+    def add_value_counts(self, value_name: str, fv_counts: FeatureValueMinMax) -> None:
         self.feature_values[value_name] = fv_counts
 
     def set_default_max_flex(self, max_flex: int) -> None:
@@ -99,17 +81,8 @@ class FeatureValues:
     def values(self) -> list[str]:
         return list(self.feature_values.keys())
 
-    def values_counts(self) -> Iterator[tuple[str, FeatureValueCounts]]:
+    def values_counts(self) -> Iterator[tuple[str, FeatureValueMinMax]]:
         yield from self.feature_values.items()
-
-    def add_remaining(self, value_name: str) -> None:
-        self.feature_values[value_name].add_remaining()
-
-    def add_selected(self, value_name: str) -> None:
-        self.feature_values[value_name].add_selected()
-
-    def remove_remaining(self, value_name: str) -> None:
-        self.feature_values[value_name].remove_remaining()
 
     def minimum_selection(self) -> int:
         """
@@ -123,7 +96,7 @@ class FeatureValues:
         """
         return sum(c.max for c in self.feature_values.values())
 
-    def get_counts(self, value_name: str) -> FeatureValueCounts:
+    def get_counts(self, value_name: str) -> FeatureValueMinMax:
         return self.feature_values[value_name]
 
 
@@ -136,10 +109,6 @@ class FeatureCollection:
     The values are FeatureValues objects - the breakdown of the values for a feature.
     """
 
-    # TODO: consider splitting the updates/remaining into a parallel set of classes
-    # then this can just have targets, and the running totals can be in classes we can
-    # regenerate now and then
-
     def __init__(self) -> None:
         self.collection: dict[str, FeatureValues] = defaultdict(FeatureValues)
 
@@ -148,7 +117,7 @@ class FeatureCollection:
             return False
         return self.collection == other.collection
 
-    def add_feature(self, feature_name: str, value_name: str, fv_counts: FeatureValueCounts) -> None:
+    def add_feature(self, feature_name: str, value_name: str, fv_counts: FeatureValueMinMax) -> None:
         self.collection[feature_name].add_value_counts(value_name, fv_counts)
 
     @property
@@ -164,12 +133,12 @@ class FeatureCollection:
             for value_name in feature_value.values:
                 yield feature_name, value_name
 
-    def feature_values_counts(self) -> Iterator[tuple[str, str, FeatureValueCounts]]:
+    def feature_values_counts(self) -> Iterator[tuple[str, str, FeatureValueMinMax]]:
         for feature_name, feature_values in self.collection.items():
             for value, value_counts in feature_values.values_counts():
                 yield feature_name, value, value_counts
 
-    def get_counts(self, feature_name: str, value_name: str) -> FeatureValueCounts:
+    def get_counts(self, feature_name: str, value_name: str) -> FeatureValueMinMax:
         return self.collection[feature_name].get_counts(value_name)
 
     def _safe_max_flex_val(self) -> int:
@@ -183,19 +152,6 @@ class FeatureCollection:
         max_flex = self._safe_max_flex_val()
         for feature_values in self.collection.values():
             feature_values.set_default_max_flex(max_flex)
-
-    def add_remaining(self, feature: str, value_name: str) -> None:
-        self.collection[feature].add_remaining(value_name)
-
-    def add_selected(self, feature: str, value_name: str) -> None:
-        self.collection[feature].add_selected(value_name)
-
-    def remove_remaining(self, feature: str, value_name: str) -> None:
-        try:
-            self.collection[feature].remove_remaining(value_name)
-        except errors.SelectionError as e:
-            msg = f"Failed removing from {feature}/{value_name}: {e}"
-            raise errors.SelectionError(msg) from None
 
     def minimum_selection(self) -> int:
         """
@@ -293,7 +249,7 @@ def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
     raise ValueError(msg)
 
 
-def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, FeatureValueCounts]:
+def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, FeatureValueMinMax]:
     """
     allow for some dirty data - at least strip white space from feature name and value
     but only if they are strings! (sometimes people use ints as feature names or values
@@ -328,7 +284,7 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, F
         value_min_flex = 0
         # since we don't know self.number_people_to_select yet! We correct this below
         value_max_flex = MAX_FLEX_UNSET
-    fv_counts = FeatureValueCounts(
+    fv_counts = FeatureValueMinMax(
         min=value_min,
         max=value_max,
         min_flex=value_min_flex,

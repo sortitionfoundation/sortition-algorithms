@@ -6,7 +6,7 @@ from sortition_algorithms.features import (
     FEATURE_FILE_FIELD_NAMES_FLEX_OLD,
     FEATURE_FILE_FIELD_NAMES_OLD,
     FeatureCollection,
-    FeatureValueCounts,
+    FeatureValueMinMax,
     read_in_features,
 )
 
@@ -424,8 +424,8 @@ class TestFeatureCollectionMethods:
         features = FeatureCollection()
 
         # Add some feature values
-        counts1 = FeatureValueCounts(min=1, max=3)
-        counts2 = FeatureValueCounts(min=2, max=4)
+        counts1 = FeatureValueMinMax(min=1, max=3)
+        counts2 = FeatureValueMinMax(min=2, max=4)
 
         features.add_feature("gender", "male", counts1)
         features.add_feature("gender", "female", counts2)
@@ -445,12 +445,12 @@ class TestFeatureCollectionMethods:
         features = FeatureCollection()
 
         # Add first feature: min=3, max=7
-        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=3))
-        features.add_feature("gender", "female", FeatureValueCounts(min=2, max=4))
+        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=3))
+        features.add_feature("gender", "female", FeatureValueMinMax(min=2, max=4))
 
         # Add second feature: min=4, max=6
-        features.add_feature("age", "young", FeatureValueCounts(min=2, max=3))
-        features.add_feature("age", "old", FeatureValueCounts(min=2, max=3))
+        features.add_feature("age", "young", FeatureValueMinMax(min=2, max=3))
+        features.add_feature("age", "old", FeatureValueMinMax(min=2, max=3))
 
         # minimum_selection should be max(3, 4) = 4
         # maximum_selection should be min(7, 6) = 6
@@ -460,8 +460,8 @@ class TestFeatureCollectionMethods:
     def test_feature_collection_check_min_max_valid(self):
         """Test that check_min_max passes for valid configurations."""
         features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=3))
-        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=3))
+        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=3))
+        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=3))
 
         # Should not raise an exception
         features.check_min_max()
@@ -471,12 +471,12 @@ class TestFeatureCollectionMethods:
         features = FeatureCollection()
 
         # First feature: min=5, max=6
-        features.add_feature("gender", "male", FeatureValueCounts(min=3, max=3))
-        features.add_feature("gender", "female", FeatureValueCounts(min=2, max=3))
+        features.add_feature("gender", "male", FeatureValueMinMax(min=3, max=3))
+        features.add_feature("gender", "female", FeatureValueMinMax(min=2, max=3))
 
         # Second feature: min=2, max=3
-        features.add_feature("age", "young", FeatureValueCounts(min=1, max=1))
-        features.add_feature("age", "old", FeatureValueCounts(min=1, max=2))
+        features.add_feature("age", "young", FeatureValueMinMax(min=1, max=1))
+        features.add_feature("age", "old", FeatureValueMinMax(min=1, max=2))
 
         # minimum_selection = max(5, 2) = 5
         # maximum_selection = min(6, 3) = 3
@@ -487,8 +487,8 @@ class TestFeatureCollectionMethods:
     def test_feature_collection_check_desired_valid(self):
         """Test that check_desired passes for valid desired numbers."""
         features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=3))
-        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=3))
+        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=3))
+        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=3))
 
         # Should not raise an exception for a desired number within range
         features.check_desired(4)  # Within [2, 6]
@@ -496,8 +496,8 @@ class TestFeatureCollectionMethods:
     def test_feature_collection_check_desired_too_low(self):
         """Test that check_desired raises error for desired number too low."""
         features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueCounts(min=2, max=3))
-        features.add_feature("gender", "female", FeatureValueCounts(min=2, max=3))
+        features.add_feature("gender", "male", FeatureValueMinMax(min=2, max=3))
+        features.add_feature("gender", "female", FeatureValueMinMax(min=2, max=3))
 
         # Minimum is 4, so 3 should be too low
         with pytest.raises(Exception, match="out of the range"):
@@ -506,30 +506,20 @@ class TestFeatureCollectionMethods:
     def test_feature_collection_check_desired_too_high(self):
         """Test that check_desired raises error for desired number too high."""
         features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueCounts(min=1, max=2))
-        features.add_feature("gender", "female", FeatureValueCounts(min=1, max=2))
+        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=2))
+        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=2))
 
         # Maximum is 4, so 5 should be too high
         with pytest.raises(Exception, match="out of the range"):
             features.check_desired(5)
-
-    def test_feature_collection_add_remaining(self):
-        """Test the add_remaining functionality."""
-        features = FeatureCollection()
-        counts = FeatureValueCounts(min=1, max=3)
-        features.add_feature("gender", "male", counts)
-
-        assert counts.remaining == 0
-        features.add_remaining("gender", "male")
-        assert counts.remaining == 1
 
     def test_feature_collection_set_default_max_flex(self):
         """Test setting default max_flex values."""
         features = FeatureCollection()
 
         # Add features with unset max_flex
-        counts1 = FeatureValueCounts(min=1, max=3)  # max_flex will be MAX_FLEX_UNSET
-        counts2 = FeatureValueCounts(min=2, max=4)  # max_flex will be MAX_FLEX_UNSET
+        counts1 = FeatureValueMinMax(min=1, max=3)  # max_flex will be MAX_FLEX_UNSET
+        counts2 = FeatureValueMinMax(min=2, max=4)  # max_flex will be MAX_FLEX_UNSET
 
         features.add_feature("gender", "male", counts1)
         features.add_feature("gender", "female", counts2)
@@ -544,8 +534,8 @@ class TestFeatureCollectionMethods:
     def test_feature_collection_get_counts(self):
         """Test getting counts for a particular feature and value."""
         features = FeatureCollection()
-        counts1 = FeatureValueCounts(min=1, max=3)
-        counts2 = FeatureValueCounts(min=2, max=4)
+        counts1 = FeatureValueMinMax(min=1, max=3)
+        counts2 = FeatureValueMinMax(min=2, max=4)
         features.add_feature("gender", "male", counts1)
         features.add_feature("gender", "female", counts2)
 
@@ -556,8 +546,8 @@ class TestFeatureCollectionMethods:
     def test_feature_collection_get_counts_no_match(self):
         """Test setting default max_flex values."""
         features = FeatureCollection()
-        counts1 = FeatureValueCounts(min=1, max=3)
-        counts2 = FeatureValueCounts(min=2, max=4)
+        counts1 = FeatureValueMinMax(min=1, max=3)
+        counts2 = FeatureValueMinMax(min=2, max=4)
         features.add_feature("gender", "male", counts1)
         features.add_feature("gender", "female", counts2)
 
@@ -569,7 +559,7 @@ class TestFeatureCollectionMethods:
 
     def test_feature_value_pairs_iterates_through_all(self):
         features = FeatureCollection()
-        counts = FeatureValueCounts(min=1, max=3)
+        counts = FeatureValueMinMax(min=1, max=3)
         features.add_feature("gender", "male", counts)
         features.add_feature("gender", "female", counts)
         features.add_feature("age", "young", counts)
@@ -591,18 +581,16 @@ class TestFeatureValueCounts:
 
     def test_feature_value_counts_creation(self):
         """Test creating FeatureValueCounts objects."""
-        counts = FeatureValueCounts(min=1, max=5)
+        counts = FeatureValueMinMax(min=1, max=5)
 
         assert counts.min == 1
         assert counts.max == 5
-        assert counts.selected == 0
-        assert counts.remaining == 0
         assert counts.min_flex == 0
         assert counts.max_flex == -1  # MAX_FLEX_UNSET
 
     def test_feature_value_counts_with_flex(self):
         """Test creating FeatureValueCounts with flex values."""
-        counts = FeatureValueCounts(min=2, max=4, min_flex=1, max_flex=6)
+        counts = FeatureValueMinMax(min=2, max=4, min_flex=1, max_flex=6)
 
         assert counts.min == 2
         assert counts.max == 4
@@ -611,24 +599,14 @@ class TestFeatureValueCounts:
 
     def test_feature_value_counts_set_default_max_flex(self):
         """Test setting default max_flex when unset."""
-        counts = FeatureValueCounts(min=1, max=3)  # max_flex defaults to MAX_FLEX_UNSET
+        counts = FeatureValueMinMax(min=1, max=3)  # max_flex defaults to MAX_FLEX_UNSET
 
         counts.set_default_max_flex(10)
         assert counts.max_flex == 10
 
     def test_feature_value_counts_set_default_max_flex_already_set(self):
         """Test that set_default_max_flex doesn't override existing values."""
-        counts = FeatureValueCounts(min=1, max=3, max_flex=5)
+        counts = FeatureValueMinMax(min=1, max=3, max_flex=5)
 
         counts.set_default_max_flex(10)
         assert counts.max_flex == 5  # Should remain unchanged
-
-    def test_feature_value_counts_add_remaining(self):
-        """Test incrementing the remaining count."""
-        counts = FeatureValueCounts(min=1, max=3)
-
-        assert counts.remaining == 0
-        counts.add_remaining()
-        assert counts.remaining == 1
-        counts.add_remaining()
-        assert counts.remaining == 2

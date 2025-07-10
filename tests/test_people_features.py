@@ -1,13 +1,28 @@
 import pytest
 
 from sortition_algorithms import errors
-from sortition_algorithms.people_features import MaxRatioResult, PeopleFeatures
+from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
+from sortition_algorithms.people_features import MaxRatioResult, PeopleFeatures, SelectCollection
 from tests.helpers import (
     create_people_with_complex_households,
     create_simple_features,
     create_test_scenario,
     create_test_settings,
 )
+
+
+class TestSelectCollection:
+    def test_feature_collection_add_remaining(self):
+        """Test the add_remaining functionality."""
+        features = FeatureCollection()
+        counts = FeatureValueMinMax(min=1, max=3)
+        features.add_feature("gender", "male", counts)
+        select_collection = SelectCollection.from_feature_collection(features)
+        select_counts = select_collection.get_counts("gender", "male")
+
+        assert select_counts.remaining == 0
+        select_collection.add_remaining("gender", "male")
+        assert select_counts.remaining == 1
 
 
 class TestPeopleFeatures:
@@ -31,7 +46,7 @@ class TestPeopleFeatures:
         people_features = self.create_test_people_features()
 
         # Initially, remaining counts should be 0
-        for _, _, counts in people_features.features.feature_values_counts():
+        for _, _, counts in people_features.select_collection.feature_values_counts():
             assert counts.remaining == 0
 
         # Update for one person
@@ -42,7 +57,7 @@ class TestPeopleFeatures:
             feature_name,
             value_name,
             counts,
-        ) in people_features.features.feature_values_counts():
+        ) in people_features.select_collection.feature_values_counts():
             if (feature_name == "gender" and value_name == "male") or (feature_name == "age" and value_name == "young"):
                 assert counts.remaining == 1
             else:
@@ -66,7 +81,7 @@ class TestPeopleFeatures:
             feature_name,
             value_name,
             counts,
-        ) in people_features.features.feature_values_counts():
+        ) in people_features.select_collection.feature_values_counts():
             expected = expected_counts[(feature_name, value_name)]
             assert counts.remaining == expected
 
@@ -103,7 +118,7 @@ class TestPeopleFeatures:
             feature_name,
             value_name,
             counts,
-        ) in people_features.features.feature_values_counts():
+        ) in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "male":
                 assert counts.remaining == 0
             elif feature_name == "gender" and value_name == "female":
@@ -123,9 +138,9 @@ class TestPeopleFeatures:
             feature_name,
             value_name,
             counts,
-        ) in people_features.features.feature_values_counts():
+        ) in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "male":
-                counts.min = 10  # Impossible to satisfy
+                counts.min_max.min = 10  # Impossible to satisfy
                 counts.selected = 0
 
         with pytest.raises(errors.SelectionError, match="not enough left in gender male"):
@@ -201,15 +216,15 @@ class TestPeopleFeatures:
 
         # Manually adjust counts to create different ratios
         # Make "female" more urgent by increasing its minimum
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "female":
-                counts.min = 2  # Need 2 females, have 2 remaining -> ratio = 2/2 = 1.0
+                counts.min_max.min = 2  # Need 2 females, have 2 remaining -> ratio = 2/2 = 1.0
                 counts.selected = 0
             elif feature_name == "gender" and value_name == "male":
-                counts.min = 1  # Need 1 male, have 2 remaining -> ratio = 1/2 = 0.5
+                counts.min_max.min = 1  # Need 1 male, have 2 remaining -> ratio = 1/2 = 0.5
                 counts.selected = 0
             else:
-                counts.min = 1  # Need 1, have 2 remaining -> ratio = 1/2 = 0.5
+                counts.min_max.min = 1  # Need 1, have 2 remaining -> ratio = 1/2 = 0.5
                 counts.selected = 0
 
         result = people_features.find_max_ratio_category()
@@ -263,10 +278,10 @@ class TestPeopleFeatures:
         people_features.update_all_features_remaining()
 
         # Set remaining to 0 for males AND reduce minimum to 0 (so it's not an error)
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "male":
                 counts.remaining = 0
-                counts.min = 0  # Don't need any males, so remaining=0 is okay
+                counts.min_max.min = 0  # Don't need any males, so remaining=0 is okay
 
         result = people_features.find_max_ratio_category()
 
@@ -279,9 +294,9 @@ class TestPeopleFeatures:
         people_features.update_all_features_remaining()
 
         # Set impossible requirements: need 5 males but only have 2
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "male":
-                counts.min = 5
+                counts.min_max.min = 5
                 counts.selected = 0
                 counts.remaining = 2
 
@@ -307,8 +322,8 @@ class TestPeopleFeatures:
         people_features.update_all_features_remaining()
 
         # Set all minimums to 0 (all ratios will be 0)
-        for _feature_name, _value_name, counts in people_features.features.feature_values_counts():
-            counts.min = 0
+        for _feature_name, _value_name, counts in people_features.select_collection.feature_values_counts():
+            counts.min_max.min = 0
             counts.selected = 0
 
         result = people_features.find_max_ratio_category()
@@ -328,7 +343,7 @@ class TestPeopleFeatures:
 
             # Find the remaining count for the selected category
             remaining_count = None
-            for feature_name, value_name, counts in people_features.features.feature_values_counts():
+            for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
                 if feature_name == result.feature_name and value_name == result.feature_value:
                     remaining_count = counts.remaining
                     break
@@ -357,7 +372,7 @@ class TestPeopleFeatures:
         assert "0" not in people_features.people
 
         # Check that feature counts were updated correctly
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "male":
                 assert counts.selected == 1
                 assert counts.remaining == 1  # Bob is still there
@@ -401,7 +416,7 @@ class TestPeopleFeatures:
         assert remaining_people == {"2", "3"}  # Bob and Alice
 
         # Check feature counts
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "male":
                 assert counts.selected == 1  # Only John was selected (not Bob)
                 assert counts.remaining == 1  # Only Bob remains
@@ -451,7 +466,7 @@ class TestPeopleFeatures:
 
         # Record initial remaining counts (what matters for consistency checking)
         initial_remaining = {}
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             key = (feature_name, value_name)
             initial_remaining[key] = counts.remaining
 
@@ -459,7 +474,7 @@ class TestPeopleFeatures:
         people_features.select_person("0")  # John (removes Jane and Carol too)
 
         # Check remaining count changes
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             key = (feature_name, value_name)
             remaining_change = initial_remaining[key] - counts.remaining
 
@@ -496,7 +511,7 @@ class TestPeopleFeatures:
 
         # Check initial remaining counts for females
         initial_female_remaining = None
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "female":
                 initial_female_remaining = counts.remaining
                 break
@@ -507,7 +522,7 @@ class TestPeopleFeatures:
         people_features.select_person("0")
 
         # Check final counts for females
-        for feature_name, value_name, counts in people_features.features.feature_values_counts():
+        for feature_name, value_name, counts in people_features.select_collection.feature_values_counts():
             if feature_name == "gender" and value_name == "female":
                 assert counts.selected == 0  # Household members aren't "selected"
                 assert counts.remaining == 1  # Only Alice remains
