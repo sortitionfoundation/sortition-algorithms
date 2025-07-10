@@ -1,9 +1,13 @@
 ::: sortition_algorithms.adapters
 ::: sortition_algorithms.committee_generation
+::: sortition_algorithms.committee_generation.common
+::: sortition_algorithms.committee_generation.legacy
+::: sortition_algorithms.committee_generation.leximin
+::: sortition_algorithms.committee_generation.maximin
+::: sortition_algorithms.committee_generation.nash
 ::: sortition_algorithms.core
 ::: sortition_algorithms.errors
 ::: sortition_algorithms.features
-::: sortition_algorithms.find_sample
 ::: sortition_algorithms.people_features
 ::: sortition_algorithms.people
 ::: sortition_algorithms.settings
