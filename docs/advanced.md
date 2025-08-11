@@ -69,22 +69,28 @@ def diagnose_quota_feasibility(features: FeatureCollection, panel_size: int):
 
     issues = []
 
-    # Check if minimum quotas exceed panel size
-    total_minimums = sum(
-        value_counts.min
-        for _, _, value_counts in features.feature_values_counts()
-    )
+    max_value_of_minimums = minimum_selection(features)
+    if max_value_of_minimums > panel_size:
+        issues.append(f"Max value of minimums ({max_value_of_minimums}) exceeds panel size ({panel_size})")
 
-    if total_minimums > panel_size:
-        issues.append(f"Sum of minimums ({total_minimums}) exceeds panel size ({panel_size})")
+    min_value_of_maximums = maximum_selection(features)
+    if min_value_of_maximums < panel_size:
+        issues.append(f"Min value of maximums ({min_value_of_maximums}) is less than panel size ({panel_size})")
 
     # Check for impossible individual quotas
-    for feature_name, value_name, value_counts in features.feature_values_counts():
-        if value_counts.min > panel_size:
-            issues.append(f"{feature_name}:{value_name} minimum ({value_counts.min}) exceeds panel size")
+    for feature_name in features:
+        sum_of_min = sum(c.min for c in features[feature_name].values())
+        sum_of_max = sum(c.max for c in features[feature_name].values())
 
-        if value_counts.max < value_counts.min:
-            issues.append(f"{feature_name}:{value_name} max ({value_counts.max}) < min ({value_counts.min})")
+        if sum_of_min > panel_size:
+            issues.append(f"{feature_name} sum of minimum ({sum_of_min}) exceeds panel size")
+
+        if sum_of_max < panel_size:
+            issues.append(f"{feature_name} sum of maximum ({sum_of_max}) is less than panel size")
+
+    for feature_name, value_name, fv_minmax in iterate_feature_collection(features):
+        if fv_minmax.max < fv_minmax.min:
+            issues.append(f"{feature_name}:{value_name} max ({fv_minmax.max}) < min ({fv_minmax.min})")
 
     return issues
 
@@ -97,18 +103,18 @@ def suggest_quota_fixes(features: FeatureCollection, people: People, panel_size:
     availability = {}
     for person_id in people:
         person_data = people.get_person_dict(person_id)
-        for feature_name in features.feature_names:
+        for feature_name in features:
             value = person_data.get(feature_name, "Unknown")
             key = (feature_name, value)
             availability[key] = availability.get(key, 0) + 1
 
     # Suggest adjustments
-    for feature_name, value_name, value_counts in features.feature_values_counts():
+    for feature_name, value_name, fv_minmax in iterate_feature_collection(features):
         available = availability.get((feature_name, value_name), 0)
 
-        if value_counts.min > available:
+        if fv_minmax.min > available:
             suggestions.append(
-                f"Reduce {feature_name}:{value_name} minimum from {value_counts.min} to {available} "
+                f"Reduce {feature_name}:{value_name} minimum from {fv_minmax.min} to {available} "
                 f"(only {available} candidates available)"
             )
 
@@ -137,25 +143,22 @@ def audit_data_quality(people: People, features: FeatureCollection):
     issues = []
 
     # Check for missing demographic data
-    required_features = features.feature_names
     for person_id in people:
         person_data = people.get_person_dict(person_id)
 
-        for feature in required_features:
+        for feature in features:
             if feature not in person_data or not person_data[feature].strip():
                 issues.append(f"Person {person_id} missing {feature}")
 
     # Check for unexpected feature values
-    expected_values = defaultdict(set)
-    for feature_name, value_name, _ in features.feature_values_counts():
-        expected_values[feature_name].add(value_name)
+    expected_values = {name: set(features[name].keys()]) for name in features}
 
     for person_id in people:
         person_data = people.get_person_dict(person_id)
 
-        for feature_name, expected_vals in expected_values.items():
+        for feature_name, values in expected_values.items():
             actual_val = person_data.get(feature_name, "")
-            if actual_val and actual_val not in expected_vals:
+            if actual_val and actual_val not in values:
                 issues.append(
                     f"Person {person_id} has unexpected {feature_name} value: '{actual_val}'"
                 )
@@ -182,14 +185,14 @@ def clean_data_automatically(people_data: list[dict], features: FeatureCollectio
                 value = value.strip()
 
             # Standardize case for categorical variables
-            if key in features.feature_names:
+            if key in features:
                 # Convert to title case for consistency
                 value = value.title() if value else ""
 
             cleaned_person[key] = value
 
         # Skip records with missing required data
-        required_fields = ["id"] + features.feature_names
+        required_fields = ["id"] + list(features.keys())
         if all(cleaned_person.get(field) for field in required_fields):
             cleaned_data.append(cleaned_person)
 
