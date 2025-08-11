@@ -1,7 +1,7 @@
 import pytest
 
 from sortition_algorithms import errors
-from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
+from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import (
     People,
     _check_columns_exist_or_multiple,
@@ -9,6 +9,30 @@ from sortition_algorithms.people import (
 )
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import StrippedDict
+
+
+def create_simple_test_features() -> FeatureCollection:
+    """Create a simple FeatureCollection with only gender for testing."""
+    features_data = [
+        {"feature": "gender", "value": "male", "min": "1", "max": "10"},
+        {"feature": "gender", "value": "female", "min": "1", "max": "10"},
+    ]
+    head = ["feature", "value", "min", "max"]
+    features, _ = read_in_features(head, features_data)
+    return features
+
+
+def create_test_features() -> FeatureCollection:
+    """Create a FeatureCollection with gender and age for testing."""
+    features_data = [
+        {"feature": "gender", "value": "male", "min": "1", "max": "5"},
+        {"feature": "gender", "value": "female", "min": "1", "max": "5"},
+        {"feature": "age", "value": "young", "min": "1", "max": "3"},
+        {"feature": "age", "value": "old", "min": "1", "max": "3"},
+    ]
+    head = ["feature", "value", "min", "max"]
+    features, _ = read_in_features(head, features_data)
+    return features
 
 
 class TestPeople:
@@ -28,9 +52,7 @@ class TestPeople:
         people = People(columns_to_keep)
 
         # Create mock features
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Create person data
         person_data = StrippedDict({
@@ -38,7 +60,6 @@ class TestPeople:
             "name": "John Doe",
             "email": "john@example.com",
             "gender": "male",
-            "age": "30",
         })
 
         people.add("123", person_data, features)
@@ -58,9 +79,7 @@ class TestPeople:
         people = People(columns_to_keep)
 
         # Create features that only allow "male" and "female"
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Try to add person with invalid gender
         person_data = StrippedDict({
@@ -77,8 +96,7 @@ class TestPeople:
         columns_to_keep = ["name"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         person_data = StrippedDict({"id": "123", "name": "John", "gender": "male"})
         people.add("123", person_data, features)
@@ -95,8 +113,7 @@ class TestPeople:
         columns_to_keep = ["name"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Add multiple people
         for i, name in enumerate(["John", "Jane", "Bob"]):
@@ -169,11 +186,7 @@ class TestReadInPeople:
 
     def create_test_data(self):
         """Helper to create test data for read_in_people."""
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("age", "young", FeatureValueMinMax(min=1, max=3))
-        features.add_feature("age", "old", FeatureValueMinMax(min=1, max=3))
+        features = create_test_features()
 
         settings = Settings(
             id_column="id",
@@ -401,8 +414,7 @@ class TestPeopleHouseholds:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         person_data = StrippedDict({
             "id": "1",
@@ -423,9 +435,7 @@ class TestPeopleHouseholds:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Add people at the same address
         people_data = [
@@ -454,9 +464,7 @@ class TestPeopleHouseholds:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Add people at different addresses
         people_data = [
@@ -489,9 +497,7 @@ class TestPeopleHouseholds:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Add people with some sharing addresses
         people_data = [
@@ -526,9 +532,7 @@ class TestPeopleHouseholds:
         columns_to_keep = ["name", "address1"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         people_data = [
             ("1", "John Doe", "123 Main St", "male"),
@@ -558,8 +562,7 @@ class TestPeopleHouseholds:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Note: StrippedDict will strip whitespace, so these should be considered the same
         people_data = [
@@ -588,8 +591,7 @@ class TestPeopleHouseholds:
         columns_to_keep = ["name"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         person_data = StrippedDict({
             "id": "1",
@@ -613,9 +615,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Add people with different addresses
         people_data = [
@@ -643,9 +643,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Add people with some sharing addresses
         people_data = [
@@ -682,8 +680,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Add person
         person_data = StrippedDict({
@@ -704,9 +701,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name", "address1"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         people_data = [
             ("1", "John Doe", "123 Main St", "male"),
@@ -736,8 +731,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         # Addresses with different whitespace should still match
         people_data = [
@@ -764,9 +758,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         people_data = [
             ("1", "John Doe", "male"),
@@ -794,9 +786,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         people_data = [
             ("1", "John Doe", "123 Main St", "12345", "male"),
@@ -835,8 +825,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=5))
+        features = create_simple_test_features()
 
         people_data = [
             ("1", "John Doe", "123 Main St", "12345", "male"),
@@ -870,9 +859,7 @@ class TestPeopleMatchingAddress:
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=10))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=10))
+        features = create_simple_test_features()
 
         # Add 10 people at the same address
         for i in range(10):

@@ -4,7 +4,7 @@ from collections.abc import Collection, Iterable
 import mip
 
 from sortition_algorithms import errors
-from sortition_algorithms.features import FeatureCollection
+from sortition_algorithms.features import FeatureCollection, feature_value_pairs, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import print_ret, random_provider
 
@@ -42,17 +42,17 @@ def setup_committee_generation(
     model.add_constr(mip.xsum(agent_vars.values()) == number_people_wanted)
 
     # Respect min/max quotas for each feature value
-    for feature_name, value_name, value_counts in features.feature_values_counts():
+    for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(features):
         # Count people with this feature-value who are selected
         number_feature_value_agents = mip.xsum(
             agent_vars[person_id]
             for person_id, person_data in people.items()
-            if person_data[feature_name] == value_name
+            if person_data[feature_name] == fvalue_name
         )
 
         # Add min/max constraints
-        model.add_constr(number_feature_value_agents >= value_counts.min)
-        model.add_constr(number_feature_value_agents <= value_counts.max)
+        model.add_constr(number_feature_value_agents >= fv_minmax.min)
+        model.add_constr(number_feature_value_agents <= fv_minmax.max)
 
     # Household constraints: at most 1 person per household
     if check_same_address_columns:
@@ -127,8 +127,8 @@ def _relax_infeasible_quotas(
 
     # Objective: minimize weighted sum of relaxations
     model.objective = mip.xsum(
-        [_reduction_weight(features, *fv) * min_vars[fv] for fv in features.feature_value_pairs()]
-        + [max_vars[fv] for fv in features.feature_value_pairs()]
+        [_reduction_weight(features, *fv) * min_vars[fv] for fv in feature_value_pairs(features)]
+        + [max_vars[fv] for fv in feature_value_pairs(features)]
     )
 
     # Solve the model and handle errors
@@ -146,7 +146,7 @@ def _reduction_weight(features: FeatureCollection, feature_name: str, value_name
     # Find the current min quota for this feature-value
     # we assume we are only getting value feature/value names as this is called
     # while iterating through a loop
-    old_quota = features.get_counts(feature_name, value_name).min
+    old_quota = features[feature_name][value_name].min
     if old_quota == 0:
         return 0  # cannot be relaxed anyway
     return 1 + 2 / old_quota
@@ -166,18 +166,18 @@ def _create_relaxation_variables_and_bounds(
         tuple of (min_vars, max_vars) - dictionaries mapping feature-value pairs to relaxation variables
     """
     # Create relaxation variables for each feature-value pair
-    min_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in features.feature_value_pairs()}
-    max_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in features.feature_value_pairs()}
+    min_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in feature_value_pairs(features)}
+    max_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in feature_value_pairs(features)}
 
     # Add constraints ensuring relaxations stay within min_flex/max_flex bounds
-    for feature_name, value_name, value_counts in features.feature_values_counts():
-        fv = (feature_name, value_name)
+    for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(features):
+        fv = (feature_name, fvalue_name)
 
         # Relaxed min cannot go below min_flex
-        model.add_constr(value_counts.min - min_vars[fv] >= value_counts.min_flex)
+        model.add_constr(fv_minmax.min - min_vars[fv] >= fv_minmax.min_flex)
 
         # Relaxed max cannot go above max_flex
-        model.add_constr(value_counts.max + max_vars[fv] <= value_counts.max_flex)
+        model.add_constr(fv_minmax.max + max_vars[fv] <= fv_minmax.max_flex)
 
     return min_vars, max_vars
 
@@ -216,19 +216,19 @@ def _add_committee_constraints_for_inclusion_set(
     model.add_constr(mip.xsum(agent_vars.values()) == number_people_wanted)
 
     # Respect relaxed quotas for each feature-value
-    for feature_name, value_name, value_counts in features.feature_values_counts():
-        fv = (feature_name, value_name)
+    for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(features):
+        fv = (feature_name, fvalue_name)
 
         # Count people with this feature-value who are selected
         number_feature_value_agents = mip.xsum(
             agent_vars[person_id]
             for person_id, person_data in people.items()
-            if person_data[feature_name] == value_name
+            if person_data[feature_name] == fvalue_name
         )
 
         # Apply relaxed min/max constraints
-        model.add_constr(number_feature_value_agents >= value_counts.min - min_vars[fv])
-        model.add_constr(number_feature_value_agents <= value_counts.max + max_vars[fv])
+        model.add_constr(number_feature_value_agents >= fv_minmax.min - min_vars[fv])
+        model.add_constr(number_feature_value_agents <= fv_minmax.max + max_vars[fv])
 
     # Household constraints: at most 1 person per household
     if check_same_address_columns:
@@ -269,7 +269,8 @@ def _extract_relaxed_features_and_messages(
     min_vars: dict[tuple[str, str], mip.entities.Var],
     max_vars: dict[tuple[str, str], mip.entities.Var],
 ) -> tuple[FeatureCollection, list[str]]:
-    """Extract relaxed quotas from solved model and generate recommendation messages.
+    """
+    Extract relaxed quotas from solved model and generate recommendation messages.
 
     Args:
         features: Original FeatureCollection with quotas
@@ -283,30 +284,26 @@ def _extract_relaxed_features_and_messages(
     relaxed_features = copy.deepcopy(features)
     output_lines = []
 
-    for (
-        feature_name,
-        value_name,
-        value_counts,
-    ) in relaxed_features.feature_values_counts():
-        fv = (feature_name, value_name)
+    for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(relaxed_features):
+        fv = (feature_name, fvalue_name)
         min_relaxation = round(min_vars[fv].x)
         max_relaxation = round(max_vars[fv].x)
 
-        original_min = value_counts.min
-        original_max = value_counts.max
+        original_min = fv_minmax.min
+        original_max = fv_minmax.max
 
         new_min = original_min - min_relaxation
         new_max = original_max + max_relaxation
 
         # Update the values
-        value_counts.min = new_min
-        value_counts.max = new_max
+        fv_minmax.min = new_min
+        fv_minmax.max = new_max
 
         # Generate output messages
         if new_min < original_min:
-            output_lines.append(f"Recommend lowering lower quota of {feature_name}:{value_name} to {new_min}.")
+            output_lines.append(f"Recommend lowering lower quota of {feature_name}:{fvalue_name} to {new_min}.")
         if new_max > original_max:
-            output_lines.append(f"Recommend raising upper quota of {feature_name}:{value_name} to {new_max}.")
+            output_lines.append(f"Recommend raising upper quota of {feature_name}:{fvalue_name} to {new_max}.")
 
     return relaxed_features, output_lines
 
