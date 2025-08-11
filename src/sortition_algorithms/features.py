@@ -52,11 +52,9 @@ class FeatureValueMinMax:
             self.max_flex = max_flex
 
 
-FeatureValues: TypeAlias = dict[str, FeatureValueMinMax]  # noqa: UP040
-FeatureCollection: TypeAlias = dict[str, FeatureValues]  # noqa: UP040
+FeatureCollection: TypeAlias = dict[str, dict[str, FeatureValueMinMax]]  # noqa: UP040
 # TODO: when python3.11 is dropped, change to:
-# type FeatureValues = dict[str, FeatureValueMinMax]
-# type FeatureCollection = dict[str, FeatureValues]
+# type FeatureCollection = dict[str, dict[str, FeatureValueMinMax]]
 
 
 def iterate_feature_collection(features: FeatureCollection) -> Generator[tuple[str, str, FeatureValueMinMax]]:
@@ -72,11 +70,11 @@ def feature_value_pairs(fc: FeatureCollection) -> Iterator[tuple[str, str]]:
             yield feature_name, value_name
 
 
-def _fv_minimum_selection(fv: FeatureValues) -> int:
+def _fv_minimum_selection(fv: dict[str, FeatureValueMinMax]) -> int:
     return sum(c.min for c in fv.values())
 
 
-def _fv_maximum_selection(fv: FeatureValues) -> int:
+def _fv_maximum_selection(fv: dict[str, FeatureValueMinMax]) -> int:
     return sum(c.max for c in fv.values())
 
 

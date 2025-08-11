@@ -62,11 +62,9 @@ class SelectCounts:
         return self.selected >= self.min_max.min or self.remaining >= self.people_still_needed
 
 
-SelectValues: typing.TypeAlias = dict[str, SelectCounts]  # noqa: UP040
-SelectCollection: typing.TypeAlias = dict[str, SelectValues]  # noqa: UP040
+SelectCollection: typing.TypeAlias = dict[str, dict[str, SelectCounts]]  # noqa: UP040
 # TODO: when python3.11 is dropped, change to:
-# type SelectValues = dict[str, SelectCounts]
-# type SelectCollection = dict[str, SelectValues]
+# type SelectCollection = dict[str, dict[str, SelectCounts]]
 
 
 def select_from_feature_collection(fc: FeatureCollection) -> SelectCollection:
