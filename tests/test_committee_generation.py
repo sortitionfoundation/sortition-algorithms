@@ -1,5 +1,6 @@
 """Tests for the committee generation algorithms using modern data structures."""
 
+from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import combinations
@@ -20,7 +21,7 @@ def convert_categories_to_features(
     categories_dict: dict[str, dict[str, dict[str, int]]],
 ) -> FeatureCollection:
     """Convert old categories format to FeatureCollection."""
-    features = FeatureCollection()
+    features: FeatureCollection = defaultdict(dict)
 
     for feature_name, values_dict in categories_dict.items():
         for value_name, constraints in values_dict.items():
@@ -29,13 +30,12 @@ def convert_categories_to_features(
             min_flex = constraints.get("min_flex", min_val)
             max_flex = constraints.get("max_flex", max_val)
 
-            value_counts = FeatureValueMinMax(
+            features[feature_name][value_name] = FeatureValueMinMax(
                 min=min_val,
                 max=max_val,
                 min_flex=min_flex,
                 max_flex=max_flex,
             )
-            features.add_feature(feature_name, value_name, value_counts)
 
     return features
 
@@ -318,10 +318,11 @@ def allocation_feasible(
         assert pid in people
 
     # Check feature constraints
-    for feature_name, value_name, value_counts in features.feature_values_counts():
-        num_value = sum(1 for pid in committee if people.get_person_dict(pid)[feature_name] == value_name)
-        assert num_value >= value_counts.min
-        assert num_value <= value_counts.max
+    for feature_name, fvalues in features.items():
+        for fvalue_name, fv_minmax in fvalues.items():
+            num_value = sum(1 for pid in committee if people.get_person_dict(pid)[feature_name] == fvalue_name)
+            assert num_value >= fv_minmax.min
+            assert num_value <= fv_minmax.max
 
     # Check household constraints
     if check_same_address_columns:

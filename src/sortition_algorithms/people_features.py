@@ -1,13 +1,13 @@
 import csv
 import typing
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable
 from copy import deepcopy
 
 from attrs import define
 
 from sortition_algorithms import errors
-from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
+from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import random_provider
@@ -62,93 +62,23 @@ class SelectCounts:
         return self.selected >= self.min_max.min or self.remaining >= self.people_still_needed
 
 
-class SelectValues:
-    """
-    A full set of SelectCounts for each value for a single feature.
-
-    If the feature is gender, the values could be: male, female, non_binary_other
-
-    The values are SelectCount objects - the current counts of the selected people in that feature value.
-    """
-
-    def __init__(self) -> None:
-        self.select_values: dict[str, SelectCounts] = {}
-
-    def __eq__(self, other: typing.Any) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self.select_values == other.select_values
-
-    def add_value_counts(self, value_name: str, fv_counts: FeatureValueMinMax) -> None:
-        self.select_values[value_name] = SelectCounts(min_max=fv_counts)
-
-    def values_counts(self) -> Iterator[tuple[str, SelectCounts]]:
-        yield from self.select_values.items()
-
-    def add_remaining(self, value_name: str) -> None:
-        self.select_values[value_name].add_remaining()
-
-    def add_selected(self, value_name: str) -> None:
-        self.select_values[value_name].add_selected()
-
-    def remove_remaining(self, value_name: str) -> None:
-        self.select_values[value_name].remove_remaining()
-
-    def get_counts(self, value_name: str) -> SelectCounts:
-        return self.select_values[value_name]
+SelectCollection: typing.TypeAlias = dict[str, dict[str, SelectCounts]]  # noqa: UP040
+# TODO: when python3.11 is dropped, change to:
+# type SelectCollection = dict[str, dict[str, SelectCounts]]
 
 
-class SelectCollection:
-    """
-    A full set of features for a stratification.
+def select_from_feature_collection(fc: FeatureCollection) -> SelectCollection:
+    select_collection: SelectCollection = defaultdict(dict)
+    for fname, fvalue_name, fv_minmax in iterate_feature_collection(fc):
+        select_collection[fname][fvalue_name] = SelectCounts(min_max=fv_minmax)
+    return select_collection
 
-    The keys here are the names of the features. They could be: gender, age_bracket, education_level etc
 
-    The values are SelectValues objects - the breakdown of the values for a feature.
-
-    This is a parallel set of classes to FeatureCollection. SelectCollection relies on FeatureCollection
-    but not vice versa.
-    """
-
-    def __init__(self) -> None:
-        self.collection: dict[str, SelectValues] = defaultdict(SelectValues)
-
-    @classmethod
-    def from_feature_collection(cls, collection: FeatureCollection) -> "SelectCollection":
-        select_collection = cls()
-        for feature, value, fv_counts in collection.feature_values_counts():
-            select_collection.collection[feature].add_value_counts(value, fv_counts)
-        return select_collection
-
-    def __eq__(self, other: typing.Any) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self.collection == other.collection
-
-    @property
-    def feature_names(self) -> list[str]:
-        return list(self.collection.keys())
-
-    def feature_values_counts(self) -> Iterator[tuple[str, str, SelectCounts]]:
-        for feature_name, feature_values in self.collection.items():
-            for value, value_counts in feature_values.values_counts():
-                yield feature_name, value, value_counts
-
-    def get_counts(self, feature_name: str, value_name: str) -> SelectCounts:
-        return self.collection[feature_name].get_counts(value_name)
-
-    def add_remaining(self, feature: str, value_name: str) -> None:
-        self.collection[feature].add_remaining(value_name)
-
-    def add_selected(self, feature: str, value_name: str) -> None:
-        self.collection[feature].add_selected(value_name)
-
-    def remove_remaining(self, feature: str, value_name: str) -> None:
-        try:
-            self.collection[feature].remove_remaining(value_name)
-        except errors.SelectionError as e:
-            msg = f"Failed removing from {feature}/{value_name}: {e}"
-            raise errors.SelectionError(msg) from None
+def iterate_select_collection(select_collection: SelectCollection) -> Generator[tuple[str, str, SelectCounts]]:
+    """Helper function to iterate over select_collection."""
+    for feature_name, feature_values in select_collection.items():
+        for value_name, fv_counts in feature_values.items():
+            yield feature_name, value_name, fv_counts
 
 
 class PeopleFeatures:
@@ -168,14 +98,15 @@ class PeopleFeatures:
     ) -> None:
         self.people = deepcopy(people)
         self.features = features
-        self.select_collection = SelectCollection.from_feature_collection(self.features)
+        self.select_collection = select_from_feature_collection(self.features)
         self.check_same_address_columns = check_same_address_columns or []
 
     def update_features_remaining(self, person_key: str) -> None:
         # this will blow up if the person does not exist
         person = self.people.get_person_dict(person_key)
-        for feature_name in self.features.feature_names:
-            self.select_collection.add_remaining(feature_name, person[feature_name])
+        for feature_name in self.features:
+            feature_value = person[feature_name]
+            self.select_collection[feature_name][feature_value].add_remaining()
 
     def update_all_features_remaining(self) -> None:
         for person_key in self.people:
@@ -193,9 +124,10 @@ class PeopleFeatures:
         for pkey, person in self.people.items():
             if person[feature_name] == feature_value:
                 people_to_delete.append(pkey)
-                for feature in self.features.feature_names:
+                for feature in self.features:
+                    current_feature_value = person[feature]
                     try:
-                        self.select_collection.remove_remaining(feature, person[feature])
+                        self.select_collection[feature][current_feature_value].remove_remaining()
                     except errors.SelectionError as e:
                         msg = (
                             f"SELECTION IMPOSSIBLE: FAIL in delete_all_in_feature_value() "
@@ -216,15 +148,11 @@ class PeopleFeatures:
         msg: list[str] = []
         msg.append(f"Number of people: {self.people.count}.")
         total_num_deleted = 0
-        for (
-            feature_name,
-            feature_value,
-            fv_counts,
-        ) in self.features.feature_values_counts():
-            if fv_counts.max == 0:  # we don't want any of these people
+        for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(self.features):
+            if fv_minmax.max == 0:  # we don't want any of these people
                 # pass the message in as deleting them might throw an exception
-                msg.append(f"Feature/value {feature_name}/{feature_value} full - deleting people...")
-                num_deleted, num_left = self.delete_all_with_feature_value(feature_name, feature_value)
+                msg.append(f"Feature/value {feature_name}/{fvalue_name} full - deleting people...")
+                num_deleted, num_left = self.delete_all_with_feature_value(feature_name, fvalue_name)
                 # if no exception was thrown above add this bit to the end of the previous message
                 msg[-1] += f" Deleted {num_deleted}, {num_left} left."
                 total_num_deleted += num_deleted
@@ -254,16 +182,18 @@ class PeopleFeatures:
 
         # Handle the main person selection
         person = self.people.get_person_dict(person_key)
-        for feature in self.features.feature_names:
-            self.select_collection.remove_remaining(feature, person[feature])
-            self.select_collection.add_selected(feature, person[feature])
+        for feature_name in self.features:
+            feature_value = person[feature_name]
+            self.select_collection[feature_name][feature_value].remove_remaining()
+            self.select_collection[feature_name][feature_value].add_selected()
         self.people.remove(person_key)
 
         # Then remove household members if any were found
         for household_member_key in household_members_removed:
             household_member = self.people.get_person_dict(household_member_key)
-            for feature in self.features.feature_names:
-                self.select_collection.remove_remaining(feature, household_member[feature])
+            for feature_name in self.features:
+                feature_value = household_member[feature_name]
+                self.select_collection[feature_name][feature_value].remove_remaining()
                 # Note: we don't call add_selected() for household members
             self.people.remove(household_member_key)
 
@@ -288,15 +218,11 @@ class PeopleFeatures:
         result_feature_value = ""
         random_person_index = -1
 
-        for (
-            feature_name,
-            feature_value,
-            select_counts,
-        ) in self.select_collection.feature_values_counts():
+        for feature_name, fvalue_name, select_counts in iterate_select_collection(self.select_collection):
             # Check if we have insufficient people to meet minimum requirements
             if not select_counts.sufficient_people():
                 msg = (
-                    f"SELECTION IMPOSSIBLE: Not enough people remaining in {feature_name}/{feature_value}. "
+                    f"SELECTION IMPOSSIBLE: Not enough people remaining in {feature_name}/{fvalue_name}. "
                     f"Need {select_counts.people_still_needed} more, but only {select_counts.remaining} remaining."
                 )
                 raise errors.SelectionError(msg)
@@ -312,7 +238,7 @@ class PeopleFeatures:
             if ratio > max_ratio:
                 max_ratio = ratio
                 result_feature_name = feature_name
-                result_feature_value = feature_value
+                result_feature_value = fvalue_name
                 # from 1 to remaining
                 random_person_index = random_provider().randbelow(select_counts.remaining) + 1
 
@@ -345,19 +271,15 @@ class PeopleFeatures:
         """
         output_messages = []
 
-        for (
-            feature_name,
-            feature_value,
-            select_counts,
-        ) in self.select_collection.feature_values_counts():
+        for feature_name, fvalue_name, select_counts in iterate_select_collection(self.select_collection):
             if (
-                feature_value == selected_person_data[feature_name]
+                fvalue_name == selected_person_data[feature_name]
                 and select_counts.selected == select_counts.min_max.max
             ):
-                num_deleted, num_left = self.delete_all_with_feature_value(feature_name, feature_value)
+                num_deleted, num_left = self.delete_all_with_feature_value(feature_name, fvalue_name)
                 if num_deleted > 0:
                     output_messages.append(
-                        f"Category {feature_name}/{feature_value} full - deleted {num_deleted} people, {num_left} left."
+                        f"Category {feature_name}/{fvalue_name} full - deleted {num_deleted} people, {num_left} left."
                     )
 
         return output_messages
@@ -370,15 +292,16 @@ def simple_add_selected(person_keys: Iterable[str], people: People, features: Se
     """
     for person_key in person_keys:
         person = people.get_person_dict(person_key)
-        for feature_name in features.feature_names:
-            features.add_selected(feature_name, person[feature_name])
+        for feature_name in features:
+            feature_value = person[feature_name]
+            features[feature_name][feature_value].add_selected()
 
 
 class WeightedSample:
     def __init__(self, features: FeatureCollection) -> None:
         """
         This produces a set of lists of feature values for each feature.  Each value
-        is in the list `fv_counts.max` times - so a random choice with represent the max.
+        is in the list `fv_minmax.max` times - so a random choice with represent the max.
 
         So if we had feature "ethnicity", value "white" w max 4, "asian" w max 3 and
         "black" with max 2 we'd get:
@@ -388,8 +311,8 @@ class WeightedSample:
         Then making random choices from that list produces a weighted sample.
         """
         self.weighted: dict[str, list[str]] = defaultdict(list)
-        for feature_name, value, fv_counts in features.feature_values_counts():
-            self.weighted[feature_name] += [value] * fv_counts.max
+        for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(features):
+            self.weighted[feature_name] += [fvalue_name] * fv_minmax.max
 
     def value_for(self, feature_name: str) -> str:
         # S311 is random numbers for crypto - but this is just for a sample file
@@ -408,12 +331,12 @@ def create_readable_sample_file(
         quotechar='"',
         quoting=csv.QUOTE_MINIMAL,
     )
-    example_people_writer.writerow([settings.id_column, *settings.full_columns_to_keep, *features.feature_names])
+    example_people_writer.writerow([settings.id_column, *settings.full_columns_to_keep, *features.keys()])
     weighted = WeightedSample(features)
     for x in range(number_people_example_file):
         row = [
             f"p{x}",
             *[f"{col} {x}" for col in settings.full_columns_to_keep],
-            *[weighted.value_for(f) for f in features.feature_names],
+            *[weighted.value_for(f) for f in features],
         ]
         example_people_writer.writerow(row)

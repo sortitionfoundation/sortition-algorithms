@@ -1,6 +1,6 @@
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
-from typing import Any
+from collections.abc import Generator, Iterable, Iterator
+from typing import TypeAlias
 
 from attrs import define
 
@@ -52,152 +52,94 @@ class FeatureValueMinMax:
             self.max_flex = max_flex
 
 
-class FeatureValues:
+FeatureCollection: TypeAlias = dict[str, dict[str, FeatureValueMinMax]]  # noqa: UP040
+# TODO: when python3.11 is dropped, change to:
+# type FeatureCollection = dict[str, dict[str, FeatureValueMinMax]]
+
+
+def iterate_feature_collection(features: FeatureCollection) -> Generator[tuple[str, str, FeatureValueMinMax]]:
+    """Helper function to iterate over feature collection."""
+    for feature_name, feature_values in features.items():
+        for value_name, fv_minmax in feature_values.items():
+            yield feature_name, value_name, fv_minmax
+
+
+def feature_value_pairs(fc: FeatureCollection) -> Iterator[tuple[str, str]]:
+    for feature_name, feature_value in fc.items():
+        for value_name in feature_value:
+            yield feature_name, value_name
+
+
+def _fv_minimum_selection(fv: dict[str, FeatureValueMinMax]) -> int:
+    return sum(c.min for c in fv.values())
+
+
+def _fv_maximum_selection(fv: dict[str, FeatureValueMinMax]) -> int:
+    return sum(c.max for c in fv.values())
+
+
+def minimum_selection(fc: FeatureCollection) -> int:
     """
-    A full set of values for a single feature.
-
-    If the feature is gender, the values could be: male, female, non_binary_other
-
-    The values are FeatureValueCounts objects - the min and max for that feature value.
+    The minimum selection for this set of features is the largest minimum selection
+    of any individual feature.
     """
+    if not fc:
+        return 0
 
-    def __init__(self) -> None:
-        self.feature_values: dict[str, FeatureValueMinMax] = {}
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self.feature_values == other.feature_values
-
-    def add_value_counts(self, value_name: str, fv_counts: FeatureValueMinMax) -> None:
-        self.feature_values[value_name] = fv_counts
-
-    def set_default_max_flex(self, max_flex: int) -> None:
-        """Note this only sets it if left at the default value"""
-        for fv_counts in self.feature_values.values():
-            fv_counts.set_default_max_flex(max_flex)
-
-    @property
-    def values(self) -> list[str]:
-        return list(self.feature_values.keys())
-
-    def values_counts(self) -> Iterator[tuple[str, FeatureValueMinMax]]:
-        yield from self.feature_values.items()
-
-    def minimum_selection(self) -> int:
-        """
-        For this feature, we have to select at least the sum of the minimum of each value
-        """
-        return sum(c.min for c in self.feature_values.values())
-
-    def maximum_selection(self) -> int:
-        """
-        For this feature, we have to select at most the sum of the maximum of each value
-        """
-        return sum(c.max for c in self.feature_values.values())
-
-    def get_counts(self, value_name: str) -> FeatureValueMinMax:
-        return self.feature_values[value_name]
+    return max(_fv_minimum_selection(fv) for fv in fc.values())
 
 
-class FeatureCollection:
+def maximum_selection(fc: FeatureCollection) -> int:
     """
-    A full set of features for a stratification.
-
-    The keys here are the names of the features. They could be: gender, age_bracket, education_level etc
-
-    The values are FeatureValues objects - the breakdown of the values for a feature.
+    The maximum selection for this set of features is the smallest maximum selection
+    of any individual feature.
     """
+    if not fc:
+        return 0
 
-    def __init__(self) -> None:
-        self.collection: dict[str, FeatureValues] = defaultdict(FeatureValues)
+    return min(_fv_maximum_selection(fv) for fv in fc.values())
 
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self.collection == other.collection
 
-    def add_feature(self, feature_name: str, value_name: str, fv_counts: FeatureValueMinMax) -> None:
-        self.collection[feature_name].add_value_counts(value_name, fv_counts)
+def check_min_max(fc: FeatureCollection) -> None:
+    """
+    If the min is bigger than the max we're in trouble i.e. there's an input error
+    """
+    if minimum_selection(fc) > maximum_selection(fc):
+        msg = (
+            "Inconsistent numbers in min and max in the features input: the sum "
+            "of the minimum values of a features is larger than the sum of the "
+            "maximum values of a(nother) feature. "
+        )
+        raise ValueError(msg)
 
-    @property
-    def feature_names(self) -> list[str]:
-        return list(self.collection.keys())
 
-    def feature_values(self) -> Iterator[tuple[str, list[str]]]:
-        for feature_name, feature_value in self.collection.items():
-            yield feature_name, feature_value.values
-
-    def feature_value_pairs(self) -> Iterator[tuple[str, str]]:
-        for feature_name, feature_value in self.collection.items():
-            for value_name in feature_value.values:
-                yield feature_name, value_name
-
-    def feature_values_counts(self) -> Iterator[tuple[str, str, FeatureValueMinMax]]:
-        for feature_name, feature_values in self.collection.items():
-            for value, value_counts in feature_values.values_counts():
-                yield feature_name, value, value_counts
-
-    def get_counts(self, feature_name: str, value_name: str) -> FeatureValueMinMax:
-        return self.collection[feature_name].get_counts(value_name)
-
-    def _safe_max_flex_val(self) -> int:
-        if not self.collection:
-            return 0
-        # to avoid errors, if max_flex is not set we must set it at least as high as the highest
-        return max(v.maximum_selection() for v in self.collection.values())
-
-    def set_default_max_flex(self) -> None:
-        """Note this only sets it if left at the default value"""
-        max_flex = self._safe_max_flex_val()
-        for feature_values in self.collection.values():
-            feature_values.set_default_max_flex(max_flex)
-
-    def minimum_selection(self) -> int:
-        """
-        The minimum selection for this set of features is the largest minimum selection
-        of any individual feature.
-        """
-        if not self.collection:
-            return 0
-        return max(v.minimum_selection() for v in self.collection.values())
-
-    def maximum_selection(self) -> int:
-        """
-        The maximum selection for this set of features is the smallest maximum selection
-        of any individual feature.
-        """
-        if not self.collection:
-            return 0
-        return min(v.maximum_selection() for v in self.collection.values())
-
-    def check_min_max(self) -> None:
-        """
-        If the min is bigger than the max we're in trouble i.e. there's an input error
-        """
-        if self.minimum_selection() > self.maximum_selection():
+def check_desired(fc: FeatureCollection, desired_number: int) -> None:
+    """
+    Check if the desired number of people is within the min/max of every feature.
+    """
+    for feature_name, fvalues in fc.items():
+        if desired_number < _fv_minimum_selection(fvalues) or desired_number > _fv_maximum_selection(fvalues):
             msg = (
-                "Inconsistent numbers in min and max in the features input: the sum "
-                "of the minimum values of a features is larger than the sum of the "
-                "maximum values of a(nother) feature. "
+                f"The number of people to select ({desired_number}) is out of the range of "
+                f"the numbers of people in the {feature_name} feature. It should be within "
+                f"[{_fv_minimum_selection(fvalues)}, {_fv_maximum_selection(fvalues)}]."
             )
-            raise ValueError(msg)
+            raise Exception(msg)
 
-    def check_desired(self, desired_number: int) -> None:
-        """
-        Check if the desired number of people is within the min/max of every feature.
-        """
-        for feature_name, feature_values in self.collection.items():
-            if (
-                desired_number < feature_values.minimum_selection()
-                or desired_number > feature_values.maximum_selection()
-            ):
-                msg = (
-                    f"The number of people to select ({desired_number}) is out of the range of "
-                    f"the numbers of people in the {feature_name} feature. It should be within "
-                    f"[{feature_values.minimum_selection()}, {feature_values.maximum_selection()}]."
-                )
-                raise Exception(msg)
+
+def _safe_max_flex_val(fc: FeatureCollection) -> int:
+    if not fc:
+        return 0
+    # to avoid errors, if max_flex is not set we must set it at least as high as the highest
+    return max(_fv_maximum_selection(fv) for fv in fc.values())
+
+
+def set_default_max_flex(fc: FeatureCollection) -> None:
+    """Note this only sets it if left at the default value"""
+    max_flex = _safe_max_flex_val(fc)
+    for feature_values in fc.values():
+        for fv_minmax in feature_values.values():
+            fv_minmax.set_default_max_flex(max_flex)
 
 
 def _normalise_col_names(row: dict[str, str]) -> dict[str, str]:
@@ -284,13 +226,13 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, F
         value_min_flex = 0
         # since we don't know self.number_people_to_select yet! We correct this below
         value_max_flex = MAX_FLEX_UNSET
-    fv_counts = FeatureValueMinMax(
+    fv_minmax = FeatureValueMinMax(
         min=value_min,
         max=value_max,
         min_flex=value_min_flex,
         max_flex=value_max_flex,
     )
-    return feature_name, feature_value, fv_counts
+    return feature_name, feature_value, fv_minmax
 
 
 def read_in_features(
@@ -301,7 +243,7 @@ def read_in_features(
 
     Note we do want features_head to ensure we don't have multiple columns with the same name
     """
-    features = FeatureCollection()
+    features: FeatureCollection = defaultdict(dict)
     msg: list[str] = []
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
     for row in features_body:
@@ -310,11 +252,12 @@ def read_in_features(
         stripped_row = utils.StrippedDict(_normalise_col_names(row))
         if not stripped_row["feature"]:
             continue
-        features.add_feature(*_clean_row(stripped_row, features_flex))
+        fname, fvalue, fv_minmax = _clean_row(stripped_row, features_flex)
+        features[fname][fvalue] = fv_minmax
 
-    msg.append(f"Number of features: {len(features.feature_names)}")
-    features.check_min_max()
+    msg.append(f"Number of features: {len(features)}")
+    check_min_max(features)
     # check feature_flex to see if we need to set the max here
     # this only changes the max_flex value if these (optional) flex values are NOT set already
-    features.set_default_max_flex()
+    set_default_max_flex(features)
     return features, msg

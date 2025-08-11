@@ -149,7 +149,7 @@ Age,18-30,20,30
 
 **Returns:**
 
-- `FeatureCollection`: Object containing all features and quotas
+- `FeatureCollection`: Nested dict containing all features and quotas
 
 **Example:**
 
@@ -339,19 +339,17 @@ adapter.output_selected_remaining(selected_table, remaining_table, settings)
 
 ### FeatureCollection
 
-Container for demographic features and their quotas.
+Container for demographic features and their quotas. It is a nested dict of `FeatureValueMinMax`
+objects. The outer dict keys are the feature names, and the inner dict keys are the value names.
 
-**Key Methods:**
+**Key Helper Functions:**
 
 ```python
-def check_desired(self, number_people_wanted: int) -> None:
+def check_desired(fc: FeatureCollection, desired_number: int) -> None:
     # Validates that quotas are achievable for the desired panel size
     # Raises exception if infeasible
 
-def feature_names(self) -> list[str]:
-    # Returns list of all feature names
-
-def feature_values_counts(self) -> Iterator[tuple[str, str, FeatureValueCounts]]:
+def iterate_feature_collection(features: FeatureCollection) -> Generator[tuple[str, str, FeatureValueMinMax]]:
     # Iterate over all feature values and their count objects
 ```
 

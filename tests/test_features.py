@@ -5,8 +5,9 @@ from sortition_algorithms.features import (
     FEATURE_FILE_FIELD_NAMES_FLEX,
     FEATURE_FILE_FIELD_NAMES_FLEX_OLD,
     FEATURE_FILE_FIELD_NAMES_OLD,
-    FeatureCollection,
     FeatureValueMinMax,
+    maximum_selection,
+    minimum_selection,
     read_in_features,
 )
 
@@ -22,9 +23,10 @@ def test_read_in_features_without_flex():
         {"feature": "gender", "value": "non-binary-other", "min": "0", "max": "1"},
     ]
     features, _ = read_in_features(head, body)
-    assert list(features.feature_values()) == [("gender", ["male", "female", "non-binary-other"])]
-    assert features.minimum_selection() == 8
-    assert features.maximum_selection() == 13
+    assert list(features.keys()) == ["gender"]
+    assert sorted(features["gender"].keys()) == ["female", "male", "non-binary-other"]
+    assert minimum_selection(features) == 8
+    assert maximum_selection(features) == 13
 
 
 def test_read_in_features_with_flex():
@@ -59,9 +61,10 @@ def test_read_in_features_with_flex():
         },
     ]
     features, _ = read_in_features(head, body)
-    assert list(features.feature_values()) == [("gender", ["male", "female", "non-binary-other"])]
-    assert features.minimum_selection() == 8
-    assert features.maximum_selection() == 13
+    assert list(features.keys()) == ["gender"]
+    assert sorted(features["gender"].keys()) == ["female", "male", "non-binary-other"]
+    assert minimum_selection(features) == 8
+    assert maximum_selection(features) == 13
 
 
 def test_read_in_features_without_flex_old_names():
@@ -75,9 +78,10 @@ def test_read_in_features_without_flex_old_names():
         {"category": "gender", "name": "non-binary-other", "min": "0", "max": "1"},
     ]
     features, _ = read_in_features(head, body)
-    assert list(features.feature_values()) == [("gender", ["male", "female", "non-binary-other"])]
-    assert features.minimum_selection() == 8
-    assert features.maximum_selection() == 13
+    assert list(features.keys()) == ["gender"]
+    assert sorted(features["gender"].keys()) == ["female", "male", "non-binary-other"]
+    assert minimum_selection(features) == 8
+    assert maximum_selection(features) == 13
 
 
 def test_read_in_features_with_flex_old_names():
@@ -112,9 +116,10 @@ def test_read_in_features_with_flex_old_names():
         },
     ]
     features, _ = read_in_features(head, body)
-    assert list(features.feature_values()) == [("gender", ["male", "female", "non-binary-other"])]
-    assert features.minimum_selection() == 8
-    assert features.maximum_selection() == 13
+    assert list(features.keys()) == ["gender"]
+    assert sorted(features["gender"].keys()) == ["female", "male", "non-binary-other"]
+    assert minimum_selection(features) == 8
+    assert maximum_selection(features) == 13
 
 
 class TestReadInFeaturesMultipleFeatures:
@@ -133,19 +138,18 @@ class TestReadInFeaturesMultipleFeatures:
         features, _ = read_in_features(head, body)
 
         # Check we have both features
-        assert sorted(features.feature_names) == ["age", "gender"]
+        assert sorted(features.keys()) == ["age", "gender"]
 
         # Check feature values
-        feature_values_dict = dict(features.feature_values())
-        assert sorted(feature_values_dict["gender"]) == ["female", "male"]
-        assert sorted(feature_values_dict["age"]) == ["18-30", "31-50", "51+"]
+        assert sorted(features["gender"].keys()) == ["female", "male"]
+        assert sorted(features["age"].keys()) == ["18-30", "31-50", "51+"]
 
         # Check min/max calculations
-        # gender: min=4, max=8; age: min=4, max=10
+        # gender: min=4, max=8; age: min=5, max=10
         # minimum_selection takes the max of individual feature minimums: max(4, 5) = 5
         # maximum_selection takes the min of individual feature maximums: min(8, 10) = 8
-        assert features.minimum_selection() == 5
-        assert features.maximum_selection() == 8
+        assert minimum_selection(features) == 5
+        assert maximum_selection(features) == 8
 
     def test_multiple_features_with_flex(self):
         """Test reading multiple features with flex columns."""
@@ -186,9 +190,9 @@ class TestReadInFeaturesMultipleFeatures:
         ]
         features, messages = read_in_features(head, body)
 
-        assert sorted(features.feature_names) == ["education", "gender"]
-        assert features.minimum_selection() == 4  # max(4, 3) = 4
-        assert features.maximum_selection() == 7  # min(8, 7) = 7
+        assert sorted(features.keys()) == ["education", "gender"]
+        assert minimum_selection(features) == 4  # max(4, 3) = 4
+        assert maximum_selection(features) == 7  # min(8, 7) = 7
         assert "Number of features: 2" in messages
 
 
@@ -224,8 +228,8 @@ class TestReadInFeaturesErrorHandling:
         body = [{"feature": "gender", "value": "male", "min": "1", "max": "2"}]
         features, _ = read_in_features(head, body)
 
-        assert features.feature_names == ["gender"]
-        assert dict(features.feature_values())["gender"] == ["male"]
+        assert list(features.keys()) == ["gender"]
+        assert list(features["gender"].keys()) == ["male"]
 
     def test_blank_feature_name_skipped(self):
         """Test that rows with blank feature names are skipped."""
@@ -241,8 +245,8 @@ class TestReadInFeaturesErrorHandling:
         ]
         features, _ = read_in_features(head, body)
 
-        assert features.feature_names == ["gender"]
-        assert dict(features.feature_values())["gender"] == ["female"]
+        assert list(features.keys()) == ["gender"]
+        assert list(features["gender"].keys()) == ["female"]
 
     def test_blank_value_raises_error(self):
         """Test that blank feature values raise an error."""
@@ -344,9 +348,8 @@ class TestReadInFeaturesDataTypes:
         ]
         features, _ = read_in_features(head, body)
 
-        feature_values_dict = dict(features.feature_values())
-        assert "gender" in feature_values_dict
-        assert sorted(feature_values_dict["gender"]) == ["female", "male"]
+        assert "gender" in features
+        assert sorted(features["gender"].keys()) == ["female", "male"]
 
     def test_numeric_feature_names_and_values(self):
         """Test that numeric feature names and values are handled correctly."""
@@ -357,9 +360,8 @@ class TestReadInFeaturesDataTypes:
         ]
         features, _ = read_in_features(head, body)
 
-        feature_values_dict = dict(features.feature_values())
-        assert "123" in feature_values_dict
-        assert sorted(feature_values_dict["123"]) == ["456", "789"]
+        assert "123" in features
+        assert sorted(features["123"].keys()) == ["456", "789"]
 
 
 class TestReadInFeaturesOldColumnNames:
@@ -374,9 +376,8 @@ class TestReadInFeaturesOldColumnNames:
         ]
         features, _ = read_in_features(head, body)
 
-        feature_values_dict = dict(features.feature_values())
-        assert "gender" in feature_values_dict
-        assert sorted(feature_values_dict["gender"]) == ["female", "male"]
+        assert "gender" in features
+        assert sorted(features["gender"].keys()) == ["female", "male"]
 
     def test_old_column_names_with_flex(self):
         """Test that old column names with flex columns work correctly."""
@@ -401,179 +402,8 @@ class TestReadInFeaturesOldColumnNames:
         ]
         features, _ = read_in_features(head, body)
 
-        feature_values_dict = dict(features.feature_values())
-        assert "gender" in feature_values_dict
-        assert sorted(feature_values_dict["gender"]) == ["female", "male"]
-
-
-class TestFeatureCollectionMethods:
-    """Test the FeatureCollection class methods directly."""
-
-    def test_empty_feature_collection(self):
-        """Test behaviour of empty FeatureCollection."""
-        features = FeatureCollection()
-
-        assert features.feature_names == []
-        assert list(features.feature_values()) == []
-        assert list(features.feature_values_counts()) == []
-        assert features.minimum_selection() == 0  # max of empty sequence
-        assert features.maximum_selection() == 0  # min of empty sequence
-
-    def test_feature_collection_add_and_access(self):
-        """Test adding features and accessing them."""
-        features = FeatureCollection()
-
-        # Add some feature values
-        counts1 = FeatureValueMinMax(min=1, max=3)
-        counts2 = FeatureValueMinMax(min=2, max=4)
-
-        features.add_feature("gender", "male", counts1)
-        features.add_feature("gender", "female", counts2)
-
-        # Test access methods
-        assert features.feature_names == ["gender"]
-        assert list(features.feature_values()) == [("gender", ["male", "female"])]
-
-        # Test feature_values_counts
-        values_counts = list(features.feature_values_counts())
-        assert len(values_counts) == 2
-        assert ("gender", "male", counts1) in values_counts
-        assert ("gender", "female", counts2) in values_counts
-
-    def test_feature_collection_min_max_calculations(self):
-        """Test minimum and maximum selection calculations."""
-        features = FeatureCollection()
-
-        # Add first feature: min=3, max=7
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=3))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=2, max=4))
-
-        # Add second feature: min=4, max=6
-        features.add_feature("age", "young", FeatureValueMinMax(min=2, max=3))
-        features.add_feature("age", "old", FeatureValueMinMax(min=2, max=3))
-
-        # minimum_selection should be max(3, 4) = 4
-        # maximum_selection should be min(7, 6) = 6
-        assert features.minimum_selection() == 4
-        assert features.maximum_selection() == 6
-
-    def test_feature_collection_check_min_max_valid(self):
-        """Test that check_min_max passes for valid configurations."""
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=3))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=3))
-
-        # Should not raise an exception
-        features.check_min_max()
-
-    def test_feature_collection_check_min_max_invalid(self):
-        """Test that check_min_max raises error for invalid configurations."""
-        features = FeatureCollection()
-
-        # First feature: min=5, max=6
-        features.add_feature("gender", "male", FeatureValueMinMax(min=3, max=3))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=2, max=3))
-
-        # Second feature: min=2, max=3
-        features.add_feature("age", "young", FeatureValueMinMax(min=1, max=1))
-        features.add_feature("age", "old", FeatureValueMinMax(min=1, max=2))
-
-        # minimum_selection = max(5, 2) = 5
-        # maximum_selection = min(6, 3) = 3
-        # Since 5 > 3, this should raise an error
-        with pytest.raises(ValueError, match="Inconsistent numbers in min and max"):
-            features.check_min_max()
-
-    def test_feature_collection_check_desired_valid(self):
-        """Test that check_desired passes for valid desired numbers."""
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=3))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=3))
-
-        # Should not raise an exception for a desired number within range
-        features.check_desired(4)  # Within [2, 6]
-
-    def test_feature_collection_check_desired_too_low(self):
-        """Test that check_desired raises error for desired number too low."""
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=2, max=3))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=2, max=3))
-
-        # Minimum is 4, so 3 should be too low
-        with pytest.raises(Exception, match="out of the range"):
-            features.check_desired(3)
-
-    def test_feature_collection_check_desired_too_high(self):
-        """Test that check_desired raises error for desired number too high."""
-        features = FeatureCollection()
-        features.add_feature("gender", "male", FeatureValueMinMax(min=1, max=2))
-        features.add_feature("gender", "female", FeatureValueMinMax(min=1, max=2))
-
-        # Maximum is 4, so 5 should be too high
-        with pytest.raises(Exception, match="out of the range"):
-            features.check_desired(5)
-
-    def test_feature_collection_set_default_max_flex(self):
-        """Test setting default max_flex values."""
-        features = FeatureCollection()
-
-        # Add features with unset max_flex
-        counts1 = FeatureValueMinMax(min=1, max=3)  # max_flex will be MAX_FLEX_UNSET
-        counts2 = FeatureValueMinMax(min=2, max=4)  # max_flex will be MAX_FLEX_UNSET
-
-        features.add_feature("gender", "male", counts1)
-        features.add_feature("gender", "female", counts2)
-
-        # Set default max_flex
-        features.set_default_max_flex()
-
-        # Both should now have max_flex set to the max of all maximums (7)
-        assert counts1.max_flex == 7
-        assert counts2.max_flex == 7
-
-    def test_feature_collection_get_counts(self):
-        """Test getting counts for a particular feature and value."""
-        features = FeatureCollection()
-        counts1 = FeatureValueMinMax(min=1, max=3)
-        counts2 = FeatureValueMinMax(min=2, max=4)
-        features.add_feature("gender", "male", counts1)
-        features.add_feature("gender", "female", counts2)
-
-        counts = features.get_counts("gender", "male")
-
-        assert counts == counts1
-
-    def test_feature_collection_get_counts_no_match(self):
-        """Test setting default max_flex values."""
-        features = FeatureCollection()
-        counts1 = FeatureValueMinMax(min=1, max=3)
-        counts2 = FeatureValueMinMax(min=2, max=4)
-        features.add_feature("gender", "male", counts1)
-        features.add_feature("gender", "female", counts2)
-
-        with pytest.raises(KeyError):
-            features.get_counts("age", "male")
-
-        with pytest.raises(KeyError):
-            features.get_counts("gender", "non-binary-other")
-
-    def test_feature_value_pairs_iterates_through_all(self):
-        features = FeatureCollection()
-        counts = FeatureValueMinMax(min=1, max=3)
-        features.add_feature("gender", "male", counts)
-        features.add_feature("gender", "female", counts)
-        features.add_feature("age", "young", counts)
-        features.add_feature("age", "middle-aged", counts)
-        features.add_feature("age", "old", counts)
-
-        feature_values = sorted(features.feature_value_pairs())
-        assert feature_values == [
-            ("age", "middle-aged"),
-            ("age", "old"),
-            ("age", "young"),
-            ("gender", "female"),
-            ("gender", "male"),
-        ]
+        assert "gender" in features
+        assert sorted(features["gender"].keys()) == ["female", "male"]
 
 
 class TestFeatureValueCounts:

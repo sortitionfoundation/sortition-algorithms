@@ -31,7 +31,7 @@ class People:
     def add(self, person_key: str, data: StrippedDict, features: FeatureCollection) -> None:
         person_full_data: dict[str, str] = {}
         # get the feature values: these are the most important and we must check them
-        for feature_name, feature_values in features.feature_values():
+        for feature_name, feature_values in features.items():
             # check for input errors here - if it's not in the list of feature values...
             # allow for some unclean data - at least strip empty space, but only if a str!
             # (some values will can be numbers)
@@ -132,7 +132,7 @@ def _check_people_head(people_head: list[str], features: FeatureCollection, sett
     # check_same_address_columns are in the people data fields...
     # check both for existence and duplicate column names
     _check_columns_exist_or_multiple(people_head, [settings.id_column], "(unique id)")
-    _check_columns_exist_or_multiple(people_head, features.feature_names, "(a feature)")
+    _check_columns_exist_or_multiple(people_head, list(features.keys()), "(a feature)")
     _check_columns_exist_or_multiple(people_head, settings.columns_to_keep, "(to keep)")
     _check_columns_exist_or_multiple(
         people_head,

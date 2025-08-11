@@ -12,9 +12,13 @@ from sortition_algorithms.committee_generation import (
     find_random_sample_legacy,
     standardize_distribution,
 )
-from sortition_algorithms.features import FeatureCollection
+from sortition_algorithms.features import FeatureCollection, check_desired
 from sortition_algorithms.people import People
-from sortition_algorithms.people_features import SelectCollection, simple_add_selected
+from sortition_algorithms.people_features import (
+    iterate_select_collection,
+    select_from_feature_collection,
+    simple_add_selected,
+)
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import print_ret, random_provider, set_random_provider
 
@@ -33,7 +37,7 @@ def person_list_to_table(
 ) -> list[list[str]]:
     cols_to_use = settings.full_columns_to_keep[:]
     # we want to avoid duplicate columns if they are in both features and columns_to_keep
-    extra_features = [name for name in features.feature_names if name not in cols_to_use]
+    extra_features = [name for name in features if name not in cols_to_use]
     cols_to_use += extra_features
     rows = [[settings.id_column, *cols_to_use]]
     for pkey in person_keys:
@@ -372,13 +376,13 @@ def _initial_print_category_info(
         "<table border='1' cellpadding='5'><tr><th colspan='2'>Category</th><th>Initially</th><th>Want</th></tr>"
     ]
     # Make a working copy and update counts
-    select_collection = SelectCollection.from_feature_collection(features)
+    select_collection = select_from_feature_collection(features)
     simple_add_selected(people, people, select_collection)
 
     # Generate table rows
-    for feature, value, fv_counts in select_collection.feature_values_counts():
+    for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
         report_msg.append(
-            f"<tr><td>{feature}</td><td>{value}</td>"
+            f"<tr><td>{feature_name}</td><td>{fvalue_name}</td>"
             f"<td>{fv_counts.selected}</td><td>[{fv_counts.min_max.min},{fv_counts.min_max.max}]</td></tr>"
         )
 
@@ -414,14 +418,14 @@ def _print_category_info(
     ]
 
     # Make a working copy and update counts
-    select_collection = SelectCollection.from_feature_collection(features)
+    select_collection = select_from_feature_collection(features)
     simple_add_selected(people_selected[0], people, select_collection)
 
     # Generate table rows
-    for feature, value, fv_counts in select_collection.feature_values_counts():
+    for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
         percent_selected = fv_counts.percent_selected(number_people_wanted)
         report_msg.append(
-            f"<tr><td>{feature}</td><td>{value}</td>"
+            f"<tr><td>{feature_name}</td><td>{fvalue_name}</td>"
             f"<td>{fv_counts.selected} ({percent_selected:.2f}%)</td>"
             f"<td>[{fv_counts.min_max.min},{fv_counts.min_max.max}]</td></tr>"
         )
@@ -459,19 +463,15 @@ def _check_category_selected(
     last_feature_fail = ""
 
     # Make working copy and count selected people
-    select_collection = SelectCollection.from_feature_collection(features)
+    select_collection = select_from_feature_collection(features)
 
     simple_add_selected(people_selected[0], people, select_collection)
 
     # Check if quotas are met
-    for (
-        feature_name,
-        value_name,
-        value_counts,
-    ) in select_collection.feature_values_counts():
-        if not value_counts.hit_target:
+    for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
+        if not fv_counts.hit_target:
             hit_targets = False
-            last_feature_fail = f"{feature_name}: {value_name}"
+            last_feature_fail = f"{feature_name}: {fvalue_name}"
 
     report_msg = (
         ""
@@ -512,7 +512,7 @@ def run_stratification(
         InfeasibleQuotasError: If quotas cannot be satisfied
     """
     # Check if desired number is within feature constraints
-    features.check_desired(number_people_wanted)
+    check_desired(features, number_people_wanted)
 
     # Set random seed if specified
     # If the seed is zero or None, we use the secrets module, as it is better
