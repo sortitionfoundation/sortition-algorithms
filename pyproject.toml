@@ -1,6 +1,6 @@
 [project]
 name = "sortition-algorithms"
-version = "0.9.0"
+version = "0.9.3"
 description = "A package containing algorithms for sortition - democratic lotteries."
 authors = [
   { name = "Hamish Downer (Sortition Foundation)", email = "hamish@sortitionfoundation.org" },
