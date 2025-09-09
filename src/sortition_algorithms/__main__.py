@@ -165,7 +165,8 @@ def gsheet(
     settings_obj, msg = Settings.load_from_file(Path(settings))
     echo_all([msg])
 
-    features, msgs = adapter.load_features(gsheet_name, feature_tab_name)
+    adapter.set_g_sheet_name(gsheet_name)
+    features, msgs = adapter.load_features(feature_tab_name)
     echo_all(msgs)
     if features is None:
         raise click.ClickException("Could not load features, exiting.")

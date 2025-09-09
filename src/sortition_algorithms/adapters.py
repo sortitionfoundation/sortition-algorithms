@@ -136,7 +136,8 @@ class GSheetAdapter:
         self.remaining_tab_name = "Remaining - output - "
         self.new_tab_default_size_rows = 2
         self.new_tab_default_size_cols = 40
-        self.g_sheet_name = ""
+        self._g_sheet_name = ""
+        self._open_g_sheet_name = ""
         self._messages: list[str] = []
         self.gen_rem_tab = gen_rem_tab  # Added for checkbox.
 
@@ -158,13 +159,17 @@ class GSheetAdapter:
 
     @property
     def spreadsheet(self) -> gspread.Spreadsheet:
+        if self._open_g_sheet_name != self._g_sheet_name:
+            # reset the spreadsheet if the name changed
+            self._spreadsheet = None
         if self._spreadsheet is None:
-            self._spreadsheet = self.client.open(self.g_sheet_name)
-            self._messages.append(f"Opened Google Sheet: '{self.g_sheet_name}'. ")
+            self._spreadsheet = self.client.open(self._g_sheet_name)
+            self._open_g_sheet_name = self._g_sheet_name
+            self._messages.append(f"Opened Google Sheet: '{self._g_sheet_name}'. ")
         return self._spreadsheet
 
     def _tab_exists(self, tab_name: str) -> bool:
-        if self.spreadsheet is None:
+        if not self._g_sheet_name:
             return False
         tab_list = self.spreadsheet.worksheets()
         return any(tab.title == tab_name for tab in tab_list)
@@ -190,15 +195,20 @@ class GSheetAdapter:
                 )
         return tab_ready
 
-    def load_features(self, g_sheet_name: str, feature_tab_name: str) -> tuple[FeatureCollection | None, list[str]]:
-        self.g_sheet_name = g_sheet_name
+    def set_g_sheet_name(self, g_sheet_name: str) -> None:
+        # if we're changing spreadsheet, reset the spreadsheet object
+        if self._g_sheet_name != g_sheet_name:
+            self._spreadsheet = None
+            self._g_sheet_name = g_sheet_name
+
+    def load_features(self, feature_tab_name: str) -> tuple[FeatureCollection | None, list[str]]:
         features: FeatureCollection | None = None
         try:
             if not self._tab_exists(feature_tab_name):
                 self._messages.append(f"Error in Google sheet: no tab called '{feature_tab_name}' found. ")
                 return None, self.messages()
         except gspread.SpreadsheetNotFound:
-            self._messages.append(f"Google spreadsheet not found: {self.g_sheet_name}. ")
+            self._messages.append(f"Google spreadsheet not found: {self._g_sheet_name}. ")
             return None, self.messages()
         tab_features = self.spreadsheet.worksheet(feature_tab_name)
         feature_head = tab_features.row_values(1)
@@ -222,7 +232,7 @@ class GSheetAdapter:
                 )
                 return None, self.messages()
         except gspread.SpreadsheetNotFound:
-            self._messages.append(f"Google spreadsheet not found: {self.g_sheet_name}. ")
+            self._messages.append(f"Google spreadsheet not found: {self._g_sheet_name}. ")
             return None, self.messages()
 
         tab_people = self.spreadsheet.worksheet(respondents_tab_name)
