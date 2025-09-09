@@ -305,9 +305,9 @@ class GSheetAdapter:
         gen_rem_tab: str = "on"
     ):
 
-    def load_features(
-        self, gsheet_name: str, tab_name: str
-    ) -> tuple[FeatureCollection | None, list[str]]:
+    def set_g_sheet_name(self, g_sheet_name: str) -> None:
+
+    def load_features(self, tab_name: str) -> tuple[FeatureCollection | None, list[str]]:
 
     def load_people(
         self, tab_name: str, settings: Settings, features: FeatureCollection
@@ -327,7 +327,8 @@ class GSheetAdapter:
 
 ```python
 adapter = GSheetAdapter(Path("credentials.json"))
-features, msgs = adapter.load_features("My Spreadsheet", "Demographics")
+adapter.set_g_sheet_name("My Spreadsheet")
+features, msgs = adapter.load_features("Demographics")
 people, msgs = adapter.load_people("Candidates", settings, features)
 
 adapter.selected_tab_name = "Selected"

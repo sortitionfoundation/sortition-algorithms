@@ -116,7 +116,8 @@ adapter = GSheetAdapter(
 )
 
 # Load data from Google Sheet
-features, msgs = adapter.load_features("My Spreadsheet", "Demographics")
+adapter.set_g_sheet_name("My Spreadsheet")
+features, msgs = adapter.load_features("Demographics")
 print("\n".join(msgs))
 
 people, msgs = adapter.load_people("Candidates", settings, features)
@@ -145,7 +146,8 @@ def gsheet_selection_workflow():
     settings = Settings()
 
     # Load data
-    features, msgs = adapter.load_features("Citizen Panel 2024", "Demographics")
+    adapter.set_g_sheet_name("Citizen Panel 2024")
+    features, msgs = adapter.load_features("Demographics")
     if features is None:
         print("Failed to load features:", "\n".join(msgs))
         return

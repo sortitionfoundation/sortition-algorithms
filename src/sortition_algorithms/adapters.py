@@ -164,7 +164,7 @@ class GSheetAdapter:
         return self._spreadsheet
 
     def _tab_exists(self, tab_name: str) -> bool:
-        if self.spreadsheet is None:
+        if not self.g_sheet_name:
             return False
         tab_list = self.spreadsheet.worksheets()
         return any(tab.title == tab_name for tab in tab_list)
@@ -190,8 +190,13 @@ class GSheetAdapter:
                 )
         return tab_ready
 
-    def load_features(self, g_sheet_name: str, feature_tab_name: str) -> tuple[FeatureCollection | None, list[str]]:
-        self.g_sheet_name = g_sheet_name
+    def set_g_sheet_name(self, g_sheet_name: str) -> None:
+        # if we're changing spreadsheet, reset the spreadsheet object
+        if self.g_sheet_name != g_sheet_name:
+            self._spreadsheet = None
+            self.g_sheet_name = g_sheet_name
+
+    def load_features(self, feature_tab_name: str) -> tuple[FeatureCollection | None, list[str]]:
         features: FeatureCollection | None = None
         try:
             if not self._tab_exists(feature_tab_name):

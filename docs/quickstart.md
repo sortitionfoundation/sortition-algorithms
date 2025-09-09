@@ -160,7 +160,8 @@ from sortition_algorithms import GSheetAdapter
 from pathlib import Path
 
 adapter = GSheetAdapter(Path("credentials.json"))
-features, msgs = adapter.load_features("My Spreadsheet", "Demographics")
+adapter.set_g_sheet_name("My Spreadsheet")
+features, msgs = adapter.load_features("Demographics")
 people, msgs = adapter.load_people("Candidates", settings, features)
 ```
 
