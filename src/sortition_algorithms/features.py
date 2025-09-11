@@ -204,8 +204,16 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, F
         msg = f"ERROR reading in feature file: found a blank cell in a row of the feature: {feature_name}."
         raise ValueError(msg)
     # must convert min/max to ints
-    value_min = int(row["min"])
-    value_max = int(row["max"])
+    try:
+        value_min = int(row["min"])
+        value_max = int(row["max"])
+    except ValueError as err:
+        msg = (
+            f"ERROR reading in feature file: min/max ({row['min']}/{row['max']}) "
+            f"cannot be converted to integer: {feature_name}/{feature_value}."
+        )
+        raise ValueError(msg) from err
+
     if feature_flex:
         if row["min_flex"] == "" or row["max_flex"] == "":
             msg = (
