@@ -163,7 +163,10 @@ class GSheetAdapter:
             # reset the spreadsheet if the name changed
             self._spreadsheet = None
         if self._spreadsheet is None:
-            self._spreadsheet = self.client.open(self._g_sheet_name)
+            if self._g_sheet_name.startswith("https://"):
+                self._spreadsheet = self.client.open_by_url(self._g_sheet_name)
+            else:
+                self._spreadsheet = self.client.open(self._g_sheet_name)
             self._open_g_sheet_name = self._g_sheet_name
             self._messages.append(f"Opened Google Sheet: '{self._g_sheet_name}'. ")
         return self._spreadsheet
