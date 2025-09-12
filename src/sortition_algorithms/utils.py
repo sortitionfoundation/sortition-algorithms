@@ -1,3 +1,5 @@
+import enum
+import html
 import random
 import secrets
 from abc import ABC, abstractmethod
@@ -6,6 +8,46 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from _typeshed import SupportsLenAndGetItem
+
+
+class ReportLevel(enum.Enum):
+    NORMAL = 0
+    IMPORTANT = 1
+    CRITICAL = 2
+
+
+class RunReport:
+    """A class to hold a report to show to the user at the end"""
+
+    def __init__(self) -> None:
+        self._lines: list[tuple[str, ReportLevel]] = []
+
+    def add_line(self, line: str, level: ReportLevel = ReportLevel.NORMAL) -> None:
+        """Add a line of text, and a level - we use the logging levels"""
+        self._lines.append((line, level))
+
+    def add_table(self, table) -> None:
+        # TODO: implement this
+        raise NotImplementedError
+
+    def as_text(self) -> str:
+        # TODO: tables
+        return "\n".join(line for line, _ in self._lines)
+
+    def _line_to_html(self, line_level: tuple[str, ReportLevel]) -> str:
+        tags = {
+            ReportLevel.NORMAL: ("", ""),
+            ReportLevel.IMPORTANT: ("<b>", "</b>"),
+            ReportLevel.CRITICAL: ('<b style="color: red">', "</b>"),
+        }
+        line, level = line_level
+        start_tag, end_tag = tags[level]
+        escaped_line = html.escape(line)
+        return f"{start_tag}{escaped_line}{end_tag}"
+
+    def as_html(self) -> str:
+        # TODO: tables
+        return "<br />\n".join(self._line_to_html(line_level) for line_level in self._lines)
 
 
 def print_ret(message: str) -> str:
