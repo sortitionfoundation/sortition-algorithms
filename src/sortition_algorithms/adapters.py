@@ -16,6 +16,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
+from sortition_algorithms.utils import RunReport
 
 
 def _stringify_records(
@@ -34,21 +35,26 @@ class CSVAdapter:
         self.enable_selected_file_download = False
         self.enable_remaining_file_download = False
 
-    def load_features_from_file(
-        self,
-        features_file: Path,
-    ) -> tuple[FeatureCollection, list[str]]:
+    def load_features_from_file(self, features_file: Path) -> tuple[FeatureCollection, RunReport]:
+        report = RunReport()
+        report.add_line(f"Loading from: {features_file}")
         with open(features_file, newline="") as csv_file:
-            return self._load_features(csv_file)
+            features = self._load_features(csv_file)
+        report.add_line(f"Number of features found: {len(features)}")
+        return features, report
 
-    def load_features_from_str(self, file_contents: str) -> tuple[FeatureCollection, list[str]]:
-        return self._load_features(StringIO(file_contents))
+    def load_features_from_str(self, file_contents: str) -> tuple[FeatureCollection, RunReport]:
+        report = RunReport()
+        report.add_line("Loading from string.")
+        features = self._load_features(StringIO(file_contents))
+        report.add_line(f"Number of features found: {len(features)}")
+        return features, report
 
-    def _load_features(self, file_obj: TextIO) -> tuple[FeatureCollection, list[str]]:
+    def _load_features(self, file_obj: TextIO) -> FeatureCollection:
         feature_reader = csv.DictReader(file_obj)
         assert feature_reader.fieldnames is not None
-        features, msgs = read_in_features(list(feature_reader.fieldnames), feature_reader)
-        return features, msgs
+        features = read_in_features(list(feature_reader.fieldnames), feature_reader)
+        return features
 
     def load_people_from_file(
         self,
@@ -204,21 +210,22 @@ class GSheetAdapter:
             self._spreadsheet = None
             self._g_sheet_name = g_sheet_name
 
-    def load_features(self, feature_tab_name: str) -> tuple[FeatureCollection | None, list[str]]:
+    def load_features(self, feature_tab_name: str) -> tuple[FeatureCollection | None, RunReport]:
         features: FeatureCollection | None = None
+        report = RunReport()
         try:
             if not self._tab_exists(feature_tab_name):
-                self._messages.append(f"Error in Google sheet: no tab called '{feature_tab_name}' found. ")
-                return None, self.messages()
+                report.add_line(f"Error in Google sheet: no tab called '{feature_tab_name}' found.")
+                return None, report
         except gspread.SpreadsheetNotFound:
-            self._messages.append(f"Google spreadsheet not found: {self._g_sheet_name}. ")
-            return None, self.messages()
+            report.add_line(f"Google spreadsheet not found: {self._g_sheet_name}.")
+            return None, report
         tab_features = self.spreadsheet.worksheet(feature_tab_name)
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
-        features, msgs = read_in_features(feature_head, feature_body)
-        self._messages += msgs
-        return features, self.messages()
+        features = read_in_features(feature_head, feature_body)
+        report.add_line(f"Number of features found: {len(features)}")
+        return features, report
 
     def load_people(
         self,

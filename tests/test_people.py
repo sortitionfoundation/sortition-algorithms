@@ -18,7 +18,7 @@ def create_simple_test_features() -> FeatureCollection:
         {"feature": "gender", "value": "female", "min": "1", "max": "10"},
     ]
     head = ["feature", "value", "min", "max"]
-    features, _ = read_in_features(head, features_data)
+    features = read_in_features(head, features_data)
     return features
 
 
@@ -31,7 +31,7 @@ def create_test_features() -> FeatureCollection:
         {"feature": "age", "value": "old", "min": "1", "max": "3"},
     ]
     head = ["feature", "value", "min", "max"]
-    features, _ = read_in_features(head, features_data)
+    features = read_in_features(head, features_data)
     return features
 
 

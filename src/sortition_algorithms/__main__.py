@@ -78,8 +78,8 @@ def csv(
     adapter = adapters.CSVAdapter()
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
-    features, msgs = adapter.load_features_from_file(Path(features_csv))
-    echo_all(msgs)
+    features, report = adapter.load_features_from_file(Path(features_csv))
+    echo_report(report)
 
     people, msgs = adapter.load_people_from_file(Path(people_csv), settings_obj, features)
     echo_all(msgs)
@@ -171,8 +171,8 @@ def gsheet(
     echo_report(report)
 
     adapter.set_g_sheet_name(gsheet_name)
-    features, msgs = adapter.load_features(feature_tab_name)
-    echo_all(msgs)
+    features, report = adapter.load_features(feature_tab_name)
+    echo_report(report)
     if features is None:
         raise click.ClickException("Could not load features, exiting.")
 
@@ -229,7 +229,7 @@ def gen_sample(settings: str, features_csv: str, people_csv: str, number_wanted:
     adapter = adapters.CSVAdapter()
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
-    features, msgs = adapter.load_features_from_file(Path(features_csv))
-    echo_all(msgs)
+    features, report = adapter.load_features_from_file(Path(features_csv))
+    echo_report(report)
     with open(people_csv, "w", newline="") as people_f:
         people_features.create_readable_sample_file(features, people_f, number_wanted, settings_obj)

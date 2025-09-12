@@ -273,7 +273,7 @@ class ExcelAdapter:
         self,
         excel_file: Path,
         sheet_name: str = "Demographics"
-    ) -> tuple[FeatureCollection, list[str]]:
+    ) -> FeatureCollection:
         """Load features from Excel file."""
         workbook = openpyxl.load_workbook(excel_file)
 
@@ -293,8 +293,8 @@ class ExcelAdapter:
                            for i in range(len(headers))}
                 data.append(row_dict)
 
-        features, msgs = read_in_features(headers, data)
-        return features, msgs
+        features = read_in_features(headers, data)
+        return features
 
     def load_people_from_file(
         self,
@@ -368,7 +368,7 @@ def excel_workflow():
     settings = Settings()
 
     # Load data
-    features, msgs = adapter.load_features_from_file(
+    features = adapter.load_features_from_file(
         Path("selection_data.xlsx"), "Demographics"
     )
     people, msgs = adapter.load_people_from_file(

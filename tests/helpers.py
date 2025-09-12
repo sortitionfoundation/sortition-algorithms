@@ -82,7 +82,7 @@ def create_simple_features(
     ]
 
     head = ["feature", "value", "min", "max"]
-    features, _ = read_in_features(head, features_data)
+    features = read_in_features(head, features_data)
     return features
 
 
@@ -112,7 +112,7 @@ def create_gender_only_features(min_val: int = 1, max_val: int = 5) -> FeatureCo
     ]
 
     head = ["feature", "value", "min", "max"]
-    features, _ = read_in_features(head, features_data)
+    features = read_in_features(head, features_data)
     return features
 
 
