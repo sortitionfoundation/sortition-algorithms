@@ -3,7 +3,7 @@ import html
 import random
 import secrets
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -41,8 +41,16 @@ class RunReport:
         """Add a line of text, and a level - we use the logging levels"""
         self._data.append(RunLineLevel(line, level))
 
+    def add_lines(self, lines: Iterable[str], level: ReportLevel = ReportLevel.NORMAL) -> None:
+        """Add a line of text, and a level - we use the logging levels"""
+        for line in lines:
+            self._data.append(RunLineLevel(line, level))
+
     def add_table(self, table_headings: list[str], table_data: list[list[str | int | float]]) -> None:
         self._data.append(RunTable(table_headings, table_data))
+
+    def add_report(self, other: "RunReport") -> None:
+        self._data += other._data
 
     def _element_to_text(self, element: RunLineLevel | RunTable) -> str:
         if isinstance(element, RunLineLevel):

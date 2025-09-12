@@ -61,7 +61,7 @@ class CSVAdapter:
         people_file: Path,
         settings: Settings,
         features: FeatureCollection,
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
         with open(people_file, newline="") as csv_file:
             return self._load_people(csv_file, settings, features)
 
@@ -70,7 +70,7 @@ class CSVAdapter:
         file_contents: str,
         settings: Settings,
         features: FeatureCollection,
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
         return self._load_people(StringIO(file_contents), settings, features)
 
     def _load_people(
@@ -78,12 +78,12 @@ class CSVAdapter:
         file_obj: TextIO,
         settings: Settings,
         features: FeatureCollection,
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
         people_data = csv.DictReader(file_obj)
         people_str_data = _stringify_records(people_data)
         assert people_data.fieldnames is not None
-        people, msgs = read_in_people(list(people_data.fieldnames), people_str_data, features, settings)
-        return people, msgs
+        people, report = read_in_people(list(people_data.fieldnames), people_str_data, features, settings)
+        return people, report
 
     def _write_rows(self, out_file: TextIO, rows: list[list[str]]) -> None:
         writer = csv.writer(
@@ -232,18 +232,18 @@ class GSheetAdapter:
         respondents_tab_name: str,
         settings: Settings,
         features: FeatureCollection,
-    ) -> tuple[People | None, list[str]]:
-        self._messages = []
+    ) -> tuple[People | None, RunReport]:
+        report = RunReport()
         people: People | None = None
         try:
             if not self._tab_exists(respondents_tab_name):
-                self._messages.append(
+                report.add_line(
                     f"Error in Google sheet: no tab called '{respondents_tab_name}' found. ",
                 )
-                return None, self.messages()
+                return None, report
         except gspread.SpreadsheetNotFound:
-            self._messages.append(f"Google spreadsheet not found: {self._g_sheet_name}. ")
-            return None, self.messages()
+            report.add_line(f"Google spreadsheet not found: {self._g_sheet_name}. ")
+            return None, report
 
         tab_people = self.spreadsheet.worksheet(respondents_tab_name)
         # if we don't read this in here we can't check if there are 2 columns with the same name
@@ -257,10 +257,10 @@ class GSheetAdapter:
                 expected_headers=[],
             )
         )
-        self._messages.append(f"Reading in '{respondents_tab_name}' tab in above Google sheet.")
-        people, msgs = read_in_people(people_head, people_body, features, settings)
-        self._messages += msgs
-        return people, self.messages()
+        report.add_line(f"Reading in '{respondents_tab_name}' tab in above Google sheet.")
+        people, read_report = read_in_people(people_head, people_body, features, settings)
+        report.add_report(read_report)
+        return people, report
 
     def output_selected_remaining(
         self,

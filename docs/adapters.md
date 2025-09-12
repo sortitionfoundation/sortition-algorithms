@@ -17,8 +17,8 @@ from pathlib import Path
 adapter = CSVAdapter()
 
 # Load data
-features, msgs = adapter.load_features_from_file(Path("demographics.csv"))
-people, msgs = adapter.load_people_from_file(Path("candidates.csv"), Settings(), features)
+features, report = adapter.load_features_from_file(Path("demographics.csv"))
+people, report = adapter.load_people_from_file(Path("candidates.csv"), Settings(), features)
 
 # Configure output files
 adapter.selected_file = open("selected.csv", "w", newline="")
@@ -46,8 +46,8 @@ people_csv = """id,Name,Gender
 p001,Alice,Female
 p002,Bob,Male"""
 
-features, msgs = adapter.load_features_from_str(features_csv)
-people, msgs = adapter.load_people_from_str(people_csv, settings, features)
+features, report = adapter.load_features_from_str(features_csv)
+people, report = adapter.load_people_from_str(people_csv, settings, features)
 ```
 
 #### Full CSV Workflow Example
@@ -63,11 +63,11 @@ def csv_selection_workflow():
     settings = Settings()
 
     # Load data
-    features, msgs = adapter.load_features_from_file(Path("demographics.csv"))
-    print("\n".join(msgs))
+    features, report = adapter.load_features_from_file(Path("demographics.csv"))
+    print(report.as_text())
 
-    people, msgs = adapter.load_people_from_file(Path("candidates.csv"), settings, features)
-    print("\n".join(msgs))
+    people, report = adapter.load_people_from_file(Path("candidates.csv"), settings, features)
+    print(report.as_text())
 
     # Run selection
     success, panels, msgs = run_stratification(features, people, 100, settings)
@@ -117,11 +117,11 @@ adapter = GSheetAdapter(
 
 # Load data from Google Sheet
 adapter.set_g_sheet_name("My Spreadsheet")
-features, msgs = adapter.load_features("Demographics")
-print("\n".join(msgs))
+features, report = adapter.load_features("Demographics")
+print(report.as_text())
 
-people, msgs = adapter.load_people("Candidates", settings, features)
-print("\n".join(msgs))
+people, report = adapter.load_people("Candidates", settings, features)
+print(report.as_text())
 
 # Configure output tabs
 adapter.selected_tab_name = "Selected Panel"
@@ -147,12 +147,12 @@ def gsheet_selection_workflow():
 
     # Load data
     adapter.set_g_sheet_name("Citizen Panel 2024")
-    features, msgs = adapter.load_features("Demographics")
+    features, report = adapter.load_features("Demographics")
     if features is None:
         print("Failed to load features:", "\n".join(msgs))
         return
 
-    people, msgs = adapter.load_people("Candidates", settings, features)
+    people, report = adapter.load_people("Candidates", settings, features)
     if people is None:
         print("Failed to load people:", "\n".join(msgs))
         return
@@ -210,13 +210,13 @@ You can create custom adapters for other data sources like Excel files, SQL data
 All adapters should implement these core methods:
 
 ```python
-from sortition_algorithms import FeatureCollection, People, Settings
+from sortition_algorithms import FeatureCollection, People, RunReport, Settings
 from typing import Protocol
 
 class SortitionAdapter(Protocol):
     """Protocol defining the adapter interface."""
 
-    def load_features(self, source_info: str, **kwargs) -> tuple[FeatureCollection, list[str]]:
+    def load_features(self, source_info: str, **kwargs) -> tuple[FeatureCollection, RunReport]:
         """Load feature definitions from data source.
 
         Returns:
@@ -230,11 +230,11 @@ class SortitionAdapter(Protocol):
         settings: Settings,
         features: FeatureCollection,
         **kwargs
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
         """Load candidate pool from data source.
 
         Returns:
-            (people, messages) - people object and status messages
+            (people, report) - people object and report with messages
         """
         ...
 
@@ -258,7 +258,7 @@ from typing import Any
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from sortition_algorithms import FeatureCollection, People, Settings
+from sortition_algorithms import FeatureCollection, People, RunReport, Settings
 from sortition_algorithms.features import read_in_features
 from sortition_algorithms.people import read_in_people
 
@@ -302,7 +302,7 @@ class ExcelAdapter:
         settings: Settings,
         features: FeatureCollection,
         sheet_name: str = "Candidates"
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
         """Load people from Excel file."""
         workbook = openpyxl.load_workbook(excel_file)
 
@@ -322,8 +322,8 @@ class ExcelAdapter:
                            for i in range(len(headers))}
                 data.append(row_dict)
 
-        people, msgs = read_in_people(headers, data, features, settings)
-        return people, msgs
+        people, report = read_in_people(headers, data, features, settings)
+        return people, report
 
     def output_selected_remaining(
         self,
@@ -371,7 +371,7 @@ def excel_workflow():
     features = adapter.load_features_from_file(
         Path("selection_data.xlsx"), "Demographics"
     )
-    people, msgs = adapter.load_people_from_file(
+    people, report = adapter.load_people_from_file(
         Path("selection_data.xlsx"), settings, features, "Candidates"
     )
 

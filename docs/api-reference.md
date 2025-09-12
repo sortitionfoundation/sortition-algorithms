@@ -269,11 +269,11 @@ Handles CSV file input and output operations.
 class CSVAdapter:
     def load_features_from_file(
         self, features_file: Path
-    ) -> tuple[FeatureCollection, list[str]]:
+    ) -> tuple[FeatureCollection, RunReport]:
 
     def load_people_from_file(
         self, people_file: Path, settings: Settings, features: FeatureCollection
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
 
     def output_selected_remaining(
         self, selected_rows: list[list[str]], remaining_rows: list[list[str]]
@@ -284,8 +284,8 @@ class CSVAdapter:
 
 ```python
 adapter = CSVAdapter()
-features, msgs = adapter.load_features_from_file(Path("features.csv"))
-people, msgs = adapter.load_people_from_file(Path("people.csv"), settings, features)
+features, report = adapter.load_features_from_file(Path("features.csv"))
+people, report = adapter.load_people_from_file(Path("people.csv"), settings, features)
 
 # Set output files
 adapter.selected_file = open("selected.csv", "w", newline="")
@@ -307,11 +307,11 @@ class GSheetAdapter:
 
     def set_g_sheet_name(self, g_sheet_name: str) -> None:
 
-    def load_features(self, tab_name: str) -> tuple[FeatureCollection | None, list[str]]:
+    def load_features(self, tab_name: str) -> tuple[FeatureCollection | None, RunReport]:
 
     def load_people(
         self, tab_name: str, settings: Settings, features: FeatureCollection
-    ) -> tuple[People | None, list[str]]:
+    ) -> tuple[People | None, RunReport]:
 
     def output_selected_remaining(
         self, selected_rows: list[list[str]], remaining_rows: list[list[str]], settings: Settings
@@ -328,8 +328,8 @@ class GSheetAdapter:
 ```python
 adapter = GSheetAdapter(Path("credentials.json"))
 adapter.set_g_sheet_name("My Spreadsheet")
-features, msgs = adapter.load_features("Demographics")
-people, msgs = adapter.load_people("Candidates", settings, features)
+features, report = adapter.load_features("Demographics")
+people, report = adapter.load_people("Candidates", settings, features)
 
 adapter.selected_tab_name = "Selected"
 adapter.remaining_tab_name = "Remaining"

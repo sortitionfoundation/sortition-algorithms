@@ -81,8 +81,8 @@ def csv(
     features, report = adapter.load_features_from_file(Path(features_csv))
     echo_report(report)
 
-    people, msgs = adapter.load_people_from_file(Path(people_csv), settings_obj, features)
-    echo_all(msgs)
+    people, report = adapter.load_people_from_file(Path(people_csv), settings_obj, features)
+    echo_report(report)
 
     success, people_selected, msgs = core.run_stratification(features, people, number_wanted, settings_obj)
     echo_all(msgs)
@@ -176,8 +176,8 @@ def gsheet(
     if features is None:
         raise click.ClickException("Could not load features, exiting.")
 
-    people, msgs = adapter.load_people(people_tab_name, settings_obj, features)
-    echo_all(msgs)
+    people, report = adapter.load_people(people_tab_name, settings_obj, features)
+    echo_report(report)
     if people is None:
         raise click.ClickException("Could not load people, exiting.")
 

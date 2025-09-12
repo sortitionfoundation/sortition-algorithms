@@ -161,8 +161,8 @@ from pathlib import Path
 
 adapter = GSheetAdapter(Path("credentials.json"))
 adapter.set_g_sheet_name("My Spreadsheet")
-features, msgs = adapter.load_features("Demographics")
-people, msgs = adapter.load_people("Candidates", settings, features)
+features, report = adapter.load_features("Demographics")
+people, report = adapter.load_people("Candidates", settings, features)
 ```
 
 ### Address Checking for Household Diversity

@@ -9,10 +9,12 @@ from sortition_algorithms.core import (
 from sortition_algorithms.features import read_in_features
 from sortition_algorithms.people import read_in_people
 from sortition_algorithms.settings import Settings
+from sortition_algorithms.utils import RunReport
 
 __all__ = [
     "CSVAdapter",
     "GSheetAdapter",
+    "RunReport",
     "Settings",
     "find_random_sample",
     "read_in_features",
