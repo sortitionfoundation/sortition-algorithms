@@ -9,6 +9,7 @@ from sortition_algorithms.committee_generation.maximin import find_distribution_
 from sortition_algorithms.committee_generation.nash import find_distribution_nash
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
+from sortition_algorithms.utils import RunReport
 
 
 def find_any_committee(
@@ -16,7 +17,7 @@ def find_any_committee(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-) -> tuple[list[frozenset[str]], list[str]]:
+) -> tuple[list[frozenset[str]], list[str], RunReport]:
     """Find any single feasible committee that satisfies the quotas.
 
     Args:
@@ -33,9 +34,9 @@ def find_any_committee(
         InfeasibleQuotasError: If quotas are infeasible
         SelectionError: If solver fails for other reasons
     """
-    model, agent_vars = setup_committee_generation(features, people, number_people_wanted, check_same_address_columns)
+    _, agent_vars = setup_committee_generation(features, people, number_people_wanted, check_same_address_columns)
     committee = ilp_results_to_committee(agent_vars)
-    return [committee], []
+    return [committee], [], RunReport()
 
 
 def standardize_distribution(

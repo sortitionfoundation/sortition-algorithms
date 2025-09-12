@@ -72,9 +72,10 @@ def test_csv_selection_happy_path_defaults(algorithm):
     print("load_people_message: ")
     print(people_msgs)
 
-    success, people_selected, output_lines = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
+    success, people_selected, output_lines, report = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
 
-    print(output_lines)
+    # print(output_lines)
+    # print(report.as_text())
     assert success
     assert len(people_selected) == 1
     assert len(people_selected[0]) == PEOPLE_TO_SELECT

@@ -14,7 +14,7 @@ def test_run_stratification_basic_success():
     )
 
     # Run stratification
-    success, committees, output_lines = run_stratification(
+    success, committees, output_lines, report = run_stratification(
         features=features,
         people=people,
         number_people_wanted=4,
@@ -30,6 +30,7 @@ def test_run_stratification_basic_success():
     assert isinstance(committees[0], frozenset)
     assert len(output_lines) > 0
     assert any("SUCCESS" in line for line in output_lines)
+    assert "SUCCESS" in report.as_text()
 
 
 def test_run_stratification_infeasible_quotas():
@@ -59,7 +60,7 @@ def test_run_stratification_multiple_attempts():
     )
 
     # Run stratification with a feasible request
-    success, committees, output_lines = run_stratification(
+    success, committees, output_lines, report = run_stratification(
         features=features,
         people=people,
         number_people_wanted=4,
@@ -74,3 +75,4 @@ def test_run_stratification_multiple_attempts():
     # Check that it attempted at least one trial
     trial_lines = [line for line in output_lines if "Trial number" in line]
     assert len(trial_lines) >= 1
+    assert "Trial number" in report.as_text()
