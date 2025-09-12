@@ -1,4 +1,4 @@
-import pytest
+import re
 
 from sortition_algorithms.utils import ReportLevel, RunReport
 
@@ -77,7 +77,7 @@ class TestRunReport:
         expected_text = "Message with <tags> & ampersands\nImportant with <script>"
         assert report.as_text() == expected_text
 
-        # HTML output preserves the characters (no escaping is done)
+        # HTML output should escape special characters
         expected_html = "Message with &lt;tags&gt; &amp; ampersands<br />\n<b>Important with &lt;script&gt;</b>"
         assert report.as_html() == expected_html
 
@@ -92,7 +92,86 @@ class TestRunReport:
         assert report.as_text() == report_explicit.as_text()
         assert report.as_html() == report_explicit.as_html()
 
-    def test_add_table_not_implemented(self):
+    def test_simple_table(self):
         report = RunReport()
-        with pytest.raises(NotImplementedError):
-            report.add_table("some table")
+        headers = ["Name", "Age", "City"]
+        data = [["Alice", 25, "NYC"], ["Bob", 30, "LA"]]
+        report.add_table(headers, data)
+
+        # Text output uses tabulate with simple format
+        text_output = report.as_text()
+        assert "Name" in text_output
+        assert "Age" in text_output
+        assert "City" in text_output
+        assert "Alice" in text_output
+        assert "Bob" in text_output
+        # Should have blank lines before and after table
+        assert text_output.startswith("\n")
+        assert text_output.endswith("\n")
+
+        # HTML output uses tabulate with html format
+        html_output = report.as_html()
+        assert "<table>" in html_output
+        assert re.search(r"<th[^>]*>Name", html_output)
+        assert re.search(r"<td[^>]*>Alice", html_output)
+
+    def test_table_with_mixed_data_types(self):
+        report = RunReport()
+        headers = ["Product", "Price", "In Stock"]
+        data = [["Widget", 19.99, 100], ["Gadget", 29.50, 0]]
+        report.add_table(headers, data)
+
+        text_output = report.as_text()
+        assert "19.99" in text_output
+        assert "100" in text_output
+
+        html_output = report.as_html()
+        assert re.search(r"<td[^>]*>\s*19\.99", html_output)
+        assert re.search(r"<td[^>]*>\s*100", html_output)
+
+    def test_empty_table(self):
+        report = RunReport()
+        headers = ["Column1", "Column2"]
+        data = []
+        report.add_table(headers, data)
+
+        text_output = report.as_text()
+        assert "Column1" in text_output
+        assert "Column2" in text_output
+
+        html_output = report.as_html()
+        # Empty table might not have headers in the HTML output, so just check for table structure
+        assert "<table>" in html_output
+        assert "</table>" in html_output
+
+    def test_mixed_lines_and_tables(self):
+        report = RunReport()
+        report.add_line("Introduction")
+        report.add_table(["Name", "Score"], [["Alice", 95], ["Bob", 87]])
+        report.add_line("Summary", ReportLevel.IMPORTANT)
+
+        text_output = report.as_text()
+        assert "Introduction" in text_output
+        assert "Alice" in text_output
+        assert "Summary" in text_output
+
+        html_output = report.as_html()
+        assert "Introduction<br />" in html_output
+        assert "<table>" in html_output
+        assert "<b>Summary</b>" in html_output
+
+    def test_multiple_tables(self):
+        report = RunReport()
+        report.add_table(["A", "B"], [["1", "2"]])
+        report.add_table(["X", "Y"], [["10", "20"]])
+
+        text_output = report.as_text()
+        # Should have both tables separated by newlines
+        assert text_output.count("A") == 1
+        assert text_output.count("X") == 1
+        assert "1" in text_output
+        assert "10" in text_output
+
+        html_output = report.as_html()
+        # Should have two separate HTML tables
+        assert html_output.count("<table>") == 2
