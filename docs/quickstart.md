@@ -148,7 +148,7 @@ columns_to_keep = ["Name", "Email", "Phone"]
 ```
 
 ```python
-settings = Settings.load_from_file("settings.toml")
+settings, report = Settings.load_from_file("settings.toml")
 ```
 
 ## Common Patterns

@@ -147,7 +147,7 @@ random_number_seed = 42
         settings_file_path = tmp_path / "settings.toml"
         settings_file_path.write_text(toml_content)
 
-        settings_obj, message = settings.Settings.load_from_file(settings_file_path)
+        settings_obj, report = settings.Settings.load_from_file(settings_file_path)
 
         assert settings_obj.id_column == "test_id"
         assert settings_obj.check_same_address is True
@@ -156,7 +156,7 @@ random_number_seed = 42
         assert settings_obj.columns_to_keep == ["name", "email", "phone"]
         assert settings_obj.selection_algorithm == "nash"
         assert settings_obj.random_number_seed == 42
-        assert message == ""
+        assert report.as_text() == ""
 
     def test_load_from_nonexistent_file_creates_default(self, tmp_path):
         """Test that loading from a non-existent file creates a default settings file."""
@@ -164,14 +164,15 @@ random_number_seed = 42
 
         assert not settings_file_path.exists()
 
-        settings_obj, message = settings.Settings.load_from_file(settings_file_path)
+        settings_obj, report = settings.Settings.load_from_file(settings_file_path)
 
         # Check that the file was created
         assert settings_file_path.exists()
 
         # Check that the message indicates the file was created
-        assert "Wrote default settings to" in message
-        assert "restart this app" in message
+        report_text = report.as_text()
+        assert "Wrote default settings to" in report_text
+        assert "restart this app" in report_text
 
         # Check that the settings have default values
         assert settings_obj.id_column == "nationbuilder_id"
@@ -193,12 +194,13 @@ random_number_seed = 0
         settings_file_path = tmp_path / "settings.toml"
         settings_file_path.write_text(toml_content)
 
-        settings_obj, message = settings.Settings.load_from_file(settings_file_path)
+        settings_obj, report = settings.Settings.load_from_file(settings_file_path)
 
         assert settings_obj.check_same_address is False
         assert settings_obj.check_same_address_columns == []  # Should be reset to empty list
-        assert "WARNING" in message
-        assert "do NOT check if respondents have same address" in message
+        report_text = report.as_text()
+        assert "WARNING" in report_text
+        assert "do NOT check if respondents have same address" in report_text
 
     def test_load_with_invalid_toml_content(self, tmp_path):
         """Test loading settings with invalid TOML content raises appropriate error."""

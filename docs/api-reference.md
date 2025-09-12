@@ -230,7 +230,7 @@ class Settings:
 def load_from_file(
     cls,
     settings_file_path: Path
-) -> tuple[Settings, str]:
+) -> tuple[Settings, RunReport]:
 ```
 
 Load settings from a TOML file.
@@ -255,8 +255,8 @@ columns_to_keep = ["Name", "Email", "Phone"]
 **Example:**
 
 ```python
-settings, msg = Settings.load_from_file(Path("config.toml"))
-print(msg)  # "Settings loaded from config.toml"
+settings, report = Settings.load_from_file(Path("config.toml"))
+print(report.as_text())  # "Settings loaded from config.toml"
 ```
 
 ## Data Adapters

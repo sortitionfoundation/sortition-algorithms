@@ -4,11 +4,16 @@ import click
 
 from sortition_algorithms import adapters, core, people_features
 from sortition_algorithms.settings import Settings
+from sortition_algorithms.utils import RunReport
 
 
 def echo_all(msgs: list[str]) -> None:
     for msg in msgs:
         click.echo(msg)
+
+
+def echo_report(report: RunReport) -> None:
+    click.echo(report.as_text())
 
 
 @click.group()
@@ -71,8 +76,8 @@ def csv(
 ) -> None:
     """Do sortition with CSV files."""
     adapter = adapters.CSVAdapter()
-    settings_obj, msg = Settings.load_from_file(Path(settings))
-    echo_all([msg])
+    settings_obj, report = Settings.load_from_file(Path(settings))
+    echo_report(report)
     features, msgs = adapter.load_features_from_file(Path(features_csv))
     echo_all(msgs)
 
@@ -162,8 +167,8 @@ def gsheet(
     """Do sortition with Google Spreadsheets."""
     gen_rem_tab_value = "on" if gen_rem_tab else "off"
     adapter = adapters.GSheetAdapter(Path(auth_json_file), gen_rem_tab_value)
-    settings_obj, msg = Settings.load_from_file(Path(settings))
-    echo_all([msg])
+    settings_obj, report = Settings.load_from_file(Path(settings))
+    echo_report(report)
 
     adapter.set_g_sheet_name(gsheet_name)
     features, msgs = adapter.load_features(feature_tab_name)
@@ -222,8 +227,8 @@ def gsheet(
 def gen_sample(settings: str, features_csv: str, people_csv: str, number_wanted: int) -> None:
     """Generate a sample CSV file of people compatible with features and settings."""
     adapter = adapters.CSVAdapter()
-    settings_obj, msg = Settings.load_from_file(Path(settings))
-    echo_all([msg])
+    settings_obj, report = Settings.load_from_file(Path(settings))
+    echo_report(report)
     features, msgs = adapter.load_features_from_file(Path(features_csv))
     echo_all(msgs)
     with open(people_csv, "w", newline="") as people_f:
