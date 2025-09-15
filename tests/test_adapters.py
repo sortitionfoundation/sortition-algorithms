@@ -68,13 +68,11 @@ def test_csv_selection_happy_path_defaults(algorithm):
     settings = get_settings(algorithm)
     features, _ = adapter.load_features_from_str(features_content)
     people, people_msgs = adapter.load_people_from_str(candidates_content, settings, features)
-    # people_cats.number_people_to_select = PEOPLE_TO_SELECT
     print("load_people_message: ")
     print(people_msgs)
 
-    success, people_selected, output_lines, report = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
+    success, people_selected, _ = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
 
-    # print(output_lines)
     # print(report.as_text())
     assert success
     assert len(people_selected) == 1
@@ -114,7 +112,9 @@ def test_csv_output_selected_remaining():
     remaining_lines = remaining_content.splitlines()
     assert remaining_lines[0] == csv_header
 
+    # we have the -1 to remove the header
+    num_selected = len(selected_lines) - 1
+    num_remaining = len(remaining_lines) - 1
+    num_candidates = len(candidates_lines) - 1
 
-# TODO: test output_selected_remaining
-# we have the -1 to remove the header
-# assert len(selected_lines) + len(remaining_lines) == len(candidates_lines) - 1
+    assert num_selected + num_remaining == num_candidates

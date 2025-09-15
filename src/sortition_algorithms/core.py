@@ -20,7 +20,7 @@ from sortition_algorithms.people_features import (
     simple_add_selected,
 )
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import ReportLevel, RunReport, print_ret, random_provider, set_random_provider
+from sortition_algorithms.utils import ReportLevel, RunReport, random_provider, set_random_provider
 
 
 def multi_selection_to_table(multi_selections: list[frozenset[str]]) -> list[list[str]]:
@@ -199,7 +199,7 @@ def _distribution_stats(
     people: People,
     committees: list[frozenset[str]],
     probabilities: list[float],
-) -> tuple[list[str], RunReport]:
+) -> RunReport:
     """Generate statistics about the distribution over committees.
 
     Args:
@@ -210,15 +210,10 @@ def _distribution_stats(
     Returns:
         list of output lines with statistics
     """
-    output_lines = []
     report = RunReport()
 
     assert len(committees) == len(probabilities)
     num_non_zero = sum(1 for prob in probabilities if prob > 0)
-    output_lines.append(
-        f"Algorithm produced distribution over {len(committees)} committees, out of which "
-        f"{num_non_zero} are chosen with positive probability."
-    )
     report.add_line(
         f"Algorithm produced distribution over {len(committees)} committees, out of which "
         f"{num_non_zero} are chosen with positive probability."
@@ -232,24 +227,15 @@ def _distribution_stats(
                 individual_probabilities[agent_id] += prob
                 containing_committees[agent_id].append(committee)
 
-    table = [
-        "<table border='1' cellpadding='5'><tr><th>Agent ID</th><th>Probability of selection</th><th>Included in # of committees</th></tr>"
-    ]
     headers = ["Agent ID", "Probability of selection", "Included in # of committees"]
 
     data: list[list[str | int | float]] = []
     for _, agent_id in sorted((prob, agent_id) for agent_id, prob in individual_probabilities.items()):
-        table.append(
-            f"<tr><td>{agent_id}</td><td>{individual_probabilities[agent_id]:.4%}</td><td>{len(containing_committees[agent_id])}</td></tr>"
-        )
         data.append([agent_id, f"{individual_probabilities[agent_id]:.4%}", len(containing_committees[agent_id])])
-
-    table.append("</table>")
-    output_lines.append("".join(table))
 
     report.add_table(headers, data)
 
-    return output_lines, report
+    return report
 
 
 def find_random_sample(
@@ -260,7 +246,7 @@ def find_random_sample(
     selection_algorithm: str = "maximin",
     test_selection: bool = False,
     number_selections: int = 1,
-) -> tuple[list[frozenset[str]], list[str], RunReport]:
+) -> tuple[list[frozenset[str]], RunReport]:
     """Main algorithm to find one or multiple random committees.
 
     Args:
@@ -277,9 +263,9 @@ def find_random_sample(
             should be drawn uniformly at random from the returned list.
 
     Returns:
-        tuple of (committee_lottery, output_lines)
+        tuple of (committee_lottery, report)
         - committee_lottery: list of committees, where each committee is a frozen set of pool member ids
-        - output_lines: list of debug strings
+        - report: report with debug strings
 
     Raises:
         InfeasibleQuotasError: if the quotas cannot be satisfied, which includes a suggestion for how to modify them
@@ -307,7 +293,6 @@ def find_random_sample(
         print("Running test selection.")
         return find_any_committee(features, people, number_people_wanted, check_same_address_columns)
 
-    output_lines = []
     report = RunReport()
 
     # Check if Gurobi is available for leximin
@@ -317,7 +302,6 @@ def find_random_sample(
             "(commercial, free academic licenses available). Switching to the simpler "
             "maximin algorithm, which can be run using open source solvers."
         )
-        output_lines.append(print_ret(msg))
         report.add_line(msg)
         selection_algorithm = "maximin"
 
@@ -360,22 +344,20 @@ def find_random_sample(
 
     assert len(set(committees)) == len(committees)
 
-    output_lines += new_output_lines
     report.add_lines(new_output_lines)
-    stats_lines, stats_report = _distribution_stats(people, committees, probabilities)
-    output_lines += stats_lines
+    stats_report = _distribution_stats(people, committees, probabilities)
     report.add_report(stats_report)
 
     # Convert to lottery
     committee_lottery = lottery_rounding(committees, probabilities, number_selections)
 
-    return committee_lottery, output_lines, report
+    return committee_lottery, report
 
 
 def _initial_print_category_info(
     features: FeatureCollection,
     people: People,
-) -> tuple[list[str], RunReport]:
+) -> RunReport:
     """Generate HTML table showing category/feature statistics.
 
     Args:
@@ -384,12 +366,9 @@ def _initial_print_category_info(
         number_people_wanted: Target number of people to select
 
     Returns:
-        List containing HTML table as single string
+        Report containing table
     """
     # Build HTML table header
-    report_msg = [
-        "<table border='1' cellpadding='5'><tr><th colspan='2'>Category</th><th>Initially</th><th>Want</th></tr>"
-    ]
     headers = ["Category", "Category Value", "Initially", "Want"]
     # Make a working copy and update counts
     select_collection = select_from_feature_collection(features)
@@ -398,10 +377,6 @@ def _initial_print_category_info(
     # Generate table rows
     data: list[list[str | int | float]] = []
     for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
-        report_msg.append(
-            f"<tr><td>{feature_name}</td><td>{fvalue_name}</td>"
-            f"<td>{fv_counts.selected}</td><td>[{fv_counts.min_max.min},{fv_counts.min_max.max}]</td></tr>"
-        )
         data.append([
             feature_name,
             fvalue_name,
@@ -409,10 +384,9 @@ def _initial_print_category_info(
             f"[{fv_counts.min_max.min},{fv_counts.min_max.max}]",
         ])
 
-    report_msg.append("</table>")
     report = RunReport()
     report.add_table(headers, data)
-    return ["".join(report_msg)], report
+    return report
 
 
 def _print_category_info(
@@ -420,7 +394,7 @@ def _print_category_info(
     people: People,
     people_selected: list[frozenset[str]],
     number_people_wanted: int,
-) -> tuple[list[str], RunReport]:
+) -> RunReport:
     """Generate HTML table showing category/feature statistics.
 
     Args:
@@ -436,12 +410,9 @@ def _print_category_info(
     if len(people_selected) != 1:
         msg = "We do not calculate target details for multiple selections - please see your output files."
         report.add_line(msg)
-        return [f"<p>{msg}</p>"], report
+        return report
 
     # Build HTML table header
-    report_msg = [
-        "<table border='1' cellpadding='5'><tr><th colspan='2'>Category</th><th>Selected</th><th>Want</th></tr>"
-    ]
     headers = ["Category", "Category Value", "Selected", "Want"]
 
     # Make a working copy and update counts
@@ -452,11 +423,6 @@ def _print_category_info(
     # Generate table rows
     for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
         percent_selected = fv_counts.percent_selected(number_people_wanted)
-        report_msg.append(
-            f"<tr><td>{feature_name}</td><td>{fvalue_name}</td>"
-            f"<td>{fv_counts.selected} ({percent_selected:.2f}%)</td>"
-            f"<td>[{fv_counts.min_max.min},{fv_counts.min_max.max}]</td></tr>"
-        )
         data.append([
             feature_name,
             fvalue_name,
@@ -464,9 +430,8 @@ def _print_category_info(
             f"[{fv_counts.min_max.min},{fv_counts.min_max.max}]",
         ])
 
-    report_msg.append("</table>")
     report.add_table(headers, data)
-    return ["".join(report_msg)], report
+    return report
 
 
 def _check_category_selected(
@@ -474,7 +439,7 @@ def _check_category_selected(
     people: People,
     people_selected: list[frozenset[str]],
     number_selections: int,
-) -> tuple[bool, list[str], RunReport]:
+) -> tuple[bool, RunReport]:
     """Check if selected committee meets all feature value targets.
 
     Args:
@@ -489,16 +454,10 @@ def _check_category_selected(
     report = RunReport()
     if number_selections > 1:
         report.add_line("No target checks done for multiple selections - please see your output files.")
-        return (
-            True,
-            [
-                "<p>No target checks done for multiple selections - please see your output files.</p>",
-            ],
-            report,
-        )
+        return True, report
 
     if len(people_selected) != 1:
-        return True, [], report
+        return True, report
 
     hit_targets = True
     last_feature_fail = ""
@@ -514,14 +473,9 @@ def _check_category_selected(
             hit_targets = False
             last_feature_fail = f"{feature_name}: {fvalue_name}"
 
-    report_msgs = (
-        []
-        if hit_targets
-        else [f"<p>Failed to get minimum or got more than maximum in (at least) category: {last_feature_fail}</p>"]
-    )
     if not hit_targets:
         report.add_line(f"Failed to get minimum or got more than maximum in (at least) category: {last_feature_fail}")
-    return hit_targets, report_msgs, report
+    return hit_targets, report
 
 
 def run_stratification(
@@ -531,7 +485,7 @@ def run_stratification(
     settings: Settings,
     test_selection: bool = False,
     number_selections: int = 1,
-) -> tuple[bool, list[frozenset[str]], list[str], RunReport]:
+) -> tuple[bool, list[frozenset[str]], RunReport]:
     """Run stratified random selection with retry logic.
 
     Args:
@@ -543,10 +497,10 @@ def run_stratification(
         number_selections: Number of panels to return
 
     Returns:
-        Tuple of (success, selected_committees, output_lines)
+        Tuple of (success, selected_committees, report)
         - success: Whether selection succeeded within max attempts
         - selected_committees: List of committees (frozensets of person IDs)
-        - output_lines: Debug and status messages
+        - report: contains debug and status messages
 
     Raises:
         Exception: If number_people_wanted is outside valid range for any feature
@@ -563,22 +517,13 @@ def run_stratification(
     set_random_provider(settings.random_number_seed)
 
     success = False
-    output_lines = []
     report = RunReport()
 
     if test_selection:
-        output_lines.append(
-            "<b style='color: red'>WARNING: Panel is not selected at random! Only use for testing!</b><br>",
-        )
         report.add_line("WARNING: Panel is not selected at random! Only use for testing!", ReportLevel.CRITICAL)
 
-    output_lines.append("<b>Initial: (selected = 0)</b>")
     report.add_line("Initial: (selected = 0)", ReportLevel.IMPORTANT)
-    initial_cat_lines, initial_cat_report = _initial_print_category_info(
-        features,
-        people,
-    )
-    output_lines += initial_cat_lines
+    initial_cat_report = _initial_print_category_info(features, people)
     report.add_report(initial_cat_report)
     people_selected: list[frozenset[str]] = []
 
@@ -586,11 +531,10 @@ def run_stratification(
     for tries in range(settings.max_attempts):
         people_selected = []
 
-        output_lines.append(f"<b>Trial number: {tries}</b>")
         report.add_line(f"Trial number: {tries}", ReportLevel.IMPORTANT)
 
         try:
-            people_selected, new_output_lines, new_report = find_random_sample(
+            people_selected, new_report = find_random_sample(
                 features,
                 people,
                 number_people_wanted,
@@ -599,45 +543,28 @@ def run_stratification(
                 test_selection,
                 number_selections,
             )
-            output_lines += new_output_lines
             report.add_report(new_report)
 
             # Check if targets were met (only works for number_selections = 1)
-            cat_output_lines, cat_report = _print_category_info(
-                features,
-                people,
-                people_selected,
-                number_people_wanted,
-            )
-            success, check_output_lines, check_report = _check_category_selected(
-                features,
-                people,
-                people_selected,
-                number_selections,
-            )
+            cat_report = _print_category_info(features, people, people_selected, number_people_wanted)
+            success, check_report = _check_category_selected(features, people, people_selected, number_selections)
 
             if success:
-                output_lines.append("<b>SUCCESS!!</b> Final:")
                 report.add_line("SUCCESS!! Final:", ReportLevel.IMPORTANT)
-                output_lines += cat_output_lines + check_output_lines
                 report.add_report(cat_report)
                 report.add_report(check_report)
                 break
 
         except (ValueError, RuntimeError) as err:
-            output_lines.append(str(err))
             report.add_line(str(err))
             break
         except errors.InfeasibleQuotasError as err:
-            output_lines += err.output
             report.add_lines(err.output)
             break
         except errors.SelectionError as serr:
-            output_lines.append(f"Failed: Selection Error thrown: {serr}")
             report.add_line(f"Failed: Selection Error thrown: {serr}")
 
     if not success:
-        output_lines.append(f"Failed {tries} times... gave up.")
         report.add_line(f"Failed {tries} times... gave up.")
 
-    return success, people_selected, output_lines, report
+    return success, people_selected, report

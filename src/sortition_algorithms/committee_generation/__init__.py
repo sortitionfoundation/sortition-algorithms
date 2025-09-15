@@ -17,7 +17,7 @@ def find_any_committee(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-) -> tuple[list[frozenset[str]], list[str], RunReport]:
+) -> tuple[list[frozenset[str]], RunReport]:
     """Find any single feasible committee that satisfies the quotas.
 
     Args:
@@ -28,7 +28,7 @@ def find_any_committee(
                                     not checking addresses.
 
     Returns:
-        tuple of (list containing one committee as frozenset of person_ids, empty list of messages)
+        tuple of (list containing one committee as frozenset of person_ids, empty report)
 
     Raises:
         InfeasibleQuotasError: If quotas are infeasible
@@ -36,7 +36,7 @@ def find_any_committee(
     """
     _, agent_vars = setup_committee_generation(features, people, number_people_wanted, check_same_address_columns)
     committee = ilp_results_to_committee(agent_vars)
-    return [committee], [], RunReport()
+    return [committee], RunReport()
 
 
 def standardize_distribution(
