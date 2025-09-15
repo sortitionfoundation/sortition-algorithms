@@ -52,6 +52,11 @@ def override_logging_handlers(
         logger.addHandler(handler)
 
 
+def set_log_level(log_level: int) -> None:
+    user_logger.setLevel(log_level)
+    logger.setLevel(log_level)
+
+
 user_logger, logger = default_logging_setup()
 
 

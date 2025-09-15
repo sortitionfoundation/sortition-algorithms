@@ -1,10 +1,11 @@
+import logging
 from pathlib import Path
 
 import click
 
 from sortition_algorithms import adapters, core, people_features
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import RunReport
+from sortition_algorithms.utils import RunReport, set_log_level
 
 
 def echo_all(msgs: list[str]) -> None:
@@ -66,6 +67,12 @@ def cli() -> None:
     required=True,
     help="Number of people to select.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="If used, produce extra detailed logging.",
+)
 def csv(
     settings: str,
     features_csv: str,
@@ -73,8 +80,11 @@ def csv(
     selected_csv: str,
     remaining_csv: str,
     number_wanted: int,
+    verbose: bool,
 ) -> None:
     """Do sortition with CSV files."""
+    if verbose:
+        set_log_level(logging.DEBUG)
     adapter = adapters.CSVAdapter()
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
@@ -153,6 +163,12 @@ def csv(
     required=True,
     help="Number of people to select.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="If used, produce extra detailed logging.",
+)
 def gsheet(
     settings: str,
     auth_json_file: str,
@@ -163,8 +179,11 @@ def gsheet(
     selected_tab_name: str,
     remaining_tab_name: str,
     number_wanted: int,
+    verbose: bool,
 ) -> None:
     """Do sortition with Google Spreadsheets."""
+    if verbose:
+        set_log_level(logging.DEBUG)
     gen_rem_tab_value = "on" if gen_rem_tab else "off"
     adapter = adapters.GSheetAdapter(Path(auth_json_file), gen_rem_tab_value)
     settings_obj, report = Settings.load_from_file(Path(settings))
