@@ -181,7 +181,7 @@ class TestRunReport:
     @patch("sortition_algorithms.utils.user_logger")
     def test_add_line_with_logging(self, mock_user_logger):
         report = RunReport()
-        report.add_line("Test message", ReportLevel.NORMAL, logging.INFO)
+        report.add_line_and_log("Test message", logging.INFO)
 
         # Should log the message
         mock_user_logger.log.assert_called_once_with(level=logging.INFO, msg="Test message")
@@ -206,7 +206,7 @@ class TestRunReport:
     def test_include_logged_parameter(self, mock_user_logger):
         report = RunReport()
         report.add_line("Normal message")  # No logging
-        report.add_line("Logged message", ReportLevel.IMPORTANT, logging.INFO)  # With logging
+        report.add_line_and_log("Logged message", logging.INFO)  # With logging
 
         # With include_logged=True (default)
         text_with_logged = report.as_text()
@@ -272,7 +272,7 @@ class TestRunReport:
     def test_mixed_logged_and_unlogged_with_tables(self, mock_user_logger):
         report = RunReport()
         report.add_line("Unlogged line")
-        report.add_line("Logged line", ReportLevel.NORMAL, logging.DEBUG)
+        report.add_line_and_log("Logged line", logging.DEBUG)
         report.add_table(["Header"], [["Row1"]])
         report.add_line("Another unlogged", ReportLevel.IMPORTANT)
 
@@ -299,7 +299,7 @@ class TestRunReport:
     @patch("sortition_algorithms.utils.user_logger")
     def test_empty_report_with_only_logged_lines(self, mock_user_logger):
         report = RunReport()
-        report.add_line("Only logged", ReportLevel.NORMAL, logging.INFO)
+        report.add_line_and_log("Only logged", logging.INFO)
 
         # With logged lines included
         assert report.as_text(include_logged=True) == "Only logged"

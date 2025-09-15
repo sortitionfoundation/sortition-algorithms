@@ -1,4 +1,5 @@
 import copy
+import logging
 from collections.abc import Collection, Iterable
 
 import mip
@@ -6,7 +7,7 @@ import mip
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection, feature_value_pairs, iterate_feature_collection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import logger, print_ret, random_provider
+from sortition_algorithms.utils import RunReport, logger, random_provider
 
 # Tolerance for numerical comparisons
 EPS = 0.0005
@@ -410,7 +411,7 @@ def _find_committees_for_uncovered_agents(
     new_committee_model: mip.model.Model,
     agent_vars: dict[str, mip.entities.Var],
     covered_agents: set[str],
-) -> tuple[set[frozenset[str]], set[str], list[str]]:
+) -> tuple[set[frozenset[str]], set[str], RunReport]:
     """Find committees that include any agents not yet covered by existing committees.
 
     Args:
@@ -422,7 +423,7 @@ def _find_committees_for_uncovered_agents(
         tuple of (new_committees, updated_covered_agents, output_lines)
     """
     new_committees: set[frozenset[str]] = set()
-    output_lines = []
+    report = RunReport()
 
     # Try to find a committee including each uncovered agent
     for agent_id, agent_var in agent_vars.items():
@@ -436,16 +437,18 @@ def _find_committees_for_uncovered_agents(
                 for covered_agent_id in new_committee:
                     covered_agents.add(covered_agent_id)
             else:
-                output_lines.append(print_ret(f"Agent {agent_id} not contained in any feasible committee."))
+                report.add_line_and_log(
+                    f"Agent {agent_id} not contained in any feasible committee.", log_level=logging.INFO
+                )
 
-    return new_committees, covered_agents, output_lines
+    return new_committees, covered_agents, report
 
 
 def generate_initial_committees(
     new_committee_model: mip.model.Model,
     agent_vars: dict[str, mip.entities.Var],
     multiplicative_weights_rounds: int,
-) -> tuple[set[frozenset[str]], frozenset[str], list[str]]:
+) -> tuple[set[frozenset[str]], frozenset[str], RunReport]:
     """To speed up the main iteration of the maximin and Nash algorithms, start from a diverse set of feasible
     committees. In particular, each agent that can be included in any committee will be included in at least one of
     these committees.
@@ -459,9 +462,10 @@ def generate_initial_committees(
         tuple of (committees, covered_agents, output_lines)
         - committees: set of feasible committees discovered
         - covered_agents: frozenset of all agents included in some committee
+        - report: run report
         - output_lines: list of debug messages
     """
-    output_lines = []
+    report = RunReport()
 
     # Phase 1: Use multiplicative weights algorithm to find diverse committees
     committees, covered_agents = _run_multiplicative_weights_phase(
@@ -469,16 +473,16 @@ def generate_initial_committees(
     )
 
     # Phase 2: Find committees for any agents not yet covered
-    additional_committees, covered_agents, coverage_output = _find_committees_for_uncovered_agents(
+    additional_committees, covered_agents, coverage_report = _find_committees_for_uncovered_agents(
         new_committee_model, agent_vars, covered_agents
     )
     committees.update(additional_committees)
-    output_lines.extend(coverage_output)
+    report.add_report(coverage_report)
 
     # Validation and final output
     assert len(committees) >= 1  # We assume quotas are feasible at this stage
 
     if len(covered_agents) == len(agent_vars):
-        output_lines.append(print_ret("All agents are contained in some feasible committee."))
+        report.add_line_and_log("All agents are contained in some feasible committee.", log_level=logging.INFO)
 
-    return committees, frozenset(covered_agents), output_lines
+    return committees, frozenset(covered_agents), report

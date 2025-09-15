@@ -85,7 +85,7 @@ class RunReport:
     def __init__(self) -> None:
         self._data: list[RunLineLevel | RunTable] = []
 
-    def add_line(self, line: str, level: ReportLevel = ReportLevel.NORMAL, log_level: int = logging.NOTSET) -> None:
+    def add_line(self, line: str, level: ReportLevel = ReportLevel.NORMAL) -> None:
         """
         Add a line of text, and a level - so important/critical messages can be highlighted in the HTML report.
 
@@ -96,9 +96,11 @@ class RunReport:
         has not been set up to be shown to the user during the run, we do want those messages to be in the
         final report.
         """
-        self._data.append(RunLineLevel(line, level, log_level))
-        if log_level != logging.NOTSET:
-            user_logger.log(level=log_level, msg=line)
+        self._data.append(RunLineLevel(line, level))
+
+    def add_line_and_log(self, line: str, log_level: int) -> None:
+        self._data.append(RunLineLevel(line, ReportLevel.NORMAL, log_level))
+        user_logger.log(level=log_level, msg=line)
 
     def add_lines(self, lines: Iterable[str], level: ReportLevel = ReportLevel.NORMAL) -> None:
         """Add a line of text, and a level - we use the logging levels"""
@@ -154,13 +156,6 @@ class RunReport:
     def as_html(self, include_logged: bool = True) -> str:
         parts = [self._element_to_html(element, include_logged) for element in self._data]
         return "<br />\n".join(p for p in parts if p is not None)
-
-
-# def print_ret(message: str) -> str:
-def print_ret(message: str, log_level: int = logging.INFO) -> str:
-    """Print and return a message for output collection."""
-    logger.log(level=log_level, msg=message)
-    return message
 
 
 def strip_str_int(value: str | int | float) -> str:

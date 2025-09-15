@@ -314,15 +314,15 @@ def find_random_sample(
             check_same_address_columns,
         )
     elif selection_algorithm == "leximin":
-        committees, probabilities, new_output_lines = find_distribution_leximin(
+        committees, probabilities, new_report = find_distribution_leximin(
             features, people, number_people_wanted, check_same_address_columns
         )
     elif selection_algorithm == "maximin":
-        committees, probabilities, new_output_lines = find_distribution_maximin(
+        committees, probabilities, new_report = find_distribution_maximin(
             features, people, number_people_wanted, check_same_address_columns
         )
     elif selection_algorithm == "nash":
-        committees, probabilities, new_output_lines = find_distribution_nash(
+        committees, probabilities, new_report = find_distribution_nash(
             features, people, number_people_wanted, check_same_address_columns
         )
     else:
@@ -344,7 +344,7 @@ def find_random_sample(
 
     assert len(set(committees)) == len(committees)
 
-    report.add_lines(new_output_lines)
+    report.add_report(new_report)
     stats_report = _distribution_stats(people, committees, probabilities)
     report.add_report(stats_report)
 
