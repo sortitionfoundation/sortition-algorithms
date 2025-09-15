@@ -84,7 +84,7 @@ def csv(
     people, report = adapter.load_people_from_file(Path(people_csv), settings_obj, features)
     echo_report(report)
 
-    success, people_selected, _, report = core.run_stratification(features, people, number_wanted, settings_obj)
+    success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
     echo_report(report)
     if not success:
         raise click.ClickException("Selection not successful, no files written.")
@@ -181,7 +181,7 @@ def gsheet(
     if people is None:
         raise click.ClickException("Could not load people, exiting.")
 
-    success, people_selected, _, report = core.run_stratification(features, people, number_wanted, settings_obj)
+    success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
     echo_report(report)
     if not success:
         raise click.ClickException("Selection not successful, no files written.")
