@@ -1,4 +1,6 @@
+import logging
 import re
+from unittest.mock import patch
 
 from sortition_algorithms.utils import ReportLevel, RunReport
 
@@ -175,3 +177,134 @@ class TestRunReport:
         html_output = report.as_html()
         # Should have two separate HTML tables
         assert html_output.count("<table>") == 2
+
+    @patch("sortition_algorithms.utils.user_logger")
+    def test_add_line_with_logging(self, mock_user_logger):
+        report = RunReport()
+        report.add_line("Test message", ReportLevel.NORMAL, logging.INFO)
+
+        # Should log the message
+        mock_user_logger.log.assert_called_once_with(level=logging.INFO, msg="Test message")
+
+        # Should include in report by default
+        assert "Test message" in report.as_text()
+        assert "Test message" in report.as_html()
+
+    @patch("sortition_algorithms.utils.user_logger")
+    def test_add_line_without_logging(self, mock_user_logger):
+        report = RunReport()
+        report.add_line("Test message")  # No log_level specified
+
+        # Should not call logger
+        mock_user_logger.log.assert_not_called()
+
+        # Should include in report
+        assert "Test message" in report.as_text()
+        assert "Test message" in report.as_html()
+
+    @patch("sortition_algorithms.utils.user_logger")
+    def test_include_logged_parameter(self, mock_user_logger):
+        report = RunReport()
+        report.add_line("Normal message")  # No logging
+        report.add_line("Logged message", ReportLevel.IMPORTANT, logging.INFO)  # With logging
+
+        # With include_logged=True (default)
+        text_with_logged = report.as_text()
+        html_with_logged = report.as_html()
+        assert "Normal message" in text_with_logged
+        assert "Logged message" in text_with_logged
+        assert "Normal message" in html_with_logged
+        assert "Logged message" in html_with_logged
+
+        # With include_logged=False
+        text_without_logged = report.as_text(include_logged=False)
+        html_without_logged = report.as_html(include_logged=False)
+        assert "Normal message" in text_without_logged
+        assert "Logged message" not in text_without_logged
+        assert "Normal message" in html_without_logged
+        assert "Logged message" not in html_without_logged
+
+    def test_add_lines_method(self):
+        report = RunReport()
+        lines = ["First line", "Second line", "Third line"]
+        report.add_lines(lines, ReportLevel.IMPORTANT)
+
+        text_output = report.as_text()
+        html_output = report.as_html()
+
+        for line in lines:
+            assert line in text_output
+            assert line in html_output
+
+        # Check HTML formatting for important level
+        assert "<b>First line</b>" in html_output
+        assert "<b>Second line</b>" in html_output
+        assert "<b>Third line</b>" in html_output
+
+    def test_add_report_method(self):
+        report1 = RunReport()
+        report1.add_line("From report 1")
+        report1.add_table(["Col"], [["Data1"]])
+
+        report2 = RunReport()
+        report2.add_line("From report 2", ReportLevel.CRITICAL)
+
+        combined = RunReport()
+        combined.add_line("Combined header")
+        combined.add_report(report1)
+        combined.add_report(report2)
+
+        text_output = combined.as_text()
+        html_output = combined.as_html()
+
+        # All content should be present
+        assert "Combined header" in text_output
+        assert "From report 1" in text_output
+        assert "From report 2" in text_output
+        assert "Data1" in text_output
+
+        assert "Combined header" in html_output
+        assert "From report 1" in html_output
+        assert '<b style="color: red">From report 2</b>' in html_output
+        assert "<table>" in html_output
+
+    @patch("sortition_algorithms.utils.user_logger")
+    def test_mixed_logged_and_unlogged_with_tables(self, mock_user_logger):
+        report = RunReport()
+        report.add_line("Unlogged line")
+        report.add_line("Logged line", ReportLevel.NORMAL, logging.DEBUG)
+        report.add_table(["Header"], [["Row1"]])
+        report.add_line("Another unlogged", ReportLevel.IMPORTANT)
+
+        # Tables should always appear regardless of include_logged
+        text_with_logged = report.as_text(include_logged=True)
+        text_without_logged = report.as_text(include_logged=False)
+
+        # Tables should be in both
+        assert "Header" in text_with_logged
+        assert "Header" in text_without_logged
+        assert "Row1" in text_with_logged
+        assert "Row1" in text_without_logged
+
+        # Unlogged lines should be in both
+        assert "Unlogged line" in text_with_logged
+        assert "Unlogged line" in text_without_logged
+        assert "Another unlogged" in text_with_logged
+        assert "Another unlogged" in text_without_logged
+
+        # Logged line should only be in include_logged=True version
+        assert "Logged line" in text_with_logged
+        assert "Logged line" not in text_without_logged
+
+    @patch("sortition_algorithms.utils.user_logger")
+    def test_empty_report_with_only_logged_lines(self, mock_user_logger):
+        report = RunReport()
+        report.add_line("Only logged", ReportLevel.NORMAL, logging.INFO)
+
+        # With logged lines included
+        assert report.as_text(include_logged=True) == "Only logged"
+        assert report.as_html(include_logged=True) == "Only logged"
+
+        # Without logged lines - should be empty
+        assert report.as_text(include_logged=False) == ""
+        assert report.as_html(include_logged=False) == ""

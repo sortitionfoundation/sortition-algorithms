@@ -1,7 +1,9 @@
 import enum
 import html
+import logging
 import random
 import secrets
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -11,6 +13,46 @@ from tabulate import tabulate
 
 if TYPE_CHECKING:
     from _typeshed import SupportsLenAndGetItem
+
+
+def default_logging_setup() -> tuple[logging.Logger, logging.Logger]:
+    """Set both logger and user_logger to send output to stdout"""
+    # we have two loggers
+    # - user_logger is used for messages that any user should see
+    # - logger is used for messages that only a developer or admin should need to see
+    user_logger = logging.getLogger("sortition_algorithms.user")
+    user_logger.setLevel(logging.INFO)
+    if not user_logger.handlers:
+        # no set up has been done yet - so we do it here
+        pass
+    logger = logging.getLogger("sortition_algorithms")
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        # no set up has been done yet - so we do it here
+        # this logger just goes straight to stdout - no timestamps or anything
+        logger.addHandler(logging.StreamHandler(sys.stdout))
+    return user_logger, logger
+
+
+def override_logging_handlers(
+    user_logger_handlers: list[logging.Handler], logger_handlers: list[logging.Handler]
+) -> None:
+    """Replace the default handlers with other ones"""
+    user_logger = logging.getLogger("sortition_algorithms.user")
+    logger = logging.getLogger("sortition_algorithms")
+    # first get rid of the old handlers
+    for handler in user_logger.handlers[:]:
+        user_logger.removeHandler(handler)
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    # now add the new handlers
+    for handler in user_logger_handlers:
+        user_logger.addHandler(handler)
+    for handler in logger_handlers:
+        logger.addHandler(handler)
+
+
+user_logger, logger = default_logging_setup()
 
 
 class ReportLevel(enum.Enum):
@@ -23,6 +65,7 @@ class ReportLevel(enum.Enum):
 class RunLineLevel:
     line: str
     level: ReportLevel
+    log_level: int = logging.NOTSET
 
 
 @dataclass
@@ -37,9 +80,20 @@ class RunReport:
     def __init__(self) -> None:
         self._data: list[RunLineLevel | RunTable] = []
 
-    def add_line(self, line: str, level: ReportLevel = ReportLevel.NORMAL) -> None:
-        """Add a line of text, and a level - we use the logging levels"""
-        self._data.append(RunLineLevel(line, level))
+    def add_line(self, line: str, level: ReportLevel = ReportLevel.NORMAL, log_level: int = logging.NOTSET) -> None:
+        """
+        Add a line of text, and a level - so important/critical messages can be highlighted in the HTML report.
+
+        We can also optionally log the message to the `user_logger`. This message can be shown to the user as
+        the run is happening, so the user has feedback on what is going on while the run is in progress.
+
+        When generating the report we can skip those messages, to avoid duplication. But if the user_logger
+        has not been set up to be shown to the user during the run, we do want those messages to be in the
+        final report.
+        """
+        self._data.append(RunLineLevel(line, level, log_level))
+        if log_level != logging.NOTSET:
+            user_logger.log(level=log_level, msg=line)
 
     def add_lines(self, lines: Iterable[str], level: ReportLevel = ReportLevel.NORMAL) -> None:
         """Add a line of text, and a level - we use the logging levels"""
@@ -52,16 +106,23 @@ class RunReport:
     def add_report(self, other: "RunReport") -> None:
         self._data += other._data
 
-    def _element_to_text(self, element: RunLineLevel | RunTable) -> str:
+    def _element_to_text(self, element: RunLineLevel | RunTable, include_logged: bool) -> str | None:
         if isinstance(element, RunLineLevel):
-            return element.line
+            # we might want to skip lines that were already logged
+            if include_logged or element.log_level == logging.NOTSET:
+                return element.line
+            else:
+                # sometimes we want empty strings for blank lines, so here we return None
+                # instead so the logged lines can be filtered out
+                return None
         else:
             table_text = tabulate(element.data, headers=element.headers, tablefmt="simple")
             # we want a blank line before and after the table.
             return f"\n{table_text}\n"
 
-    def as_text(self) -> str:
-        return "\n".join(self._element_to_text(element) for element in self._data)
+    def as_text(self, include_logged: bool = True) -> str:
+        parts = [self._element_to_text(element, include_logged) for element in self._data]
+        return "\n".join(p for p in parts if p is not None)
 
     def _line_to_html(self, line_level: RunLineLevel) -> str:
         tags = {
@@ -73,17 +134,21 @@ class RunReport:
         escaped_line = html.escape(line_level.line)
         return f"{start_tag}{escaped_line}{end_tag}"
 
-    def _element_to_html(self, element: RunLineLevel | RunTable) -> str:
+    def _element_to_html(self, element: RunLineLevel | RunTable, include_logged: bool) -> str | None:
         if isinstance(element, RunLineLevel):
-            return self._line_to_html(element)
+            if include_logged or element.log_level == logging.NOTSET:
+                return self._line_to_html(element)
+            else:
+                return None
         else:
             # TODO: add attributes to the `<table>` tag - the original code had:
             # <table border='1' cellpadding='5'> - though do we really want that?
             # Probably better to use CSS so others can style as they see fit.
             return tabulate(element.data, headers=element.headers, tablefmt="html")
 
-    def as_html(self) -> str:
-        return "<br />\n".join(self._element_to_html(element) for element in self._data)
+    def as_html(self, include_logged: bool = True) -> str:
+        parts = [self._element_to_html(element, include_logged) for element in self._data]
+        return "<br />\n".join(p for p in parts if p is not None)
 
 
 def print_ret(message: str) -> str:
