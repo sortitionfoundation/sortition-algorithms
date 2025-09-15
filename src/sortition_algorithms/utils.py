@@ -151,10 +151,10 @@ class RunReport:
         return "<br />\n".join(p for p in parts if p is not None)
 
 
-def print_ret(message: str) -> str:
+# def print_ret(message: str) -> str:
+def print_ret(message: str, log_level: int = logging.INFO) -> str:
     """Print and return a message for output collection."""
-    # TODO: should we replace this with logging or similar?
-    print(message)
+    logger.log(level=log_level, msg=message)
     return message
 
 

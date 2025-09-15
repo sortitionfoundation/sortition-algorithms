@@ -13,7 +13,7 @@ from sortition_algorithms.committee_generation.common import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import print_ret
+from sortition_algorithms.utils import logger, print_ret
 
 # Tolerance for numerical comparisons
 EPS_NASH = 0.1
@@ -213,13 +213,13 @@ def _run_nash_optimization_loop(
             return committees, probabilities_normalised, output_lines
 
         # Add new committee and continue
-        print(value, differentials.max(), value - differentials.max())
+        logger.debug(
+            f"nash committee: value: {value}, max differentials: {differentials.max()}, value - max: {value - differentials.max()}"
+        )
         assert new_set not in committees
         committees.append(new_set)
-        start_lambdas = [
-            *list(np.array(lambdas.value)),
-            0,
-        ]  # Add 0 probability for new committee
+        # Add 0 probability for new committee
+        start_lambdas = [*list(np.array(lambdas.value)), 0]
 
 
 def find_distribution_nash(

@@ -19,7 +19,7 @@ from sortition_algorithms.committee_generation.common import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import print_ret
+from sortition_algorithms.utils import logger, print_ret
 
 
 def _dual_leximin_stage(
@@ -132,7 +132,7 @@ def _run_leximin_column_generation_loop(
                 committees,
                 fixed_probabilities,
             )
-            print(dual_model.status, f"REDUCE PROBS for {reduction_counter}th time.")
+            logger.debug(f"Status: {dual_model.status} REDUCE PROBS for {reduction_counter}th time.")
             reduction_counter += 1
             continue
 
@@ -233,7 +233,7 @@ def _run_leximin_main_loop(
     reduction_counter = 0
 
     while len(fixed_probabilities) < people.count:
-        print(f"Fixed {len(fixed_probabilities)}/{people.count} probabilities.")
+        logger.debug(f"Fixed {len(fixed_probabilities)}/{people.count} probabilities.")
 
         dual_model, dual_agent_vars, dual_cap_var = _dual_leximin_stage(
             people,

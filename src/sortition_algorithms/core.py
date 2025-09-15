@@ -20,7 +20,7 @@ from sortition_algorithms.people_features import (
     simple_add_selected,
 )
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import ReportLevel, RunReport, random_provider, set_random_provider
+from sortition_algorithms.utils import ReportLevel, RunReport, logger, random_provider, set_random_provider
 
 
 def multi_selection_to_table(multi_selections: list[frozenset[str]]) -> list[list[str]]:
@@ -290,7 +290,7 @@ def find_random_sample(
 
     # Quick test selection using find_any_committee
     if test_selection:
-        print("Running test selection.")
+        logger.info("Running test selection.")
         return find_any_committee(features, people, number_people_wanted, check_same_address_columns)
 
     report = RunReport()
@@ -335,7 +335,7 @@ def find_random_sample(
     # Post-process the distribution
     committees, probabilities = standardize_distribution(committees, probabilities)
     if len(committees) > people.count:
-        print(
+        logger.warning(
             "INFO: The distribution over panels is what is known as a 'basic solution'. There is no reason for concern "
             "about the correctness of your output, but we'd appreciate if you could reach out to panelot"
             f"@paulgoelz.de with the following information: algorithm={selection_algorithm}, "

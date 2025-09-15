@@ -6,7 +6,7 @@ import mip
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection, feature_value_pairs, iterate_feature_collection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import print_ret, random_provider
+from sortition_algorithms.utils import logger, print_ret, random_provider
 
 # Tolerance for numerical comparisons
 EPS = 0.0005
@@ -398,7 +398,7 @@ def _run_multiplicative_weights_phase(
         # Update weights based on whether we found a new committee
         _update_multiplicative_weights_after_committee_found(weights, new_committee, agent_vars, not is_new_committee)
 
-        print(
+        logger.debug(
             f"Multiplicative weights phase, round {i + 1}/{multiplicative_weights_rounds}. "
             f"Discovered {len(committees)} committees so far."
         )
