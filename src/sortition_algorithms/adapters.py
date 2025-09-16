@@ -5,6 +5,7 @@ Initially we have CSV files locally, and Google Docs Spreadsheets.
 """
 
 import csv
+import logging
 from collections.abc import Iterable
 from io import StringIO
 from pathlib import Path
@@ -215,10 +216,12 @@ class GSheetAdapter:
         report = RunReport()
         try:
             if not self._tab_exists(feature_tab_name):
-                report.add_line(f"Error in Google sheet: no tab called '{feature_tab_name}' found.")
+                report.add_line_and_log(
+                    f"Error in Google sheet: no tab called '{feature_tab_name}' found.", log_level=logging.ERROR
+                )
                 return None, report
         except gspread.SpreadsheetNotFound:
-            report.add_line(f"Google spreadsheet not found: {self._g_sheet_name}.")
+            report.add_line_and_log(f"Google spreadsheet not found: {self._g_sheet_name}.", log_level=logging.ERROR)
             return None, report
         tab_features = self.spreadsheet.worksheet(feature_tab_name)
         feature_head = tab_features.row_values(1)
