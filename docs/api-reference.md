@@ -259,6 +259,141 @@ settings, report = Settings.load_from_file(Path("config.toml"))
 print(report.as_text())  # "Settings loaded from config.toml"
 ```
 
+## RunReport Class
+
+The `RunReport` class provides structured reporting for sortition operations. Most library functions return a `RunReport` alongside their main results, containing status messages, warnings, and formatted output.
+
+```python
+class RunReport:
+    def as_text(self, include_logged: bool = True) -> str
+    def as_html(self, include_logged: bool = True) -> str
+```
+
+### Output Methods
+
+#### as_text()
+Returns the report as formatted plain text.
+
+**Parameters:**
+- `include_logged`: If `False`, excludes messages that were already sent to the logging system (useful when the user has already seen logged messages during execution)
+
+#### as_html()
+Returns the report as HTML with styling for different message importance levels (normal, important, critical).
+
+**Parameters:**
+- `include_logged`: Same as `as_text()`
+
+### Usage Pattern
+
+Most library functions return a tuple containing results and a `RunReport`:
+
+```python
+# Loading data
+features, report = adapter.load_features_from_file(Path("features.csv"))
+print(report.as_text())
+
+people, report = adapter.load_people_from_file(Path("people.csv"), settings, features)
+print(report.as_text())
+
+# Running selection
+success, panels, report = run_stratification(features, people, 100, settings)
+
+# Display as text
+print(report.as_text())
+
+# Or generate HTML for web display
+html_content = report.as_html()
+
+# Exclude already-logged messages if user saw them during execution
+summary = report.as_text(include_logged=False)
+```
+
+### Logging Integration
+
+Some report messages are also sent to the logging system in real-time. If your application displays log messages to users during execution, you can use `include_logged=False` to avoid showing duplicate messages in the final report.
+
+## Custom Logging
+
+The library uses Python's standard logging system with two loggers:
+- `sortition_algorithms.user` - Messages intended for end users
+- `sortition_algorithms` - Debug messages for developers
+
+### Setting Up Custom Log Handlers
+
+You can redirect logging output using `override_logging_handlers()`:
+
+```python
+from sortition_algorithms.utils import override_logging_handlers
+import logging
+
+# Create custom handlers
+user_handler = logging.StreamHandler()
+user_handler.setFormatter(logging.Formatter('USER: %(message)s'))
+
+debug_handler = logging.FileHandler('debug.log')
+debug_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+# Apply custom handlers
+override_logging_handlers([user_handler], [debug_handler])
+```
+
+### Custom LogHandler Example
+
+Here's a custom handler that captures messages for further processing:
+
+```python
+import logging
+from typing import List
+
+class MessageCollector(logging.Handler):
+    """Custom handler that collects log messages in memory."""
+
+    def __init__(self):
+        super().__init__()
+        self.messages: List[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Called for each log message."""
+        msg = self.format(record)
+        self.messages.append(msg)
+
+    def get_messages(self) -> List[str]:
+        """Return all collected messages."""
+        return self.messages.copy()
+
+    def clear(self) -> None:
+        """Clear collected messages."""
+        self.messages.clear()
+
+# Usage
+collector = MessageCollector()
+override_logging_handlers([collector], [collector])
+
+# Run sortition operations
+features, report = adapter.load_features_from_file(Path("features.csv"))
+
+# Get messages that were logged during execution
+logged_messages = collector.get_messages()
+print("Logged:", logged_messages)
+
+# Get final report (excluding already-logged messages)
+final_report = report.as_text(include_logged=False)
+print("Additional report:", final_report)
+```
+
+### Available Logging Functions
+
+```python
+from sortition_algorithms.utils import override_logging_handlers, set_log_level
+
+def override_logging_handlers(
+    user_logger_handlers: list[logging.Handler],
+    logger_handlers: list[logging.Handler]
+) -> None
+
+def set_log_level(log_level: int) -> None
+```
+
 ## Data Adapters
 
 ### CSVAdapter
