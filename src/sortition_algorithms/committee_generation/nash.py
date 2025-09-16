@@ -116,8 +116,8 @@ def _solve_nash_welfare_optimization(
     scaled_welfare = nash_welfare - len(entitlements) * log(number_people_wanted / len(entitlements))
     output_lines.append(print_ret(f"Scaled Nash welfare is now: {scaled_welfare}."))
 
-    assert lambdas.value.shape == (len(committees),)  # type: ignore[union-attr]
-    entitled_utilities = matrix.dot(lambdas.value)  # type: ignore[arg-type]
+    assert lambdas.value.shape == (len(committees),)
+    entitled_utilities = matrix.dot(lambdas.value)
     assert entitled_utilities.shape == (len(entitlements),)
     assert (entitled_utilities > EPS2).all()
     entitled_reciprocals = 1 / entitled_utilities
