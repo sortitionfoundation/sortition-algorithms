@@ -3,6 +3,7 @@ import pytest
 from sortition_algorithms import errors
 from sortition_algorithms.committee_generation.legacy import find_random_sample_legacy
 from sortition_algorithms.features import read_in_features
+from sortition_algorithms.utils import RunReport
 from tests.helpers import (
     create_gender_only_features,
     create_people_with_legacy_addresses,
@@ -26,7 +27,7 @@ class TestFindRandomSampleLegacy:
         """Test basic selection without address checking."""
         people, features = self.create_test_data()
 
-        committees, messages = find_random_sample_legacy(people, features, 2)
+        committees, report = find_random_sample_legacy(people, features, 2)
 
         # Should return one committee with 2 people
         assert len(committees) == 1
@@ -38,8 +39,7 @@ class TestFindRandomSampleLegacy:
             assert person_id in ["0", "1", "2", "3", "4", "5"]
 
         # Should have output messages
-        assert len(messages) >= 1
-        assert messages[0] == "Using legacy algorithm."
+        assert "Using legacy algorithm" in report.as_text()
 
     def test_selection_respects_quotas(self):
         """Test that selection respects min/max quotas."""
@@ -47,7 +47,7 @@ class TestFindRandomSampleLegacy:
         for _ in range(5):
             # Create fresh test data each time since legacy function modifies it
             people, features = self.create_test_data(8)
-            committees, messages = find_random_sample_legacy(people, features, 4)
+            committees, _ = find_random_sample_legacy(people, features, 4)
             selected_people = committees[0]
 
             # Count selections by category
@@ -103,7 +103,7 @@ class TestFindRandomSampleLegacy:
         """Test selection with address checking enabled."""
         people, features = self.create_test_data_with_addresses()
 
-        committees, messages = find_random_sample_legacy(
+        committees, report = find_random_sample_legacy(
             people,
             features,
             2,
@@ -112,9 +112,6 @@ class TestFindRandomSampleLegacy:
 
         selected_people = committees[0]
         assert len(selected_people) == 2
-
-        # Check if any household removal messages were generated
-        household_messages = [msg for msg in messages if "household members" in msg]
 
         # If someone from 123 Main St was selected, others should be removed
         selected_at_main_st = []
@@ -127,13 +124,15 @@ class TestFindRandomSampleLegacy:
 
         # If someone from 123 Main St was selected, there should be household removal messages
         if selected_at_main_st:
-            assert len(household_messages) > 0, "Expected household removal messages when selecting from 123 Main St"
+            assert "household members" in report.as_text(), (
+                "Expected household removal messages when selecting from 123 Main St"
+            )
 
     def test_address_checking_disabled(self):
         """Test selection with address checking disabled."""
         people, features = self.create_test_data_with_addresses()
 
-        committees, messages = find_random_sample_legacy(
+        committees, report = find_random_sample_legacy(
             people,
             features,
             2,
@@ -144,18 +143,17 @@ class TestFindRandomSampleLegacy:
         assert len(selected_people) == 2
 
         # Should not have household removal messages
-        household_messages = [msg for msg in messages if "household members" in msg]
-        assert len(household_messages) == 0
+        assert "household members" not in report.as_text()
 
     def test_zero_people_wanted(self):
         """Test edge case of selecting zero people."""
         people, features = self.create_test_data()
 
-        committees, messages = find_random_sample_legacy(people, features, 0)
+        committees, report = find_random_sample_legacy(people, features, 0)
 
         assert len(committees) == 1
         assert len(committees[0]) == 0
-        assert messages == ["Using legacy algorithm."]
+        assert report.as_text() == "Using legacy algorithm."
 
     def test_max_zero_pruning(self):
         """Test that people with max=0 categories are pruned."""
@@ -166,7 +164,7 @@ class TestFindRandomSampleLegacy:
             {"feature": "gender", "value": "female", "min": "0", "max": "0"},  # Don't want any females
         ]
         head = ["feature", "value", "min", "max"]
-        features, _ = read_in_features(head, features_data)
+        features = read_in_features(head, features_data)
 
         settings = create_test_settings(columns_to_keep=["name"])
         people = create_simple_people(features, settings, count=3)
@@ -175,7 +173,7 @@ class TestFindRandomSampleLegacy:
         person_data = people.get_person_dict("1")
         person_data["gender"] = "female"
 
-        committees, messages = find_random_sample_legacy(people, features, 2)
+        committees, _ = find_random_sample_legacy(people, features, 2)
 
         # Should only select males (Jane should be pruned)
         selected_people = committees[0]
@@ -186,7 +184,7 @@ class TestFindRandomSampleLegacy:
         """Test that return format matches legacy expectations."""
         people, features = self.create_test_data()
 
-        committees, messages = find_random_sample_legacy(people, features, 1)
+        committees, report = find_random_sample_legacy(people, features, 1)
 
         # Should return list of frozensets (legacy format for multi-committee compatibility)
         assert isinstance(committees, list)
@@ -194,8 +192,7 @@ class TestFindRandomSampleLegacy:
         assert isinstance(committees[0], frozenset)
 
         # Messages should be list of strings
-        assert isinstance(messages, list)
-        assert all(isinstance(msg, str) for msg in messages)
+        assert isinstance(report, RunReport)
 
     def test_selection_is_random(self):
         """Test that selection has random variation."""
@@ -216,7 +213,7 @@ class TestFindRandomSampleLegacy:
         people, features = self.create_test_data(8)
 
         # This should work with the given quotas
-        committees, messages = find_random_sample_legacy(people, features, 4)
+        committees, _ = find_random_sample_legacy(people, features, 4)
 
         # Verify we got exactly 4 people
         assert len(committees[0]) == 4

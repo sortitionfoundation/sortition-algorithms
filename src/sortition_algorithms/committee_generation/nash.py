@@ -1,3 +1,4 @@
+import logging
 from math import log
 from typing import Any
 
@@ -13,7 +14,7 @@ from sortition_algorithms.committee_generation.common import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import print_ret
+from sortition_algorithms.utils import RunReport, logger
 
 # Tolerance for numerical comparisons
 EPS_NASH = 0.1
@@ -77,7 +78,7 @@ def _solve_nash_welfare_optimization(
     contributes_to_entitlement: dict[str, int],
     start_lambdas: list[float],
     number_people_wanted: int,
-    output_lines: list[str],
+    report: RunReport,
 ) -> tuple[Any, np.ndarray, np.ndarray]:
     """Solve the Nash welfare optimization problem for current committees.
 
@@ -110,11 +111,11 @@ def _solve_nash_welfare_optimization(
     except cp.SolverError:
         # At least the ECOS solver in cvxpy crashes sometimes (numerical instabilities?).
         # In this case, try another solver. But hope that SCS is more stable.
-        output_lines.append(print_ret("Had to switch to ECOS solver."))
+        report.add_line_and_log("Had to switch to ECOS solver.", log_level=logging.INFO)
         nash_welfare = problem.solve(solver=cp.ECOS, warm_start=True)
 
     scaled_welfare = nash_welfare - len(entitlements) * log(number_people_wanted / len(entitlements))
-    output_lines.append(print_ret(f"Scaled Nash welfare is now: {scaled_welfare}."))
+    report.add_line_and_log(f"Scaled Nash welfare is now: {scaled_welfare}.", log_level=logging.INFO)
 
     assert lambdas.value.shape == (len(committees),)
     entitled_utilities = matrix.dot(lambdas.value)
@@ -167,8 +168,8 @@ def _run_nash_optimization_loop(
     contributes_to_entitlement: dict[str, int],
     covered_agents: frozenset[str],
     number_people_wanted: int,
-    output_lines: list[str],
-) -> tuple[list[frozenset[str]], list[float], list[str]]:
+    report: RunReport,
+) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Run the main Nash welfare optimization loop.
 
     Args:
@@ -194,7 +195,7 @@ def _run_nash_optimization_loop(
             contributes_to_entitlement,
             start_lambdas,
             number_people_wanted,
-            output_lines,
+            report,
         )
 
         # Find the best new committee
@@ -210,16 +211,16 @@ def _run_nash_optimization_loop(
         if value <= differentials.max() + EPS_NASH:
             probabilities = np.array(lambdas.value).clip(0, 1)
             probabilities_normalised = list(probabilities / sum(probabilities))
-            return committees, probabilities_normalised, output_lines
+            return committees, probabilities_normalised, report
 
         # Add new committee and continue
-        print(value, differentials.max(), value - differentials.max())
+        logger.debug(
+            f"nash committee: value: {value}, max differentials: {differentials.max()}, value - max: {value - differentials.max()}"
+        )
         assert new_set not in committees
         committees.append(new_set)
-        start_lambdas = [
-            *list(np.array(lambdas.value)),
-            0,
-        ]  # Add 0 probability for new committee
+        # Add 0 probability for new committee
+        start_lambdas = [*list(np.array(lambdas.value)), 0]
 
 
 def find_distribution_nash(
@@ -227,7 +228,7 @@ def find_distribution_nash(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-) -> tuple[list[frozenset[str]], list[float], list[str]]:
+) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the Nash welfare, i.e., the product of
     selection probabilities over all persons.
 
@@ -248,7 +249,8 @@ def find_distribution_nash(
     log(Πᵢ pᵢ) = Σᵢ log(pᵢ). If some person i is not included in any feasible committee, their pᵢ is 0, and
     this sum is -∞. We maximize Σᵢ log(pᵢ) where i is restricted to range over persons that can possibly be included.
     """
-    output_lines = [print_ret("Using Nash algorithm.")]
+    report = RunReport()
+    report.add_line_and_log("Using Nash algorithm.", log_level=logging.INFO)
 
     # Set up an ILP used for discovering new feasible committees
     new_committee_model, agent_vars = setup_committee_generation(
@@ -256,11 +258,11 @@ def find_distribution_nash(
     )
 
     # Find initial committees that include every possible agent
-    committee_set, covered_agents, initial_output = generate_initial_committees(
+    committee_set, covered_agents, initial_report = generate_initial_committees(
         new_committee_model, agent_vars, 2 * people.count
     )
     committees = list(committee_set)
-    output_lines += initial_output
+    report.add_report(initial_report)
 
     # Map the covered agents to indices in a list for easier matrix representation
     entitlements, contributes_to_entitlement = _define_entitlements(covered_agents)
@@ -274,5 +276,5 @@ def find_distribution_nash(
         contributes_to_entitlement,
         covered_agents,
         number_people_wanted,
-        output_lines,
+        report,
     )

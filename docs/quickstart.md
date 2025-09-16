@@ -66,7 +66,7 @@ features = read_in_features("demographics.csv")
 people = read_in_people("candidates.csv", settings, features)
 
 # Select a panel of 50 people
-success, selected_panels, messages = run_stratification(
+success, selected_panels, report = run_stratification(
     features=features,
     people=people,
     number_people_wanted=50,
@@ -79,8 +79,9 @@ if success:
     print("Selected IDs:", list(selected_people)[:5], "...")
 else:
     print("❌ Selection failed")
-    for msg in messages:
-        print(msg)
+
+# Display the detailed report
+print(report.as_text())
 ```
 
 ### 3. Export Results
@@ -148,7 +149,7 @@ columns_to_keep = ["Name", "Email", "Phone"]
 ```
 
 ```python
-settings = Settings.load_from_file("settings.toml")
+settings, report = Settings.load_from_file("settings.toml")
 ```
 
 ## Common Patterns
@@ -161,8 +162,8 @@ from pathlib import Path
 
 adapter = GSheetAdapter(Path("credentials.json"))
 adapter.set_g_sheet_name("My Spreadsheet")
-features, msgs = adapter.load_features("Demographics")
-people, msgs = adapter.load_people("Candidates", settings, features)
+features, report = adapter.load_features("Demographics")
+people, report = adapter.load_people("Candidates", settings, features)
 ```
 
 ### Address Checking for Household Diversity
@@ -189,6 +190,43 @@ settings.selection_algorithm = "leximin"
 ```
 
 Read [more about the algorithms](concepts.md#selection-algorithms).
+
+## Working with Reports and Logging
+
+Most library functions return a `RunReport` object containing detailed status information:
+
+```python
+# Reports contain formatted messages and tables
+features, report = adapter.load_features_from_file(Path("features.csv"))
+print("Loading report:")
+print(report.as_text())
+
+# Get HTML for web display
+html_report = report.as_html()
+
+# Control whether to show messages that were already logged
+summary = report.as_text(include_logged=False)
+```
+
+### Custom Logging Integration
+
+Redirect log messages for integration with your application:
+
+```python
+from sortition_algorithms.utils import override_logging_handlers
+import logging
+
+# Send logs to a file
+file_handler = logging.FileHandler('sortition.log')
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+
+override_logging_handlers([file_handler], [file_handler])
+
+# Now all library operations will log to the file
+success, panels, report = run_stratification(features, people, 50, settings)
+```
+
+See the [API Reference](api-reference.md#custom-logging) for complete logging documentation.
 
 ## What's Next?
 

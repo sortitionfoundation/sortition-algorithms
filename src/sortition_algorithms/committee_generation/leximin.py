@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import mip
@@ -19,7 +20,7 @@ from sortition_algorithms.committee_generation.common import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import print_ret
+from sortition_algorithms.utils import RunReport, logger
 
 
 def _dual_leximin_stage(
@@ -83,7 +84,7 @@ def _run_leximin_column_generation_loop(
     fixed_probabilities: dict[str, float],
     people: People,
     reduction_counter: int,
-    output_lines: list[str],
+    report: RunReport,
 ) -> tuple[bool, int]:
     """Run the column generation inner loop for leximin optimization.
 
@@ -132,7 +133,7 @@ def _run_leximin_column_generation_loop(
                 committees,
                 fixed_probabilities,
             )
-            print(dual_model.status, f"REDUCE PROBS for {reduction_counter}th time.")
+            logger.debug(f"Status: {dual_model.status} REDUCE PROBS for {reduction_counter}th time.")
             reduction_counter += 1
             continue
 
@@ -146,11 +147,10 @@ def _run_leximin_column_generation_loop(
         upper = dual_cap_var.x  # ŷ
         dual_obj = dual_model.objVal  # ŷ - Σ_{i in fixed_probabilities} fixed_probabilities[i] * yᵢ
 
-        output_lines.append(
-            print_ret(
-                f"Maximin is at most {dual_obj - upper + value:.2%}, can do {dual_obj:.2%} with "
-                f"{len(committees)} committees. Gap {value - upper:.2%}."
-            )
+        report.add_line_and_log(
+            f"Maximin is at most {dual_obj - upper + value:.2%}, can do {dual_obj:.2%} with "
+            f"{len(committees)} committees. Gap {value - upper:.2%}.",
+            log_level=logging.DEBUG,
         )
         if value <= upper + EPS:
             # Within numeric tolerance, the panels in `committees` are enough to constrain the dual, i.e., they are
@@ -212,7 +212,7 @@ def _run_leximin_main_loop(
     agent_vars: dict[str, mip.entities.Var],
     committees: set[frozenset[str]],
     people: People,
-    output_lines: list[str],
+    report: RunReport,
 ) -> dict[str, float]:
     """Run the main leximin optimization loop that fixes probabilities iteratively.
 
@@ -233,7 +233,7 @@ def _run_leximin_main_loop(
     reduction_counter = 0
 
     while len(fixed_probabilities) < people.count:
-        print(f"Fixed {len(fixed_probabilities)}/{people.count} probabilities.")
+        logger.debug(f"Fixed {len(fixed_probabilities)}/{people.count} probabilities.")
 
         dual_model, dual_agent_vars, dual_cap_var = _dual_leximin_stage(
             people,
@@ -252,7 +252,7 @@ def _run_leximin_main_loop(
             fixed_probabilities,
             people,
             reduction_counter,
-            output_lines,
+            report,
         )
         if should_break:
             break
@@ -265,7 +265,7 @@ def find_distribution_leximin(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-) -> tuple[list[frozenset[str]], list[float], list[str]]:
+) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected
     (just like maximin), but breaks ties to maximize the second-lowest probability, breaks further ties to maximize the
     third-lowest probability and so forth.
@@ -290,7 +290,8 @@ def find_distribution_leximin(
         msg = "Leximin algorithm requires Gurobi solver which is not available"
         raise RuntimeError(msg)
 
-    output_lines = [print_ret("Using leximin algorithm.")]
+    report = RunReport()
+    report.add_line_and_log("Using leximin algorithm.", log_level=logging.INFO)
     grb.setParam("OutputFlag", 0)
 
     # Set up an ILP that can be used for discovering new feasible committees
@@ -299,15 +300,15 @@ def find_distribution_leximin(
     )
 
     # Find initial committees that cover every possible agent
-    committees, covered_agents, initial_output = generate_initial_committees(
+    committees, covered_agents, initial_report = generate_initial_committees(
         new_committee_model, agent_vars, 3 * people.count
     )
-    output_lines += initial_output
+    report.add_report(initial_report)
 
     # Run the main leximin optimization loop to fix agent probabilities
-    fixed_probabilities = _run_leximin_main_loop(new_committee_model, agent_vars, committees, people, output_lines)
+    fixed_probabilities = _run_leximin_main_loop(new_committee_model, agent_vars, committees, people, report)
 
     # Convert fixed agent probabilities to committee probabilities
     probabilities_normalised = _solve_leximin_primal_for_final_probabilities(committees, fixed_probabilities)
 
-    return list(committees), probabilities_normalised, output_lines
+    return list(committees), probabilities_normalised, report

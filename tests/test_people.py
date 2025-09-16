@@ -18,7 +18,7 @@ def create_simple_test_features() -> FeatureCollection:
         {"feature": "gender", "value": "female", "min": "1", "max": "10"},
     ]
     head = ["feature", "value", "min", "max"]
-    features, _ = read_in_features(head, features_data)
+    features = read_in_features(head, features_data)
     return features
 
 
@@ -31,7 +31,7 @@ def create_test_features() -> FeatureCollection:
         {"feature": "age", "value": "old", "min": "1", "max": "3"},
     ]
     head = ["feature", "value", "min", "max"]
-    features, _ = read_in_features(head, features_data)
+    features = read_in_features(head, features_data)
     return features
 
 
@@ -224,7 +224,7 @@ class TestReadInPeople:
         """Test read_in_people with valid data."""
         features, settings, people_head, people_body = self.create_test_data()
 
-        people, messages = read_in_people(people_head, people_body, features, settings)
+        people, report = read_in_people(people_head, people_body, features, settings)
 
         assert people.count == 3
         assert "1" in people
@@ -238,7 +238,7 @@ class TestReadInPeople:
         assert john["gender"] == "male"
         assert john["age"] == "young"
 
-        assert len(messages) == 0  # No warning messages
+        assert report.as_text() == ""  # No warning messages
 
     def test_read_in_people_with_blank_id_warning(self):
         """Test read_in_people handles blank IDs with warning."""
@@ -253,12 +253,12 @@ class TestReadInPeople:
             "age": "young",
         })
 
-        people, messages = read_in_people(people_head, people_body, features, settings)
+        people, report = read_in_people(people_head, people_body, features, settings)
 
         assert people.count == 3  # Blank ID row should be skipped
-        assert len(messages) == 1
-        assert "blank cell found in ID column" in messages[0]
-        assert "row 3" in messages[0]  # 0-indexed, so row 3 is the 4th row
+        report_text = report.as_text()
+        assert "blank cell found in ID column" in report_text
+        assert "row 3" in report_text  # 0-indexed, so row 3 is the 4th row
 
     def test_read_in_people_with_whitespace_stripping(self):
         """Test that read_in_people strips whitespace from data."""
@@ -374,10 +374,10 @@ class TestReadInPeople:
         """Test read_in_people with empty people body."""
         features, settings, people_head, _ = self.create_test_data()
 
-        people, messages = read_in_people(people_head, [], features, settings)
+        people, report = read_in_people(people_head, [], features, settings)
 
         assert people.count == 0
-        assert len(messages) == 0
+        assert report.as_text() == ""
 
     def test_read_in_people_with_numeric_ids(self):
         """Test read_in_people with numeric IDs that get converted to strings."""

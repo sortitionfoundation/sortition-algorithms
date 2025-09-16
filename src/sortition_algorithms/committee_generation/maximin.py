@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import mip
@@ -10,7 +11,7 @@ from sortition_algorithms.committee_generation.common import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import print_ret
+from sortition_algorithms.utils import RunReport, logger
 
 
 def _find_maximin_primal(
@@ -174,8 +175,8 @@ def _run_maximin_optimization_loop(
     upper_bound_var: mip.entities.Var,
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
-    output_lines: list[str],
-) -> tuple[list[frozenset[str]], list[float], list[str]]:
+    report: RunReport,
+) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Run the main maximin optimization loop with column generation.
 
     Args:
@@ -207,18 +208,17 @@ def _run_maximin_optimization_loop(
         new_set = ilp_results_to_committee(agent_vars)
         value = sum(entitlement_weights[agent_id] for agent_id in new_set)
 
-        output_lines.append(
-            print_ret(
-                f"Maximin is at most {value:.2%}, can do {upper:.2%} with {len(committees)} "
-                f"committees. Gap {value - upper:.2%}{'≤' if value - upper <= EPS else '>'}{EPS:%}."
-            )
+        report.add_line_and_log(
+            f"Maximin is at most {value:.2%}, can do {upper:.2%} with {len(committees)} "
+            f"committees. Gap {value - upper:.2%}{'≤' if value - upper <= EPS else '>'}{EPS:%}.",
+            log_level=logging.DEBUG,
         )
         if value <= upper + EPS:
             # No feasible committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z (at least up to EPS, to prevent rounding errors)
             # Thus, we have enough committees
             committee_list = list(committees)
             probabilities = _find_maximin_primal(committee_list, covered_agents)
-            return committee_list, probabilities, output_lines
+            return committee_list, probabilities, report
 
         # Some committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z. We add B to `committees` and recurse
         assert new_set not in committees
@@ -239,7 +239,7 @@ def _run_maximin_optimization_loop(
             value,
         )
         if counter > 0:
-            print(f"Heuristic successfully generated {counter} additional committees.")
+            logger.info(f"Heuristic successfully generated {counter} additional committees.")
 
 
 def find_distribution_maximin(
@@ -247,7 +247,7 @@ def find_distribution_maximin(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-) -> tuple[list[frozenset[str]], list[float], list[str]]:
+) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected.
 
     Args:
@@ -263,7 +263,8 @@ def find_distribution_maximin(
         - probabilities: list of probabilities for each committee
         - output_lines: list of debug strings
     """
-    output_lines = [print_ret("Using maximin algorithm.")]
+    report = RunReport()
+    report.add_line_and_log("Using maximin algorithm.", log_level=logging.INFO)
 
     # Set up an ILP that can be used for discovering new feasible committees
     new_committee_model, agent_vars = setup_committee_generation(
@@ -271,10 +272,8 @@ def find_distribution_maximin(
     )
 
     # Find initial committees that cover every possible agent
-    committees, covered_agents, initial_output = generate_initial_committees(
-        new_committee_model, agent_vars, people.count
-    )
-    output_lines += initial_output
+    committees, covered_agents, init_report = generate_initial_committees(new_committee_model, agent_vars, people.count)
+    report.add_report(init_report)
 
     # Set up the incremental LP model for column generation
     incremental_model, incr_agent_vars, upper_bound_var = _setup_maximin_incremental_model(committees, covered_agents)
@@ -288,5 +287,5 @@ def find_distribution_maximin(
         upper_bound_var,
         committees,
         covered_agents,
-        output_lines,
+        report,
     )

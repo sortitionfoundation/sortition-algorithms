@@ -22,7 +22,7 @@ class TestSelectCollection:
         # Create features using the new API
         features_data = [{"feature": "gender", "value": "male", "min": "1", "max": "3"}]
         head = ["feature", "value", "min", "max"]
-        features, _ = read_in_features(head, features_data)
+        features = read_in_features(head, features_data)
 
         select_collection = select_from_feature_collection(features)
         select_counts = select_collection["gender"]["male"]

@@ -5,6 +5,8 @@ from typing import Any
 from attrs import define, field, validators
 from cattrs import structure
 
+from sortition_algorithms.utils import ReportLevel, RunReport
+
 SELECTION_ALGORITHMS = ("legacy", "maximin", "nash", "leximin")
 
 DEFAULT_SETTINGS = """
@@ -118,12 +120,12 @@ class Settings:
     def load_from_file(
         cls,
         settings_file_path: Path,
-    ) -> tuple["Settings", str]:
-        messages: list[str] = []
+    ) -> tuple["Settings", RunReport]:
+        report = RunReport()
         if not settings_file_path.is_file():
             with open(settings_file_path, "w", encoding="utf-8") as settings_file:
                 settings_file.write(DEFAULT_SETTINGS)
-            messages.append(
+            report.add_line(
                 f"Wrote default settings to '{settings_file_path.absolute()}' "
                 "- if editing is required, restart this app."
             )
@@ -131,8 +133,9 @@ class Settings:
             settings = tomllib.load(settings_file)
         # you can't check an address if there is no info about which columns to check...
         if settings["check_same_address"] is False:
-            messages.append(
-                "<b>WARNING</b>: Settings file is such that we do NOT check if respondents have same address."
+            report.add_line(
+                "WARNING: Settings file is such that we do NOT check if respondents have same address.",
+                ReportLevel.IMPORTANT,
             )
             settings["check_same_address_columns"] = []
-        return structure(settings, cls), "\n".join(messages)
+        return structure(settings, cls), report

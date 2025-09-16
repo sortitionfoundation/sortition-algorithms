@@ -1,14 +1,20 @@
+import logging
 from pathlib import Path
 
 import click
 
 from sortition_algorithms import adapters, core, people_features
 from sortition_algorithms.settings import Settings
+from sortition_algorithms.utils import RunReport, set_log_level
 
 
 def echo_all(msgs: list[str]) -> None:
     for msg in msgs:
         click.echo(msg)
+
+
+def echo_report(report: RunReport) -> None:
+    click.echo(report.as_text())
 
 
 @click.group()
@@ -61,6 +67,12 @@ def cli() -> None:
     required=True,
     help="Number of people to select.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="If used, produce extra detailed logging.",
+)
 def csv(
     settings: str,
     features_csv: str,
@@ -68,19 +80,22 @@ def csv(
     selected_csv: str,
     remaining_csv: str,
     number_wanted: int,
+    verbose: bool,
 ) -> None:
     """Do sortition with CSV files."""
+    if verbose:
+        set_log_level(logging.DEBUG)
     adapter = adapters.CSVAdapter()
-    settings_obj, msg = Settings.load_from_file(Path(settings))
-    echo_all([msg])
-    features, msgs = adapter.load_features_from_file(Path(features_csv))
-    echo_all(msgs)
+    settings_obj, report = Settings.load_from_file(Path(settings))
+    echo_report(report)
+    features, report = adapter.load_features_from_file(Path(features_csv))
+    echo_report(report)
 
-    people, msgs = adapter.load_people_from_file(Path(people_csv), settings_obj, features)
-    echo_all(msgs)
+    people, report = adapter.load_people_from_file(Path(people_csv), settings_obj, features)
+    echo_report(report)
 
-    success, people_selected, msgs = core.run_stratification(features, people, number_wanted, settings_obj)
-    echo_all(msgs)
+    success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
+    echo_report(report)
     if not success:
         raise click.ClickException("Selection not successful, no files written.")
 
@@ -148,6 +163,12 @@ def csv(
     required=True,
     help="Number of people to select.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="If used, produce extra detailed logging.",
+)
 def gsheet(
     settings: str,
     auth_json_file: str,
@@ -158,26 +179,29 @@ def gsheet(
     selected_tab_name: str,
     remaining_tab_name: str,
     number_wanted: int,
+    verbose: bool,
 ) -> None:
     """Do sortition with Google Spreadsheets."""
+    if verbose:
+        set_log_level(logging.DEBUG)
     gen_rem_tab_value = "on" if gen_rem_tab else "off"
     adapter = adapters.GSheetAdapter(Path(auth_json_file), gen_rem_tab_value)
-    settings_obj, msg = Settings.load_from_file(Path(settings))
-    echo_all([msg])
+    settings_obj, report = Settings.load_from_file(Path(settings))
+    echo_report(report)
 
     adapter.set_g_sheet_name(gsheet_name)
-    features, msgs = adapter.load_features(feature_tab_name)
-    echo_all(msgs)
+    features, report = adapter.load_features(feature_tab_name)
+    echo_report(report)
     if features is None:
         raise click.ClickException("Could not load features, exiting.")
 
-    people, msgs = adapter.load_people(people_tab_name, settings_obj, features)
-    echo_all(msgs)
+    people, report = adapter.load_people(people_tab_name, settings_obj, features)
+    echo_report(report)
     if people is None:
         raise click.ClickException("Could not load people, exiting.")
 
-    success, people_selected, msgs = core.run_stratification(features, people, number_wanted, settings_obj)
-    echo_all(msgs)
+    success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
+    echo_report(report)
     if not success:
         raise click.ClickException("Selection not successful, no files written.")
 
@@ -222,9 +246,9 @@ def gsheet(
 def gen_sample(settings: str, features_csv: str, people_csv: str, number_wanted: int) -> None:
     """Generate a sample CSV file of people compatible with features and settings."""
     adapter = adapters.CSVAdapter()
-    settings_obj, msg = Settings.load_from_file(Path(settings))
-    echo_all([msg])
-    features, msgs = adapter.load_features_from_file(Path(features_csv))
-    echo_all(msgs)
+    settings_obj, report = Settings.load_from_file(Path(settings))
+    echo_report(report)
+    features, report = adapter.load_features_from_file(Path(features_csv))
+    echo_report(report)
     with open(people_csv, "w", newline="") as people_f:
         people_features.create_readable_sample_file(features, people_f, number_wanted, settings_obj)

@@ -5,6 +5,7 @@ Initially we have CSV files locally, and Google Docs Spreadsheets.
 """
 
 import csv
+import logging
 from collections.abc import Iterable
 from io import StringIO
 from pathlib import Path
@@ -16,6 +17,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
+from sortition_algorithms.utils import RunReport
 
 
 def _stringify_records(
@@ -34,28 +36,33 @@ class CSVAdapter:
         self.enable_selected_file_download = False
         self.enable_remaining_file_download = False
 
-    def load_features_from_file(
-        self,
-        features_file: Path,
-    ) -> tuple[FeatureCollection, list[str]]:
+    def load_features_from_file(self, features_file: Path) -> tuple[FeatureCollection, RunReport]:
+        report = RunReport()
+        report.add_line(f"Loading from: {features_file}")
         with open(features_file, newline="") as csv_file:
-            return self._load_features(csv_file)
+            features = self._load_features(csv_file)
+        report.add_line(f"Number of features found: {len(features)}")
+        return features, report
 
-    def load_features_from_str(self, file_contents: str) -> tuple[FeatureCollection, list[str]]:
-        return self._load_features(StringIO(file_contents))
+    def load_features_from_str(self, file_contents: str) -> tuple[FeatureCollection, RunReport]:
+        report = RunReport()
+        report.add_line("Loading from string.")
+        features = self._load_features(StringIO(file_contents))
+        report.add_line(f"Number of features found: {len(features)}")
+        return features, report
 
-    def _load_features(self, file_obj: TextIO) -> tuple[FeatureCollection, list[str]]:
+    def _load_features(self, file_obj: TextIO) -> FeatureCollection:
         feature_reader = csv.DictReader(file_obj)
         assert feature_reader.fieldnames is not None
-        features, msgs = read_in_features(list(feature_reader.fieldnames), feature_reader)
-        return features, msgs
+        features = read_in_features(list(feature_reader.fieldnames), feature_reader)
+        return features
 
     def load_people_from_file(
         self,
         people_file: Path,
         settings: Settings,
         features: FeatureCollection,
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
         with open(people_file, newline="") as csv_file:
             return self._load_people(csv_file, settings, features)
 
@@ -64,7 +71,7 @@ class CSVAdapter:
         file_contents: str,
         settings: Settings,
         features: FeatureCollection,
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
         return self._load_people(StringIO(file_contents), settings, features)
 
     def _load_people(
@@ -72,12 +79,12 @@ class CSVAdapter:
         file_obj: TextIO,
         settings: Settings,
         features: FeatureCollection,
-    ) -> tuple[People, list[str]]:
+    ) -> tuple[People, RunReport]:
         people_data = csv.DictReader(file_obj)
         people_str_data = _stringify_records(people_data)
         assert people_data.fieldnames is not None
-        people, msgs = read_in_people(list(people_data.fieldnames), people_str_data, features, settings)
-        return people, msgs
+        people, report = read_in_people(list(people_data.fieldnames), people_str_data, features, settings)
+        return people, report
 
     def _write_rows(self, out_file: TextIO, rows: list[list[str]]) -> None:
         writer = csv.writer(
@@ -204,39 +211,42 @@ class GSheetAdapter:
             self._spreadsheet = None
             self._g_sheet_name = g_sheet_name
 
-    def load_features(self, feature_tab_name: str) -> tuple[FeatureCollection | None, list[str]]:
+    def load_features(self, feature_tab_name: str) -> tuple[FeatureCollection | None, RunReport]:
         features: FeatureCollection | None = None
+        report = RunReport()
         try:
             if not self._tab_exists(feature_tab_name):
-                self._messages.append(f"Error in Google sheet: no tab called '{feature_tab_name}' found. ")
-                return None, self.messages()
+                report.add_line_and_log(
+                    f"Error in Google sheet: no tab called '{feature_tab_name}' found.", log_level=logging.ERROR
+                )
+                return None, report
         except gspread.SpreadsheetNotFound:
-            self._messages.append(f"Google spreadsheet not found: {self._g_sheet_name}. ")
-            return None, self.messages()
+            report.add_line_and_log(f"Google spreadsheet not found: {self._g_sheet_name}.", log_level=logging.ERROR)
+            return None, report
         tab_features = self.spreadsheet.worksheet(feature_tab_name)
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
-        features, msgs = read_in_features(feature_head, feature_body)
-        self._messages += msgs
-        return features, self.messages()
+        features = read_in_features(feature_head, feature_body)
+        report.add_line(f"Number of features found: {len(features)}")
+        return features, report
 
     def load_people(
         self,
         respondents_tab_name: str,
         settings: Settings,
         features: FeatureCollection,
-    ) -> tuple[People | None, list[str]]:
-        self._messages = []
+    ) -> tuple[People | None, RunReport]:
+        report = RunReport()
         people: People | None = None
         try:
             if not self._tab_exists(respondents_tab_name):
-                self._messages.append(
+                report.add_line(
                     f"Error in Google sheet: no tab called '{respondents_tab_name}' found. ",
                 )
-                return None, self.messages()
+                return None, report
         except gspread.SpreadsheetNotFound:
-            self._messages.append(f"Google spreadsheet not found: {self._g_sheet_name}. ")
-            return None, self.messages()
+            report.add_line(f"Google spreadsheet not found: {self._g_sheet_name}. ")
+            return None, report
 
         tab_people = self.spreadsheet.worksheet(respondents_tab_name)
         # if we don't read this in here we can't check if there are 2 columns with the same name
@@ -250,10 +260,10 @@ class GSheetAdapter:
                 expected_headers=[],
             )
         )
-        self._messages.append(f"Reading in '{respondents_tab_name}' tab in above Google sheet.")
-        people, msgs = read_in_people(people_head, people_body, features, settings)
-        self._messages += msgs
-        return people, self.messages()
+        report.add_line(f"Reading in '{respondents_tab_name}' tab in above Google sheet.")
+        people, read_report = read_in_people(people_head, people_body, features, settings)
+        report.add_report(read_report)
+        return people, report
 
     def output_selected_remaining(
         self,

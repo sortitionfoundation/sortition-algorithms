@@ -89,6 +89,7 @@ class PeopleFeatures:
     """
 
     # TODO: consider naming: maybe SelectionState
+    # TODO: consider moving into committee_generation/legacy.py
 
     def __init__(
         self,

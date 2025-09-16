@@ -5,7 +5,7 @@ from typing import Any
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import StrippedDict
+from sortition_algorithms.utils import RunReport, StrippedDict
 
 
 class People:
@@ -146,8 +146,8 @@ def read_in_people(
     people_body: Iterable[dict[str, str]],
     features: FeatureCollection,
     settings: Settings,
-) -> tuple[People, list[str]]:
-    all_msg: list[str] = []
+) -> tuple[People, RunReport]:
+    report = RunReport()
     _check_people_head(people_head, features, settings)
     people = People(settings.full_columns_to_keep)
     for index, row in enumerate(people_body):
@@ -155,10 +155,10 @@ def read_in_people(
         pkey = stripped_row[settings.id_column]
         # skip over any blank lines... but warn the user
         if pkey == "":
-            all_msg.append(f"<b>WARNING</b>: blank cell found in ID column in row {index} - skipped that line!")
+            report.add_line(f"WARNING: blank cell found in ID column in row {index} - skipped that line!")
             continue
         people.add(pkey, stripped_row, features)
     # Note this function just reads in people but doesn't update the features
     # to generate the remaining and prune those with max 0.
     # That is done in committee_generation.legacy.find_random_sample_legacy()
-    return people, all_msg
+    return people, report

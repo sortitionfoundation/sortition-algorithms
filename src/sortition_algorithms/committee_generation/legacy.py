@@ -4,6 +4,7 @@ from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
 from sortition_algorithms.people_features import PeopleFeatures
+from sortition_algorithms.utils import RunReport
 
 
 def find_random_sample_legacy(
@@ -11,7 +12,7 @@ def find_random_sample_legacy(
     features: FeatureCollection,
     number_people_wanted: int,
     check_same_address_columns: list[str] | None = None,
-) -> tuple[list[frozenset[str]], list[str]]:
+) -> tuple[list[frozenset[str]], RunReport]:
     """
     Legacy stratified random selection algorithm.
 
@@ -29,12 +30,13 @@ def find_random_sample_legacy(
     Returns:
         Tuple of (selected_committees, output_messages) where:
         - selected_committees: List containing one frozenset of selected person IDs
-        - output_messages: List of log messages about the selection process
+        - report: report containing log messages about the selection process
 
     Raises:
         SelectionError: If selection becomes impossible (not enough people, etc.)
     """
-    output_lines = ["Using legacy algorithm."]
+    report = RunReport()
+    report.add_line("Using legacy algorithm.")
     people_selected: set[str] = set()
 
     # Create PeopleFeatures and initialize
@@ -70,7 +72,7 @@ def find_random_sample_legacy(
 
         # Add output messages about household member removal
         if household_members_removed:
-            output_lines.append(
+            report.add_line(
                 f"Selected {selected_person_key}, also removed household members: "
                 f"{', '.join(household_members_removed)}"
             )
@@ -78,7 +80,7 @@ def find_random_sample_legacy(
         # Handle any categories that are now full after this selection
         try:
             category_messages = people_features.handle_category_full_deletions(selected_person_data)
-            output_lines.extend(category_messages)
+            report.add_lines(category_messages)
         except errors.SelectionError as e:
             msg = f"Selection failed after selecting {selected_person_key}: {e}"
             raise errors.SelectionError(msg) from e
@@ -89,4 +91,4 @@ def find_random_sample_legacy(
             raise errors.SelectionError(msg)
 
     # Return in legacy format: list containing single frozenset
-    return [frozenset(people_selected)], output_lines
+    return [frozenset(people_selected)], report

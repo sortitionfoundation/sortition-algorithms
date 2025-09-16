@@ -243,16 +243,13 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, F
     return feature_name, feature_value, fv_minmax
 
 
-def read_in_features(
-    features_head: Iterable[str], features_body: Iterable[dict[str, str]]
-) -> tuple[FeatureCollection, list[str]]:
+def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[str, str]]) -> FeatureCollection:
     """
     Read in stratified selection features and values
 
     Note we do want features_head to ensure we don't have multiple columns with the same name
     """
     features: FeatureCollection = defaultdict(dict)
-    msg: list[str] = []
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
     for row in features_body:
         # check the set of keys in the row are the same as the headers
@@ -263,9 +260,8 @@ def read_in_features(
         fname, fvalue, fv_minmax = _clean_row(stripped_row, features_flex)
         features[fname][fvalue] = fv_minmax
 
-    msg.append(f"Number of features: {len(features)}")
     check_min_max(features)
     # check feature_flex to see if we need to set the max here
     # this only changes the max_flex value if these (optional) flex values are NOT set already
     set_default_max_flex(features)
-    return features, msg
+    return features
