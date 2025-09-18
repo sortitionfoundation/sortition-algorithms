@@ -88,7 +88,7 @@ def selected_remaining_tables(
         people_selected_rows,
         people_remaining_rows,
     )
-    if settings.check_same_address and self.gen_rem_tab == "on":
+    if settings.check_same_address and self.gen_rem_tab:
         output_lines.append(
             f"Deleted {num_same_address_deleted} people from remaining file who had the same "
             f"address as selected people.",

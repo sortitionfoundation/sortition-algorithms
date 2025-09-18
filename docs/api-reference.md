@@ -272,15 +272,19 @@ class RunReport:
 ### Output Methods
 
 #### as_text()
+
 Returns the report as formatted plain text.
 
 **Parameters:**
+
 - `include_logged`: If `False`, excludes messages that were already sent to the logging system (useful when the user has already seen logged messages during execution)
 
 #### as_html()
+
 Returns the report as HTML with styling for different message importance levels (normal, important, critical).
 
 **Parameters:**
+
 - `include_logged`: Same as `as_text()`
 
 ### Usage Pattern
@@ -315,6 +319,7 @@ Some report messages are also sent to the logging system in real-time. If your a
 ## Custom Logging
 
 The library uses Python's standard logging system with two loggers:
+
 - `sortition_algorithms.user` - Messages intended for end users
 - `sortition_algorithms` - Debug messages for developers
 
@@ -437,7 +442,7 @@ class GSheetAdapter:
     def __init__(
         self,
         credentials_file: Path,
-        gen_rem_tab: str = "on"
+        gen_rem_tab: bool = True,
     ):
 
     def set_g_sheet_name(self, g_sheet_name: str) -> None:
@@ -456,7 +461,7 @@ class GSheetAdapter:
 **Parameters:**
 
 - `credentials_file`: Path to Google API credentials JSON
-- `gen_rem_tab`: "on" or "off" to control remaining tab generation
+- `gen_rem_tab`: True or False to control remaining tab generation
 
 **Example:**
 

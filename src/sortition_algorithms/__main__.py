@@ -184,8 +184,7 @@ def gsheet(
     """Do sortition with Google Spreadsheets."""
     if verbose:
         set_log_level(logging.DEBUG)
-    gen_rem_tab_value = "on" if gen_rem_tab else "off"
-    adapter = adapters.GSheetAdapter(Path(auth_json_file), gen_rem_tab_value)
+    adapter = adapters.GSheetAdapter(Path(auth_json_file), gen_rem_tab)
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
 

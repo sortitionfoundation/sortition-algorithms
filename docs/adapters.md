@@ -112,7 +112,7 @@ from pathlib import Path
 # Initialize with credentials
 adapter = GSheetAdapter(
     auth_json_path=Path("/secure/path/credentials.json"),
-    gen_rem_tab="on"  # Generate remaining tab
+    gen_rem_tab=True,  # Generate remaining tab
 )
 
 # Load data from Google Sheet
@@ -141,7 +141,7 @@ def gsheet_selection_workflow():
     # Initialize
     adapter = GSheetAdapter(
         auth_json_path=Path("credentials.json"),
-        gen_rem_tab="on"
+        gen_rem_tab=True,
     )
     settings = Settings()
 

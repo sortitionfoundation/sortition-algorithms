@@ -132,7 +132,7 @@ class GSheetAdapter:
     }
     hl_orange: ClassVar = {"backgroundColor": {"red": 5, "green": 2.5, "blue": 0}}
 
-    def __init__(self, auth_json_path: Path, gen_rem_tab: str = "on") -> None:
+    def __init__(self, auth_json_path: Path, gen_rem_tab: bool = True) -> None:
         self.auth_json_path = auth_json_path
         self._client: gspread.client.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
@@ -146,6 +146,7 @@ class GSheetAdapter:
         self._g_sheet_name = ""
         self._open_g_sheet_name = ""
         self._messages: list[str] = []
+        # short for "generate remaining tab"
         self.gen_rem_tab = gen_rem_tab  # Added for checkbox.
 
     def messages(self) -> list[str]:
@@ -279,7 +280,7 @@ class GSheetAdapter:
         tab_original_selected.update(people_selected_rows)
         tab_original_selected.format("A1:U1", self.hl_light_blue)
         dupes: list[int] = []
-        if self.gen_rem_tab == "on":
+        if self.gen_rem_tab:
             tab_remaining = self._clear_or_create_tab(
                 self.remaining_tab_name,
                 self.original_selected_tab_name,
@@ -308,7 +309,7 @@ class GSheetAdapter:
         self,
         multi_selections: list[list[str]],
     ) -> None:
-        assert self.gen_rem_tab == "off"
+        assert not self.gen_rem_tab
         tab_original_selected = self._clear_or_create_tab(
             self.original_selected_tab_name,
             "ignoreme",
