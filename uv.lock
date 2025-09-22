@@ -153,14 +153,14 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.2.1"
+version = "8.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/60/6c/8ca2efa64cf75a977a0d7fac081354553ebe483345c734fb6b6515d96bbc/click-8.2.1.tar.gz", hash = "sha256:27c491cc05d968d271d5a1db13e3b5a184636d9d930f148c50b038f0d0646202", size = 286342, upload-time = "2025-05-20T23:19:49.832Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/61/de6cd827efad202d7057d93e0fed9294b96952e188f7384832791c7b2254/click-8.3.0.tar.gz", hash = "sha256:e7b8232224eba16f4ebe410c25ced9f7875cb5f3263ffc93cc3e8da705e229c4", size = 276943, upload-time = "2025-09-18T17:32:23.696Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/85/32/10bb5764d90a8eee674e9dc6f4db6a0ab47c8c4d0d83c27f7c39ac415a4d/click-8.2.1-py3-none-any.whl", hash = "sha256:61a3265b914e850b85317d0b3109c7f8cd35a670f963866005d6ef1d5175a12b", size = 102215, upload-time = "2025-05-20T23:19:47.796Z" },
+    { url = "https://files.pythonhosted.org/packages/db/d3/9dcc0f5797f070ec8edf30fbadfb200e71d9db6b84d211e3b2085a7589a0/click-8.3.0-py3-none-any.whl", hash = "sha256:9b9f285302c6e3064f4330c05f05b81945b2a39544279343e6e7c5f27a9baddc", size = 107295, upload-time = "2025-09-18T17:32:22.42Z" },
 ]
 
 [[package]]
@@ -524,12 +524,11 @@ wheels = [
 
 [[package]]
 name = "mkdocs-material"
-version = "9.6.19"
+version = "9.6.16"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "babel" },
     { name = "backrefs" },
-    { name = "click" },
     { name = "colorama" },
     { name = "jinja2" },
     { name = "markdown" },
@@ -540,9 +539,9 @@ dependencies = [
     { name = "pymdown-extensions" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/44/94/eb0fca39b19c2251b16bc759860a50f232655c4377116fa9c0e7db11b82c/mkdocs_material-9.6.19.tar.gz", hash = "sha256:80e7b3f9acabfee9b1f68bd12c26e59c865b3d5bbfb505fd1344e970db02c4aa", size = 4038202, upload-time = "2025-09-07T17:46:40.468Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/84/aec27a468c5e8c27689c71b516fb5a0d10b8fca45b9ad2dd9d6e43bc4296/mkdocs_material-9.6.16.tar.gz", hash = "sha256:d07011df4a5c02ee0877496d9f1bfc986cfb93d964799b032dd99fe34c0e9d19", size = 4028828, upload-time = "2025-07-26T15:53:47.542Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/23/a2551d1038bedc2771366f65ff3680bb3a89674cd7ca6140850c859f1f71/mkdocs_material-9.6.19-py3-none-any.whl", hash = "sha256:7492d2ac81952a467ca8a10cac915d6ea5c22876932f44b5a0f4f8e7d68ac06f", size = 9240205, upload-time = "2025-09-07T17:46:36.484Z" },
+    { url = "https://files.pythonhosted.org/packages/65/f4/90ad67125b4dd66e7884e4dbdfab82e3679eb92b751116f8bb25ccfe2f0c/mkdocs_material-9.6.16-py3-none-any.whl", hash = "sha256:8d1a1282b892fe1fdf77bfeb08c485ba3909dd743c9ba69a19a40f637c6ec18c", size = 9223743, upload-time = "2025-07-26T15:53:44.236Z" },
 ]
 
 [[package]]
