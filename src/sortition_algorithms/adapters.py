@@ -119,6 +119,14 @@ class CSVAdapter:
 
 
 class GSheetAdapter:
+    # TODO: refactor: split out GSheetWrapper class that can be passed
+    # into the __init__ for this class. The wrapper class should only
+    # depend on gspread, not on anything else in here.
+    # Could even have an AbstractDataWrapper class that we can have both
+    # csv and gspread implementations of and then we have a generic adapter.
+    # But that might lose too much control - highlighting rows done by gspread?
+    # I guess the CSV wrapper could just have no-op methods for that.
+    # Then tests can use a FakeDataWrapper
     scope: ClassVar = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
@@ -291,6 +299,12 @@ class GSheetAdapter:
             # highlight any people in remaining tab at the same address
             if settings.check_same_address:
                 address_cols: list[int] = [tab_remaining.find(csa).col for csa in settings.check_same_address_columns]  # type: ignore[union-attr]
+                # TODO: spin out to separate function
+                # TODO: rather than a set and O(N^2) nested loop
+                # just go through once, adding row index to dict with key as tuple of the values of the columns
+                # and value as the list of row indexes for that key.
+                # then at the end go through the dict and any key with > 1 row index has duplicates
+                # and we can add all the row indexes to the duplicate set.
                 dupes_set: set[int] = set()
                 n = len(people_remaining_rows)
                 for i in range(n):
