@@ -153,15 +153,9 @@ class GSheetAdapter:
         self.new_tab_default_size_cols = 40
         self._g_sheet_name = ""
         self._open_g_sheet_name = ""
-        self._messages: list[str] = []
+        self._report = RunReport()
         # short for "generate remaining tab"
         self.gen_rem_tab = gen_rem_tab  # Added for checkbox.
-
-    def messages(self) -> list[str]:
-        """Return accumulated messages and reset"""
-        messages = self._messages
-        self._messages = []
-        return messages
 
     @property
     def client(self) -> gspread.client.Client:
@@ -184,7 +178,7 @@ class GSheetAdapter:
             else:
                 self._spreadsheet = self.client.open(self._g_sheet_name)
             self._open_g_sheet_name = self._g_sheet_name
-            self._messages.append(f"Opened Google Sheet: '{self._g_sheet_name}'. ")
+            self._report.add_line_and_log(f"Opened Google Sheet: '{self._g_sheet_name}'. ", log_level=logging.INFO)
         return self._spreadsheet
 
     def _tab_exists(self, tab_name: str) -> bool:
@@ -221,23 +215,24 @@ class GSheetAdapter:
             self._g_sheet_name = g_sheet_name
 
     def load_features(self, feature_tab_name: str) -> tuple[FeatureCollection | None, RunReport]:
-        features: FeatureCollection | None = None
-        report = RunReport()
+        self._report = RunReport()  # reset report for new task
         try:
             if not self._tab_exists(feature_tab_name):
-                report.add_line_and_log(
+                self._report.add_line_and_log(
                     f"Error in Google sheet: no tab called '{feature_tab_name}' found.", log_level=logging.ERROR
                 )
-                return None, report
+                return None, self._report
         except gspread.SpreadsheetNotFound:
-            report.add_line_and_log(f"Google spreadsheet not found: {self._g_sheet_name}.", log_level=logging.ERROR)
-            return None, report
+            self._report.add_line_and_log(
+                f"Google spreadsheet not found: {self._g_sheet_name}.", log_level=logging.ERROR
+            )
+            return None, self._report
         tab_features = self.spreadsheet.worksheet(feature_tab_name)
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
         features = read_in_features(feature_head, feature_body)
-        report.add_line(f"Number of features found: {len(features)}")
-        return features, report
+        self._report.add_line(f"Number of features found: {len(features)}")
+        return features, self._report
 
     def load_people(
         self,
@@ -245,17 +240,17 @@ class GSheetAdapter:
         settings: Settings,
         features: FeatureCollection,
     ) -> tuple[People | None, RunReport]:
-        report = RunReport()
+        self._report = RunReport()  # reset report for new task
         people: People | None = None
         try:
             if not self._tab_exists(respondents_tab_name):
-                report.add_line(
+                self._report.add_line(
                     f"Error in Google sheet: no tab called '{respondents_tab_name}' found. ",
                 )
-                return None, report
+                return None, self._report
         except gspread.SpreadsheetNotFound:
-            report.add_line(f"Google spreadsheet not found: {self._g_sheet_name}. ")
-            return None, report
+            self._report.add_line(f"Google spreadsheet not found: {self._g_sheet_name}. ")
+            return None, self._report
 
         tab_people = self.spreadsheet.worksheet(respondents_tab_name)
         # if we don't read this in here we can't check if there are 2 columns with the same name
@@ -269,10 +264,10 @@ class GSheetAdapter:
                 expected_headers=[],
             )
         )
-        report.add_line(f"Reading in '{respondents_tab_name}' tab in above Google sheet.")
+        self._report.add_line(f"Reading in '{respondents_tab_name}' tab in above Google sheet.")
         people, read_report = read_in_people(people_head, people_body, features, settings)
-        report.add_report(read_report)
-        return people, report
+        self._report.add_report(read_report)
+        return people, self._report
 
     def output_selected_remaining(
         self,
