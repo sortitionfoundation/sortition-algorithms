@@ -85,6 +85,30 @@ class RunReport:
     def __init__(self) -> None:
         self._data: list[RunLineLevel | RunTable] = []
 
+    def __bool__(self) -> bool:
+        """
+        Basically, False is the report is empty, or True if there is some content. So you can do
+        things like
+
+        ```
+        if run_report:
+            print(f"Run Report\n\n{run_report.as_text()}")
+        ```
+        """
+        return self.has_content()
+
+    def has_content(self) -> bool:
+        """
+        False is the report is empty, or True if there is some content. So you can do
+        things like
+
+        ```
+        if run_report.has_content():
+            print(f"Run Report\n\n{run_report.as_text()}")
+        ```
+        """
+        return bool(self._data)
+
     def add_line(self, line: str, level: ReportLevel = ReportLevel.NORMAL) -> None:
         """
         Add a line of text, and a level - so important/critical messages can be highlighted in the HTML report.

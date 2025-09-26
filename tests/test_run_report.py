@@ -10,12 +10,16 @@ class TestRunReport:
         report = RunReport()
         assert report.as_text() == ""
         assert report.as_html() == ""
+        assert not bool(report)
+        assert not report.has_content()
 
     def test_single_line_normal_level(self):
         report = RunReport()
         report.add_line("Test message")
         assert report.as_text() == "Test message"
         assert report.as_html() == "Test message"
+        assert bool(report)
+        assert report.has_content()
 
     def test_single_line_important_level(self):
         report = RunReport()
