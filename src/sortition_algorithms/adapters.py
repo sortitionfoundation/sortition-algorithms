@@ -17,7 +17,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import RunReport
+from sortition_algorithms.utils import RunReport, user_logger
 
 
 def _stringify_records(
@@ -283,6 +283,7 @@ class GSheetAdapter:
         tab_original_selected.update(people_selected_rows)
         tab_original_selected.format("A1:U1", self.hl_light_blue)
         dupes: list[int] = []
+        user_logger.info("Selected people written to {tab_original_selected.title} tab")
         if self.gen_rem_tab:
             tab_remaining = self._clear_or_create_tab(
                 self.remaining_tab_name,
@@ -291,6 +292,7 @@ class GSheetAdapter:
             )
             tab_remaining.update(people_remaining_rows)
             tab_remaining.format("A1:U1", self.hl_light_blue)
+            user_logger.info("Remaining people written to {tab_remaining.title} tab")
             # highlight any people in remaining tab at the same address
             if settings.check_same_address:
                 address_cols: list[int] = [tab_remaining.find(csa).col for csa in settings.check_same_address_columns]  # type: ignore[union-attr]
