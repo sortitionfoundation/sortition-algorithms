@@ -112,17 +112,20 @@ class RunReport:
     def add_line(self, line: str, level: ReportLevel = ReportLevel.NORMAL) -> None:
         """
         Add a line of text, and a level - so important/critical messages can be highlighted in the HTML report.
+        """
+        self._data.append(RunLineLevel(line, level))
 
-        We can also optionally log the message to the `user_logger`. This message can be shown to the user as
+    def add_line_and_log(self, line: str, log_level: int) -> None:
+        """
+        Add a line of text, and a level - so important/critical messages can be highlighted in the HTML report.
+
+        This method will also log the message to the `user_logger`. This message can be shown to the user as
         the run is happening, so the user has feedback on what is going on while the run is in progress.
 
         When generating the report we can skip those messages, to avoid duplication. But if the user_logger
         has not been set up to be shown to the user during the run, we do want those messages to be in the
         final report.
         """
-        self._data.append(RunLineLevel(line, level))
-
-    def add_line_and_log(self, line: str, log_level: int) -> None:
         self._data.append(RunLineLevel(line, ReportLevel.NORMAL, log_level))
         user_logger.log(level=log_level, msg=line)
 
