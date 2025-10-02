@@ -34,22 +34,23 @@ def default_logging_setup() -> tuple[logging.Logger, logging.Logger]:
     return user_logger, logger
 
 
+def _override_handlers_for(logger: logging.Logger, new_handlers: list[logging.Handler]) -> None:
+    # first get rid of the old handlers
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    # now add the new handlers
+    for handler in new_handlers:
+        logger.addHandler(handler)
+
+
 def override_logging_handlers(
     user_logger_handlers: list[logging.Handler], logger_handlers: list[logging.Handler]
 ) -> None:
     """Replace the default handlers with other ones"""
-    user_logger = logging.getLogger("sortition_algorithms.user")
-    logger = logging.getLogger("sortition_algorithms")
-    # first get rid of the old handlers
-    for handler in user_logger.handlers[:]:
-        user_logger.removeHandler(handler)
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-    # now add the new handlers
-    for handler in user_logger_handlers:
-        user_logger.addHandler(handler)
-    for handler in logger_handlers:
-        logger.addHandler(handler)
+    if user_logger_handlers:
+        _override_handlers_for(logging.getLogger("sortition_algorithms.user"), user_logger_handlers)
+    if logger_handlers:
+        _override_handlers_for(logging.getLogger("sortition_algorithms"), logger_handlers)
 
 
 def set_log_level(log_level: int) -> None:
