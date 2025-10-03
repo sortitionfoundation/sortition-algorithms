@@ -39,6 +39,18 @@ def generate_dupes(people_remaining_rows: list[list[str]], settings: Settings) -
 
     Note that the first row of people_remaining_rows is the column headers.  The indexes generated
     are for the rows in this table, so the index takes account of the first row being the header.
+
+    So if we had people_remaining_rows:
+
+    id,name,address_line_1,postcode
+    1,Alice,33 Acacia Avenue,W1A 1AA
+    1,Bob,31 Acacia Avenue,W1A 1AA
+    1,Charlotte,33 Acacia Avenue,W1A 1AA
+    1,David,33 Acacia Avenue,W1B 1BB
+
+    And settings with `check_same_address_columns = ["address_line_1", "postcode"]`
+
+    Then we should return [1, 3]
     """
     if not settings.check_same_address:
         return []

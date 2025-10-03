@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from sortition_algorithms import core
-from sortition_algorithms.adapters import CSVFileDataSource, CSVStringDataSource, SelectionData
+from sortition_algorithms.adapters import CSVFileDataSource, CSVStringDataSource, SelectionData, generate_dupes
 from sortition_algorithms.committee_generation import GUROBI_AVAILABLE
 from sortition_algorithms.core import run_stratification
 from sortition_algorithms.settings import Settings
@@ -126,3 +126,181 @@ def test_csv_output_selected_remaining():
     num_candidates = len(candidates_lines) - 1
 
     assert num_selected + num_remaining == num_candidates
+
+
+def test_generate_dupes_with_duplicates():
+    """
+    Test that generate_dupes correctly identifies people sharing an address.
+    """
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],
+        ["2", "Bob", "31 Acacia Avenue", "W1A 1AA"],
+        ["3", "Charlotte", "33 Acacia Avenue", "W1A 1AA"],
+        ["4", "David", "33 Acacia Avenue", "W1B 1BB"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    assert dupes == [1, 3]
+
+
+def test_generate_dupes_no_duplicates():
+    """
+    Test that generate_dupes returns empty list when no one shares an address.
+    """
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],
+        ["2", "Bob", "31 Acacia Avenue", "W1A 1BB"],
+        ["3", "Charlotte", "35 Acacia Avenue", "W1A 1CC"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    assert dupes == []
+
+
+def test_generate_dupes_check_disabled():
+    """
+    Test that generate_dupes returns empty list when check_same_address is disabled.
+    """
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],
+        ["2", "Bob", "33 Acacia Avenue", "W1A 1AA"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=False,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    assert dupes == []
+
+
+def test_generate_dupes_multiple_groups():
+    """
+    Test that generate_dupes correctly identifies multiple groups of duplicates.
+    """
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],
+        ["2", "Bob", "33 Acacia Avenue", "W1A 1AA"],
+        ["3", "Charlotte", "15 Oak Street", "W2B 2BB"],
+        ["4", "David", "15 Oak Street", "W2B 2BB"],
+        ["5", "Eve", "99 Pine Road", "W3C 3CC"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    assert dupes == [1, 2, 3, 4]
+
+
+def test_generate_dupes_three_at_same_address():
+    """
+    Test that generate_dupes correctly identifies when three people share an address.
+    """
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],
+        ["2", "Bob", "33 Acacia Avenue", "W1A 1AA"],
+        ["3", "Charlotte", "33 Acacia Avenue", "W1A 1AA"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    assert dupes == [1, 2, 3]
+
+
+def test_generate_dupes_single_address_column():
+    """
+    Test that generate_dupes works correctly with a single address column.
+    """
+    people_remaining_rows = [
+        ["id", "name", "postcode"],
+        ["1", "Alice", "W1A 1AA"],
+        ["2", "Bob", "W1A 1AA"],
+        ["3", "Charlotte", "W1B 1BB"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    assert dupes == [1, 2]
+
+
+def test_generate_dupes_ignores_non_address_columns():
+    """
+    Test that generate_dupes only checks the specified columns, ignoring others.
+    """
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode", "phone"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA", "123"],
+        ["2", "Bob", "33 Acacia Avenue", "W1A 1AA", "456"],
+        ["3", "Charlotte", "35 Acacia Avenue", "W1B 1BB", "789"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    # Alice and Bob have same address_line_1 and postcode, despite different phone
+    assert dupes == [1, 2]
+
+
+def test_generate_dupes_only_header_row():
+    """
+    Test that generate_dupes returns empty list when only header row is present.
+    """
+    people_remaining_rows = [["id", "name", "address_line_1", "postcode"]]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    assert dupes == []
+
+
+def test_generate_dupes_partial_address_match():
+    """
+    Test that partial address matches (only one column matches) don't count as duplicates.
+    """
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],
+        ["2", "Bob", "33 Acacia Avenue", "W1B 1BB"],
+        ["3", "Charlotte", "31 Acacia Avenue", "W1A 1AA"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+    dupes = generate_dupes(people_remaining_rows, settings)
+    assert dupes == []
