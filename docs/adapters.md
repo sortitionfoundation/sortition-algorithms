@@ -95,7 +95,7 @@ def csv_selection_workflow():
         print("\n".join(msgs))
 ```
 
-### GSheetAdapter
+### GSheetDataSource
 
 For organizations using Google Sheets for data management.
 
@@ -109,29 +109,32 @@ For organizations using Google Sheets for data management.
 #### Basic Usage
 
 ```python
-from sortition_algorithms import GSheetAdapter, Settings
+from sortition_algorithms import GSheetDataSource, SelectionData, Settings
 from pathlib import Path
 
 # Initialize with credentials
-adapter = GSheetAdapter(
+data_source = GSheetDataSource(
+    feature_tab_name="Demographics",
+    people_tab_name="Candidates",
     auth_json_path=Path("/secure/path/credentials.json"),
     gen_rem_tab=True,  # Generate remaining tab
 )
+data_source.set_g_sheet_name("My Spreadsheet")
+select_data = SelectionData(data_source)
 
 # Load data from Google Sheet
-adapter.set_g_sheet_name("My Spreadsheet")
-features, report = adapter.load_features("Demographics")
+features, report = select_data.load_features()
 print(report.as_text())
 
-people, report = adapter.load_people("Candidates", settings, features)
+people, report = select_data.load_people(settings, features)
 print(report.as_text())
 
 # Configure output tabs
-adapter.selected_tab_name = "Selected Panel"
-adapter.remaining_tab_name = "Reserve Pool"
+data_source.selected_tab_name_stub = "Selected Panel"
+data_source.remaining_tab_name_stub = "Reserve Pool"
 
 # Export results (after running selection)
-adapter.output_selected_remaining(selected_rows, remaining_rows, settings)
+select_data.output_selected_remaining(selected_rows, remaining_rows, settings)
 ```
 
 #### Full Google Sheets Workflow
@@ -204,54 +207,42 @@ Note that you can have other columns on the tab - the features import code will 
 | p001 | Alice Smith | <alice@email.com> | Female | 18-30 | Urban    | 123 Main St | 12345    |
 | p002 | Bob Jones   | <bob@email.com>   | Male   | 31-50 | Rural    | 456 Oak Ave | 67890    |
 
-## Writing Custom Adapters
+## Writing custom Data Source classes
 
-You can create custom adapters for other data sources like Excel files, SQL databases, or APIs.
+You can create custom data source classes for other data sources like Excel files, SQL databases, or APIs.
 
-### Adapter Interface Pattern
+### AbstractDataSource
 
-All adapters should implement these core methods:
+All data source classes should inherit from `AbstractDataSource` - and implement the methods it defines:
 
 ```python
-from sortition_algorithms import FeatureCollection, People, RunReport, Settings
-from typing import Protocol
+from sortition_algorithms import RunReport
 
-class SortitionAdapter(Protocol):
-    """Protocol defining the adapter interface."""
+class AbstractDataSource(abc.ABC):
+    @abc.abstractmethod
+    @contextmanager
+    def read_feature_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
 
-    def load_features(self, source_info: str, **kwargs) -> tuple[FeatureCollection, RunReport]:
-        """Load feature definitions from data source.
+    @abc.abstractmethod
+    @contextmanager
+    def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
 
-        Returns:
-            (features, messages) - features object and status messages
-        """
-        ...
+    @abc.abstractmethod
+    def write_selected(self, selected: list[list[str]]) -> None: ...
 
-    def load_people(
-        self,
-        source_info: str,
-        settings: Settings,
-        features: FeatureCollection,
-        **kwargs
-    ) -> tuple[People, RunReport]:
-        """Load candidate pool from data source.
+    @abc.abstractmethod
+    def write_remaining(self, remaining: list[list[str]]) -> None: ...
 
-        Returns:
-            (people, report) - people object and report with messages
-        """
-        ...
+    @abc.abstractmethod
+    def highlight_dupes(self, dupes: list[int]) -> None: ...
 
-    def output_selected_remaining(
-        self,
-        selected_rows: list[list[str]],
-        remaining_rows: list[list[str]],
-        **kwargs
-    ) -> None:
-        """Export selection results to data source."""
-        ...
 ```
 
-### Example: Excel Adapter
+### Example: Excel Data Source
 
 Here's a complete example of an Excel adapter using the `openpyxl` library:
 
@@ -261,29 +252,33 @@ from typing import Any
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from sortition_algorithms import FeatureCollection, People, RunReport, Settings
+from sortition_algorithms import AbstractDataSource, FeatureCollection, People, RunReport, SelectionError, Settings
 from sortition_algorithms.features import read_in_features
 from sortition_algorithms.people import read_in_people
 
-class ExcelAdapter:
-    """Adapter for Excel files using openpyxl."""
+class ExcelDataSource(AbstractDataSource):
+    """DataSource for Excel files using openpyxl."""
 
-    def __init__(self) -> None:
-        self.workbook: openpyxl.Workbook | None = None
-        self.output_file: Path | None = None
+    def __init__(self, excel_file: Path, feature_tab_name: str, people_tab_name: str) -> None:
+        self.excel_file = excel_file
+        self.feature_tab_name = feature_tab_name
+        self.people_tab_name = people_tab_name
+        self.selected_tab_name = "selected"
+        self.remaining_tab_name = "remaining"
 
-    def load_features_from_file(
-        self,
-        excel_file: Path,
-        sheet_name: str = "Demographics"
-    ) -> FeatureCollection:
-        """Load features from Excel file."""
-        workbook = openpyxl.load_workbook(excel_file)
+    @contextmanager
+    def read_feature_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        """Load features data from Excel file."""
+        workbook = openpyxl.load_workbook(self.excel_file)
 
-        if sheet_name not in workbook.sheetnames:
-            return None, [f"Sheet '{sheet_name}' not found in {excel_file}"]
+        if self.feature_tab_name not in workbook.sheetnames:
+            msg = f"Sheet '{self.feature_tab_name}' not found in {excel_file}"
+            report.add_line(msg)
+            raise SelectionError(msg, report)
 
-        sheet = workbook[sheet_name]
+        sheet = workbook[self.feature_tab_name]
 
         # Read header row
         headers = [cell.value for cell in sheet[1]]
@@ -295,24 +290,22 @@ class ExcelAdapter:
                 row_dict = {headers[i]: str(row[i]) if row[i] is not None else ""
                            for i in range(len(headers))}
                 data.append(row_dict)
+        yield headers, data
+        # close the workbook
 
-        features = read_in_features(headers, data)
-        return features
-
-    def load_people_from_file(
-        self,
-        excel_file: Path,
-        settings: Settings,
-        features: FeatureCollection,
-        sheet_name: str = "Candidates"
-    ) -> tuple[People, RunReport]:
+    @contextmanager
+    def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         """Load people from Excel file."""
         workbook = openpyxl.load_workbook(excel_file)
 
-        if sheet_name not in workbook.sheetnames:
-            return None, [f"Sheet '{sheet_name}' not found in {excel_file}"]
+        if self.people_tab_name not in workbook.sheetnames:
+            msg = f"Sheet '{self.people_tab_name}' not found in {excel_file}"
+            report.add_line(msg)
+            raise SelectionError(msg, report)
 
-        sheet = workbook[sheet_name]
+        sheet = workbook[self.people_tab_name]
 
         # Read header row
         headers = [cell.value for cell in sheet[1]]
@@ -325,33 +318,21 @@ class ExcelAdapter:
                            for i in range(len(headers))}
                 data.append(row_dict)
 
-        people, report = read_in_people(headers, data, features, settings)
-        return people, report
+        yield headers, data
 
-    def output_selected_remaining(
-        self,
-        selected_rows: list[list[str]],
-        remaining_rows: list[list[str]],
-        output_file: Path,
-        selected_sheet: str = "Selected",
-        remaining_sheet: str = "Remaining"
-    ) -> None:
-        """Export results to Excel file."""
-        workbook = openpyxl.Workbook()
-
-        # Remove default sheet
-        workbook.remove(workbook.active)
-
-        # Create selected sheet
-        selected_ws = workbook.create_sheet(selected_sheet)
+    def write_selected(self, selected: list[list[str]]) -> None:
+        selected_ws = workbook.create_sheet(self.selected_tab_name)
         self._write_data_to_sheet(selected_ws, selected_rows)
+        workbook.save(self.excel_file)
 
-        # Create remaining sheet
-        remaining_ws = workbook.create_sheet(remaining_sheet)
+    def write_remaining(self, remaining: list[list[str]]) -> None:
+        remaining_ws = workbook.create_sheet(self.remaining_tab_name)
         self._write_data_to_sheet(remaining_ws, remaining_rows)
+        workbook.save(self.excel_file)
 
-        # Save workbook
-        workbook.save(output_file)
+    def highlight_dupes(self, dupes: list[int]) -> None:
+        # not implemented
+        pass
 
     def _write_data_to_sheet(self, sheet: Worksheet, data: list[list[str]]) -> None:
         """Write data rows to worksheet."""
@@ -367,24 +348,23 @@ class ExcelAdapter:
 
 # Usage example
 def excel_workflow():
-    adapter = ExcelAdapter()
+    data_source = ExcelDataSource(
+        Path("selection_data.xlsx"),
+        "Demographics",
+        "Candidates",
+    )
+    select_data = SelectionData(data_source)
     settings = Settings()
 
     # Load data
-    features = adapter.load_features_from_file(
-        Path("selection_data.xlsx"), "Demographics"
-    )
-    people, report = adapter.load_people_from_file(
-        Path("selection_data.xlsx"), settings, features, "Candidates"
-    )
+    features, _ = select_data.load_features()
+    people, report = select_data.load_people(settings, features)
 
     # Run selection (assuming you have the selection logic)
-    # success, panels, msgs = run_stratification(...)
+    success, panels, report = run_stratification(...)
 
     # Export results
-    # adapter.output_selected_remaining(
-    #     selected_table, remaining_table, Path("results.xlsx")
-    # )
+    select_data.output_selected_remaining(selected_table, remaining_table, settings)
 ```
 
 ## Next Steps

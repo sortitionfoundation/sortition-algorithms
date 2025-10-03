@@ -157,13 +157,19 @@ settings, report = Settings.load_from_file("settings.toml")
 ### Working with Google Sheets
 
 ```python
-from sortition_algorithms import GSheetAdapter
+from sortition_algorithms import GSheetDataSource, SelectionData
 from pathlib import Path
 
-adapter = GSheetAdapter(Path("credentials.json"))
-adapter.set_g_sheet_name("My Spreadsheet")
-features, report = adapter.load_features("Demographics")
-people, report = adapter.load_people("Candidates", settings, features)
+data_source = GSheetDataSource(
+    feature_tab_name="Demographics",
+    people_tab_name="Candidates",
+    auth_json_path=Path("credentials.json"),
+    gen_rem_tab=True,
+)
+data_source.set_g_sheet_name("My Spreadsheet")
+select_data = SelectionData(data_source)
+features, report = select_data.load_features()
+people, report = select_data.load_people(settings, features)
 ```
 
 ### Address Checking for Household Diversity

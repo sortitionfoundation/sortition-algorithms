@@ -29,16 +29,23 @@ def multi_selection_to_table(multi_selections: list[frozenset[str]]) -> list[lis
     return [header_row, *(list(selection_keys) for selection_keys in multi_selections)]
 
 
+def columns_for_table(features: FeatureCollection, settings: Settings, include_id_column: bool = True) -> list[str]:
+    cols_to_use = settings.full_columns_to_keep[:]
+    # we want to avoid duplicate columns if they are in both features and columns_to_keep
+    extra_features = [name for name in features if name not in cols_to_use]
+    cols_to_use += extra_features
+    if include_id_column:
+        return [settings.id_column, *cols_to_use]
+    return cols_to_use
+
+
 def person_list_to_table(
     person_keys: Iterable[str],
     people: People,
     features: FeatureCollection,
     settings: Settings,
 ) -> list[list[str]]:
-    cols_to_use = settings.full_columns_to_keep[:]
-    # we want to avoid duplicate columns if they are in both features and columns_to_keep
-    extra_features = [name for name in features if name not in cols_to_use]
-    cols_to_use += extra_features
+    cols_to_use = columns_for_table(features, settings, include_id_column=False)
     rows = [[settings.id_column, *cols_to_use]]
     for pkey in person_keys:
         person_dict = people.get_person_dict(pkey)

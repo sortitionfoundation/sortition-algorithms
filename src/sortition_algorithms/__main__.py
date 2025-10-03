@@ -93,9 +93,12 @@ def csv(
     echo_report(report)
     features, report = select_data.load_features()
     echo_report(report)
-
+    if features is None:
+        raise click.ClickException("Could not load features, exiting.")
     people, report = select_data.load_people(settings_obj, features)
     echo_report(report)
+    if people is None:
+        raise click.ClickException("Could not load people, exiting.")
 
     success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
     echo_report(report)
@@ -105,7 +108,11 @@ def csv(
     selected_rows, remaining_rows, _ = core.selected_remaining_tables(
         people, people_selected[0], features, settings_obj
     )
-    select_data.output_selected_remaining(selected_rows, remaining_rows)
+    select_data.output_selected_remaining(
+        people_selected_rows=selected_rows,
+        people_remaining_rows=remaining_rows,
+        settings=settings_obj,
+    )
 
 
 @cli.command()
@@ -141,19 +148,6 @@ def csv(
     help="Name of tab containing people/respondents.",
 )
 @click.option(
-    "-s",
-    "--selected-tab-name",
-    default="Selected",
-    required=True,
-    help="Name of tab to write selected people to.",
-)
-@click.option(
-    "-r",
-    "--remaining-tab-name",
-    default="Remaining",
-    help="Name of tab to write remaining people to.",
-)
-@click.option(
     "-n",
     "--number-wanted",
     type=click.IntRange(min=1),
@@ -173,25 +167,28 @@ def gsheet(
     gsheet_name: str,
     feature_tab_name: str,
     people_tab_name: str,
-    selected_tab_name: str,
-    remaining_tab_name: str,
     number_wanted: int,
     verbose: bool,
 ) -> None:
     """Do sortition with Google Spreadsheets."""
     if verbose:
         set_log_level(logging.DEBUG)
-    adapter = adapters.GSheetAdapter(Path(auth_json_file), gen_rem_tab)
+    data_source = adapters.GSheetDataSource(
+        feature_tab_name=feature_tab_name,
+        people_tab_name=people_tab_name,
+        auth_json_path=Path(auth_json_file),
+    )
+    select_data = adapters.SelectionData(data_source, gen_rem_tab=gen_rem_tab)
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
 
-    adapter.set_g_sheet_name(gsheet_name)
-    features, report = adapter.load_features(feature_tab_name)
+    data_source.set_g_sheet_name(gsheet_name)
+    features, report = select_data.load_features()
     echo_report(report)
     if features is None:
         raise click.ClickException("Could not load features, exiting.")
 
-    people, report = adapter.load_people(people_tab_name, settings_obj, features)
+    people, report = select_data.load_people(settings_obj, features)
     echo_report(report)
     if people is None:
         raise click.ClickException("Could not load people, exiting.")
@@ -204,9 +201,11 @@ def gsheet(
     selected_rows, remaining_rows, _ = core.selected_remaining_tables(
         people, people_selected[0], features, settings_obj
     )
-    adapter.selected_tab_name = selected_tab_name
-    adapter.remaining_tab_name = remaining_tab_name
-    adapter.output_selected_remaining(selected_rows, remaining_rows, settings_obj)
+    select_data.output_selected_remaining(
+        people_selected_rows=selected_rows,
+        people_remaining_rows=remaining_rows,
+        settings=settings_obj,
+    )
 
 
 @cli.command()

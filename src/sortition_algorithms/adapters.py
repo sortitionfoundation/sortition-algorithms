@@ -7,6 +7,7 @@ Initially we have CSV files locally, and Google Docs Spreadsheets.
 import abc
 import csv
 import logging
+from collections import defaultdict
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from io import StringIO
@@ -16,6 +17,7 @@ from typing import ClassVar, TextIO
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+from sortition_algorithms.errors import SelectionError
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
@@ -23,12 +25,45 @@ from sortition_algorithms.utils import RunReport, user_logger
 
 
 def _stringify_records(
-    records: Iterable[dict[str, str | int | float]],
+    records: Iterable[dict[str, str | int | float] | dict[str, str]],
 ) -> list[dict[str, str]]:
     new_records: list[dict[str, str]] = []
     for record in records:
         new_records.append({k: str(v) for k, v in record.items()})
     return new_records
+
+
+def generate_dupes(people_remaining_rows: list[list[str]], settings: Settings) -> list[int]:
+    """
+    Generate a list of indexes of people who share an address with someone else in this set of rows.
+
+    Note that the first row of people_remaining_rows is the column headers.  The indexes generated
+    are for the rows in this table, so the index takes account of the first row being the header.
+    """
+    if not settings.check_same_address:
+        return []
+
+    table_col_names = people_remaining_rows[0]
+    address_col_indexes: list[int] = [
+        index for index, col in enumerate(table_col_names) if col in settings.check_same_address_columns
+    ]
+    address_remaining_index: dict[tuple[str, ...], list[int]] = defaultdict(list)
+
+    # first, we assemble a dict with the key being the address, the value being the list of
+    # indexes of people at that address
+    for person_index, person in enumerate(people_remaining_rows):
+        if person_index == 0:
+            continue  # skip the header row
+        address_tuple = tuple(col for col_index, col in enumerate(person) if col_index in address_col_indexes)
+        address_remaining_index[address_tuple].append(person_index)
+
+    # now extract all those people where the number of people at their address is more than one
+    dupes: list[int] = []
+    for persons_at_address in address_remaining_index.values():
+        if len(persons_at_address) > 1:
+            dupes += persons_at_address
+
+    return sorted(dupes)
 
 
 class AbstractDataSource(abc.ABC):
@@ -42,7 +77,7 @@ class AbstractDataSource(abc.ABC):
     @contextmanager
     def read_people_data(
         self, report: RunReport
-    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str | int | float]]], None, None]: ...
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
 
     @abc.abstractmethod
     def write_selected(self, selected: list[list[str]]) -> None: ...
@@ -50,10 +85,15 @@ class AbstractDataSource(abc.ABC):
     @abc.abstractmethod
     def write_remaining(self, remaining: list[list[str]]) -> None: ...
 
+    @abc.abstractmethod
+    def highlight_dupes(self, dupes: list[int]) -> None: ...
+
 
 class SelectionData:
-    def __init__(self, data_source: AbstractDataSource) -> None:
+    def __init__(self, data_source: AbstractDataSource, gen_rem_tab: bool = True) -> None:
         self.data_source = data_source
+        # short for "generate remaining tab"
+        self.gen_rem_tab = gen_rem_tab  # Added for checkbox in strat select app
 
     def load_features(self) -> tuple[FeatureCollection, RunReport]:
         report = RunReport()
@@ -65,9 +105,8 @@ class SelectionData:
 
     def load_people(self, settings: Settings, features: FeatureCollection) -> tuple[People, RunReport]:
         report = RunReport()
-        with self.data_source.read_people_data(report) as header_raw_body:
-            header, raw_body = header_raw_body
-            body = _stringify_records(raw_body)
+        with self.data_source.read_people_data(report) as header_body:
+            header, body = header_body
             people, report = read_in_people(list(header), body, features, settings)
         return people, report
 
@@ -79,11 +118,18 @@ class SelectionData:
         self,
         people_selected_rows: list[list[str]],
         people_remaining_rows: list[list[str]],
-    ) -> None:
+        settings: Settings,
+    ) -> list[int]:
         self.data_source.write_selected(people_selected_rows)
+        if not self.gen_rem_tab:
+            return []
         self.data_source.write_remaining(people_remaining_rows)
+        dupes = generate_dupes(people_remaining_rows, settings)
+        self.data_source.highlight_dupes(dupes)
+        return dupes
 
     def output_multi_selections(self, multi_selections: list[list[str]]) -> None:
+        assert not self.gen_rem_tab
         self.data_source.write_selected(multi_selections)
 
 
@@ -112,16 +158,16 @@ class CSVStringDataSource(AbstractDataSource):
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         report.add_line("Loading features from string.")
-        feature_reader = csv.DictReader(StringIO(self.features_data))
+        feature_reader = csv.DictReader(StringIO(self.features_data), strict=True)
         assert feature_reader.fieldnames is not None
         yield list(feature_reader.fieldnames), feature_reader
 
     @contextmanager
     def read_people_data(
         self, report: RunReport
-    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str | int | float]]], None, None]:
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         report.add_line("Loading people from string.")
-        people_reader = csv.DictReader(StringIO(self.people_data))
+        people_reader = csv.DictReader(StringIO(self.people_data), strict=True)
         assert people_reader.fieldnames is not None
         yield list(people_reader.fieldnames), people_reader
 
@@ -132,6 +178,9 @@ class CSVStringDataSource(AbstractDataSource):
     def write_remaining(self, remaining: list[list[str]]) -> None:
         _write_csv_rows(self.remaining_file, remaining)
         self.remaining_file_written = True
+
+    def highlight_dupes(self, dupes: list[int]) -> None:
+        """Cannot highlight a CSV file"""
 
 
 class CSVFileDataSource(AbstractDataSource):
@@ -147,17 +196,17 @@ class CSVFileDataSource(AbstractDataSource):
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         report.add_line(f"Loading features from file {self.features_file}.")
         with open(self.features_file, newline="") as csv_file:
-            feature_reader = csv.DictReader(csv_file)
+            feature_reader = csv.DictReader(csv_file, strict=True)
             assert feature_reader.fieldnames is not None
             yield list(feature_reader.fieldnames), feature_reader
 
     @contextmanager
     def read_people_data(
         self, report: RunReport
-    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str | int | float]]], None, None]:
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         report.add_line(f"Loading people from file {self.people_file}.")
         with open(self.people_file, newline="") as csv_file:
-            people_reader = csv.DictReader(csv_file)
+            people_reader = csv.DictReader(csv_file, strict=True)
             assert people_reader.fieldnames is not None
             yield list(people_reader.fieldnames), people_reader
 
@@ -169,16 +218,11 @@ class CSVFileDataSource(AbstractDataSource):
         with open(self.remaining_file, "w", newline="") as csv_file:
             _write_csv_rows(csv_file, remaining)
 
+    def highlight_dupes(self, dupes: list[int]) -> None:
+        """Cannot highlight a CSV file"""
 
-class GSheetAdapter:
-    # TODO: refactor: split out GSheetWrapper class that can be passed
-    # into the __init__ for this class. The wrapper class should only
-    # depend on gspread, not on anything else in here.
-    # Could even have an AbstractDataWrapper class that we can have both
-    # csv and gspread implementations of and then we have a generic adapter.
-    # But that might lose too much control - highlighting rows done by gspread?
-    # I guess the CSV wrapper could just have no-op methods for that.
-    # Then tests can use a FakeDataWrapper
+
+class GSheetDataSource(AbstractDataSource):
     scope: ClassVar = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
@@ -192,22 +236,21 @@ class GSheetAdapter:
     }
     hl_orange: ClassVar = {"backgroundColor": {"red": 5, "green": 2.5, "blue": 0}}
 
-    def __init__(self, auth_json_path: Path, gen_rem_tab: bool = True) -> None:
+    def __init__(self, feature_tab_name: str, people_tab_name: str, auth_json_path: Path) -> None:
+        self.feature_tab_name = feature_tab_name
+        self.people_tab_name = people_tab_name
         self.auth_json_path = auth_json_path
         self._client: gspread.client.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
-        self.original_selected_tab_name = "Original Selected - output - "
-        self.selected_tab_name = "Selected"
-        self.columns_selected_first = "C"
-        self.column_selected_blank_num = 6
-        self.remaining_tab_name = "Remaining - output - "
+        self.selected_tab_name_stub = "Original Selected - output - "
+        self.remaining_tab_name_stub = "Remaining - output - "
         self.new_tab_default_size_rows = 2
         self.new_tab_default_size_cols = 40
         self._g_sheet_name = ""
         self._open_g_sheet_name = ""
+        self.selected_tab_name = ""
+        self.remaining_tab_name = ""
         self._report = RunReport()
-        # short for "generate remaining tab"
-        self.gen_rem_tab = gen_rem_tab  # Added for checkbox.
 
     @property
     def client(self) -> gspread.client.Client:
@@ -233,11 +276,17 @@ class GSheetAdapter:
             self._report.add_line_and_log(f"Opened Google Sheet: '{self._g_sheet_name}'. ", log_level=logging.INFO)
         return self._spreadsheet
 
-    def _tab_exists(self, tab_name: str) -> bool:
+    def _get_tab(self, tab_name: str) -> gspread.Worksheet | None:
         if not self._g_sheet_name:
-            return False
+            return None
         tab_list = self.spreadsheet.worksheets()
-        return any(tab.title == tab_name for tab in tab_list)
+        try:
+            return next(tab for tab in tab_list if tab.title == tab_name)
+        except StopIteration:
+            return None
+
+    def _tab_exists(self, tab_name: str) -> bool:
+        return bool(self._get_tab(tab_name))
 
     def _clear_or_create_tab(self, tab_name: str, other_tab_name: str, inc: int) -> gspread.Worksheet:
         # this now does not clear data but increments the sheet number...
@@ -266,45 +315,41 @@ class GSheetAdapter:
             self._spreadsheet = None
             self._g_sheet_name = g_sheet_name
 
-    def load_features(self, feature_tab_name: str) -> tuple[FeatureCollection | None, RunReport]:
-        self._report = RunReport()  # reset report for new task
+    @contextmanager
+    def read_feature_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        self._report = report
         try:
-            if not self._tab_exists(feature_tab_name):
-                self._report.add_line_and_log(
-                    f"Error in Google sheet: no tab called '{feature_tab_name}' found.", log_level=logging.ERROR
-                )
-                return None, self._report
-        except gspread.SpreadsheetNotFound:
-            self._report.add_line_and_log(
-                f"Google spreadsheet not found: {self._g_sheet_name}.", log_level=logging.ERROR
-            )
-            return None, self._report
-        tab_features = self.spreadsheet.worksheet(feature_tab_name)
+            if not self._tab_exists(self.feature_tab_name):
+                msg = f"Error in Google sheet: no tab called '{self.feature_tab_name}' found."
+                self._report.add_line_and_log(msg, log_level=logging.ERROR)
+                raise SelectionError(msg, self._report)
+        except gspread.SpreadsheetNotFound as err:
+            msg = f"Google spreadsheet not found: {self._g_sheet_name}."
+            self._report.add_line_and_log(msg, log_level=logging.ERROR)
+            raise SelectionError(msg, self._report) from err
+        tab_features = self.spreadsheet.worksheet(self.feature_tab_name)
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
-        features = read_in_features(feature_head, feature_body)
-        self._report.add_line(f"Number of features found: {len(features)}")
-        return features, self._report
+        yield feature_head, feature_body
 
-    def load_people(
-        self,
-        respondents_tab_name: str,
-        settings: Settings,
-        features: FeatureCollection,
-    ) -> tuple[People | None, RunReport]:
-        self._report = RunReport()  # reset report for new task
-        people: People | None = None
+    @contextmanager
+    def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        self._report = report
         try:
-            if not self._tab_exists(respondents_tab_name):
-                self._report.add_line(
-                    f"Error in Google sheet: no tab called '{respondents_tab_name}' found. ",
-                )
-                return None, self._report
-        except gspread.SpreadsheetNotFound:
-            self._report.add_line(f"Google spreadsheet not found: {self._g_sheet_name}. ")
-            return None, self._report
+            if not self._tab_exists(self.people_tab_name):
+                msg = f"Error in Google sheet: no tab called '{self.people_tab_name}' found. "
+                self._report.add_line(msg)
+                raise SelectionError(msg, self._report)
+        except gspread.SpreadsheetNotFound as err:
+            msg = f"Google spreadsheet not found: {self._g_sheet_name}. "
+            self._report.add_line(msg)
+            raise SelectionError(msg, self._report) from err
 
-        tab_people = self.spreadsheet.worksheet(respondents_tab_name)
+        tab_people = self.spreadsheet.worksheet(self.people_tab_name)
         # if we don't read this in here we can't check if there are 2 columns with the same name
         people_head = tab_people.row_values(1)
         # the numericise_ignore doesn't convert the phone numbers to ints...
@@ -316,67 +361,33 @@ class GSheetAdapter:
                 expected_headers=[],
             )
         )
-        self._report.add_line(f"Reading in '{respondents_tab_name}' tab in above Google sheet.")
-        people, read_report = read_in_people(people_head, people_body, features, settings)
-        self._report.add_report(read_report)
-        return people, self._report
+        self._report.add_line(f"Reading in '{self.people_tab_name}' tab in above Google sheet.")
+        yield people_head, people_body
 
-    def output_selected_remaining(
-        self,
-        people_selected_rows: list[list[str]],
-        people_remaining_rows: list[list[str]],
-        settings: Settings,
-    ) -> list[int]:
-        tab_original_selected = self._clear_or_create_tab(
-            self.original_selected_tab_name,
-            self.remaining_tab_name,
-            0,
-        )
-        tab_original_selected.update(people_selected_rows)
-        tab_original_selected.format("A1:U1", self.hl_light_blue)
-        dupes: list[int] = []
-        user_logger.info("Selected people written to {tab_original_selected.title} tab")
-        if self.gen_rem_tab:
-            tab_remaining = self._clear_or_create_tab(
-                self.remaining_tab_name,
-                self.original_selected_tab_name,
-                -1,
-            )
-            tab_remaining.update(people_remaining_rows)
-            tab_remaining.format("A1:U1", self.hl_light_blue)
-            user_logger.info("Remaining people written to {tab_remaining.title} tab")
-            # highlight any people in remaining tab at the same address
-            if settings.check_same_address:
-                address_cols: list[int] = [tab_remaining.find(csa).col for csa in settings.check_same_address_columns]  # type: ignore[union-attr]
-                # TODO: spin out to separate function
-                # TODO: rather than a set and O(N^2) nested loop
-                # just go through once, adding row index to dict with key as tuple of the values of the columns
-                # and value as the list of row indexes for that key.
-                # then at the end go through the dict and any key with > 1 row index has duplicates
-                # and we can add all the row indexes to the duplicate set.
-                dupes_set: set[int] = set()
-                n = len(people_remaining_rows)
-                for i in range(n):
-                    rowrem1 = people_remaining_rows[i]
-                    for j in range(i + 1, n):
-                        rowrem2 = people_remaining_rows[j]
-                        if rowrem1 != rowrem2 and all(rowrem1[col] == rowrem2[col] for col in address_cols):
-                            dupes_set.add(i + 1)
-                            dupes_set.add(j + 1)
-                dupes = sorted(dupes_set)
-                for i in range(min(30, len(dupes))):
-                    tab_remaining.format(str(dupes[i]), self.hl_orange)
-        return dupes
-
-    def output_multi_selections(
-        self,
-        multi_selections: list[list[str]],
-    ) -> None:
-        assert not self.gen_rem_tab
-        tab_original_selected = self._clear_or_create_tab(
-            self.original_selected_tab_name,
+    def write_selected(self, selected: list[list[str]]) -> None:
+        tab_selected = self._clear_or_create_tab(
+            self.selected_tab_name_stub,
             "ignoreme",
             0,
         )
-        tab_original_selected.update(multi_selections)
-        tab_original_selected.format("A1:U1", self.hl_light_blue)
+        self.selected_tab_name = tab_selected.title
+        tab_selected.update(selected)
+        tab_selected.format("A1:U1", self.hl_light_blue)
+        user_logger.info("Selected people written to {tab_original_selected.title} tab")
+
+    def write_remaining(self, remaining: list[list[str]]) -> None:
+        tab_remaining = self._clear_or_create_tab(
+            self.remaining_tab_name_stub,
+            self.selected_tab_name_stub,
+            -1,
+        )
+        self.remaining_tab_name = tab_remaining.title
+        tab_remaining.update(remaining)
+        tab_remaining.format("A1:U1", self.hl_light_blue)
+        user_logger.info("Remaining people written to {tab_remaining.title} tab")
+
+    def highlight_dupes(self, dupes: list[int]) -> None:
+        tab_remaining = self._get_tab(self.remaining_tab_name)
+        assert tab_remaining is not None, "highlight_dupes() has been called without first calling write_remaining()"
+        for i in range(min(30, len(dupes))):
+            tab_remaining.format(str(dupes[i]), self.hl_orange)

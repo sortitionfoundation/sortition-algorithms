@@ -4,7 +4,7 @@ from sortition_algorithms.adapters import (
     AbstractDataSource,
     CSVFileDataSource,
     CSVStringDataSource,
-    GSheetAdapter,
+    GSheetDataSource,
     SelectionData,
 )
 from sortition_algorithms.core import (
@@ -21,7 +21,7 @@ __all__ = [
     "AbstractDataSource",
     "CSVFileDataSource",
     "CSVStringDataSource",
-    "GSheetAdapter",
+    "GSheetDataSource",
     "RunReport",
     "SelectionData",
     "Settings",

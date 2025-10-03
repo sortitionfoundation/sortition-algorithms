@@ -111,7 +111,7 @@ def test_csv_output_selected_remaining():
     people, _ = select_data.load_people(settings, features)
 
     selected_rows, remaining_rows, _ = core.selected_remaining_tables(people, selected, features, settings)
-    select_data.output_selected_remaining(selected_rows, remaining_rows)
+    select_data.output_selected_remaining(selected_rows, remaining_rows, settings=settings)
 
     selected_content = data_source.selected_file.getvalue()
     selected_lines = selected_content.splitlines()
