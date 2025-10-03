@@ -401,82 +401,239 @@ def set_log_level(log_level: int) -> None
 
 ## Data Sources
 
-TODO: Rewrite this section
+The library uses a data source pattern for loading and saving data. All data sources implement the `AbstractDataSource` interface and are used via the `SelectionData` wrapper class.
 
-### CSVAdapter
+### SelectionData
 
-Handles CSV file input and output operations.
-
-```python
-class CSVAdapter:
-    def load_features_from_file(
-        self, features_file: Path
-    ) -> tuple[FeatureCollection, RunReport]:
-
-    def load_people_from_file(
-        self, people_file: Path, settings: Settings, features: FeatureCollection
-    ) -> tuple[People, RunReport]:
-
-    def output_selected_remaining(
-        self, selected_rows: list[list[str]], remaining_rows: list[list[str]]
-    ) -> None:
-```
-
-**Example:**
+High-level wrapper class that provides a unified interface for loading data and outputting results, regardless of the underlying data source.
 
 ```python
-adapter = CSVAdapter()
-features, report = adapter.load_features_from_file(Path("features.csv"))
-people, report = adapter.load_people_from_file(Path("people.csv"), settings, features)
-
-# Set output files
-adapter.selected_file = open("selected.csv", "w", newline="")
-adapter.remaining_file = open("remaining.csv", "w", newline="")
-adapter.output_selected_remaining(selected_table, remaining_table)
-```
-
-### GSheetAdapter
-
-Handles Google Sheets input and output operations.
-
-```python
-class GSheetAdapter:
+class SelectionData:
     def __init__(
         self,
-        credentials_file: Path,
-        gen_rem_tab: bool = True,
+        data_source: AbstractDataSource,
+        gen_rem_tab: bool = True
     ):
-
-    def set_g_sheet_name(self, g_sheet_name: str) -> None:
-
-    def load_features(self, tab_name: str) -> tuple[FeatureCollection | None, RunReport]:
-
-    def load_people(
-        self, tab_name: str, settings: Settings, features: FeatureCollection
-    ) -> tuple[People | None, RunReport]:
-
-    def output_selected_remaining(
-        self, selected_rows: list[list[str]], remaining_rows: list[list[str]], settings: Settings
-    ) -> None:
 ```
 
 **Parameters:**
 
-- `credentials_file`: Path to Google API credentials JSON
-- `gen_rem_tab`: True or False to control remaining tab generation
+- `data_source`: Any object implementing AbstractDataSource (e.g., CSVFileDataSource, GSheetDataSource)
+- `gen_rem_tab`: If True, generate a "remaining" output table; if False, only output selected
+
+**Methods:**
+
+```python
+def load_features(self) -> tuple[FeatureCollection, RunReport]:
+    # Load feature definitions from data source
+
+def load_people(
+    self, settings: Settings, features: FeatureCollection
+) -> tuple[People, RunReport]:
+    # Load people data from data source
+
+def output_selected_remaining(
+    self,
+    people_selected_rows: list[list[str]],
+    people_remaining_rows: list[list[str]],
+    settings: Settings,
+) -> list[int]:
+    # Write selected and remaining tables, returns list of duplicate indexes
+
+def output_multi_selections(
+    self, multi_selections: list[list[str]]
+) -> None:
+    # Write multiple selection panels (gen_rem_tab must be False)
+```
+
+**Example - CSV Files:**
+
+```python
+from sortition_algorithms.adapters import CSVFileDataSource, SelectionData
+from pathlib import Path
+
+# Create data source for CSV files
+data_source = CSVFileDataSource(
+    features_file=Path("features.csv"),
+    people_file=Path("people.csv"),
+    selected_file=Path("selected.csv"),
+    remaining_file=Path("remaining.csv")
+)
+
+# Wrap in SelectionData
+selection_data = SelectionData(data_source)
+
+# Load data
+features, report = selection_data.load_features()
+people, report = selection_data.load_people(settings, features)
+
+# Run stratification (using core.py functions)
+from sortition_algorithms.core import run_stratification, selected_remaining_tables
+success, panels, report = run_stratification(features, people, 100, settings)
+
+# Format and output results
+selected_rows, remaining_rows, _ = selected_remaining_tables(
+    people, panels[0], features, settings
+)
+dupes = selection_data.output_selected_remaining(
+    selected_rows, remaining_rows, settings
+)
+```
+
+**Example - Google Sheets:**
+
+```python
+from sortition_algorithms.adapters import GSheetDataSource, SelectionData
+from pathlib import Path
+
+# Create data source for Google Sheets
+data_source = GSheetDataSource(
+    feature_tab_name="Demographics",
+    people_tab_name="Candidates",
+    auth_json_path=Path("credentials.json")
+)
+data_source.set_g_sheet_name("My Sortition Spreadsheet")
+
+# Wrap in SelectionData
+selection_data = SelectionData(data_source)
+
+# Load and process (same as CSV example above)
+features, report = selection_data.load_features()
+people, report = selection_data.load_people(settings, features)
+# ... run stratification and output results
+```
+
+### CSVStringDataSource
+
+Data source for working with CSV data provided as strings (useful for testing or web applications).
+
+```python
+class CSVStringDataSource(AbstractDataSource):
+    def __init__(self, features_data: str, people_data: str):
+```
+
+**Parameters:**
+
+- `features_data`: CSV content for features as a string
+- `people_data`: CSV content for people as a string
+
+**Attributes:**
+
+- `selected_file`: StringIO buffer containing selected output
+- `remaining_file`: StringIO buffer containing remaining output
+- `selected_file_written`: Boolean indicating if selected was written
+- `remaining_file_written`: Boolean indicating if remaining was written
 
 **Example:**
 
 ```python
-adapter = GSheetAdapter(Path("credentials.json"))
-adapter.set_g_sheet_name("My Spreadsheet")
-features, report = adapter.load_features("Demographics")
-people, report = adapter.load_people("Candidates", settings, features)
+features_csv = """feature,value,min,max
+Gender,Male,45,55
+Gender,Female,45,55"""
 
-adapter.selected_tab_name = "Selected"
-adapter.remaining_tab_name = "Remaining"
-adapter.output_selected_remaining(selected_table, remaining_table, settings)
+people_csv = """id,name,Gender
+p1,Alice,Female
+p2,Bob,Male"""
+
+data_source = CSVStringDataSource(features_csv, people_csv)
+selection_data = SelectionData(data_source)
+# ... use as normal, then access results from StringIO:
+selected_output = data_source.selected_file.getvalue()
 ```
+
+### CSVFileDataSource
+
+Data source for reading from and writing to CSV files on disk.
+
+```python
+class CSVFileDataSource(AbstractDataSource):
+    def __init__(
+        self,
+        features_file: Path,
+        people_file: Path,
+        selected_file: Path,
+        remaining_file: Path
+    ):
+```
+
+**Parameters:**
+
+- `features_file`: Path to input CSV file with feature definitions
+- `people_file`: Path to input CSV file with candidate data
+- `selected_file`: Path to output CSV file for selected people
+- `remaining_file`: Path to output CSV file for remaining people
+
+### GSheetDataSource
+
+Data source for reading from and writing to Google Sheets.
+
+```python
+class GSheetDataSource(AbstractDataSource):
+    def __init__(
+        self,
+        feature_tab_name: str,
+        people_tab_name: str,
+        auth_json_path: Path
+    ):
+
+    def set_g_sheet_name(self, g_sheet_name: str) -> None:
+```
+
+**Parameters:**
+
+- `feature_tab_name`: Name of the tab containing feature definitions
+- `people_tab_name`: Name of the tab containing candidate data
+- `auth_json_path`: Path to Google API service account credentials JSON
+
+**Methods:**
+
+- `set_g_sheet_name(g_sheet_name)`: Set the spreadsheet to work with (name or URL)
+
+**Attributes:**
+
+- `selected_tab_name`: Name of created tab with selected people (set after output)
+- `remaining_tab_name`: Name of created tab with remaining people (set after output)
+
+**Notes:**
+
+- Automatically creates new output tabs with incrementing numbers to avoid overwriting
+- Highlights duplicate addresses in orange in the remaining tab
+- Requires Google Sheets API credentials (see Google Cloud Console)
+
+### AbstractDataSource
+
+Abstract base class defining the interface that all data sources must implement.
+
+```python
+class AbstractDataSource(abc.ABC):
+    @abc.abstractmethod
+    @contextmanager
+    def read_feature_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        ...
+
+    @abc.abstractmethod
+    @contextmanager
+    def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        ...
+
+    @abc.abstractmethod
+    def write_selected(self, selected: list[list[str]]) -> None:
+        ...
+
+    @abc.abstractmethod
+    def write_remaining(self, remaining: list[list[str]]) -> None:
+        ...
+
+    @abc.abstractmethod
+    def highlight_dupes(self, dupes: list[int]) -> None:
+        ...
+```
+
+Implement this interface to create custom data sources (e.g., for databases, APIs, or other formats).
 
 ## Core Data Classes
 
@@ -568,6 +725,55 @@ def set_random_provider(seed: int | None) -> None
 set_random_provider(42)  # Reproducible results
 set_random_provider(None)  # Secure random
 ```
+
+### generate_dupes()
+
+Identify people who share an address in a table of remaining candidates.
+
+```python
+def generate_dupes(
+    people_remaining_rows: list[list[str]],
+    settings: Settings
+) -> list[int]:
+```
+
+**Parameters:**
+
+- `people_remaining_rows`: Table of people data where first row is headers
+- `settings`: Settings object (uses `check_same_address` and `check_same_address_columns`)
+
+**Returns:**
+
+- List of row indexes (1-indexed, accounting for header) of people who share an address with at least one other person
+
+**Example:**
+
+```python
+# Table with headers in row 0
+people_table = [
+    ["id", "name", "address_line_1", "postcode"],
+    ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],
+    ["2", "Bob", "31 Acacia Avenue", "W1A 1AA"],
+    ["3", "Charlotte", "33 Acacia Avenue", "W1A 1AA"],
+    ["4", "David", "33 Acacia Avenue", "W1B 1BB"],
+]
+
+settings = Settings(
+    id_column="id",
+    columns_to_keep=["name"],
+    check_same_address=True,
+    check_same_address_columns=["address_line_1", "postcode"]
+)
+
+dupes = generate_dupes(people_table, settings)
+# Returns [1, 3] - Alice and Charlotte share the same address
+```
+
+**Notes:**
+
+- Returns empty list if `check_same_address` is False
+- Only considers exact matches on ALL specified address columns
+- Row indexes account for the header being at index 0
 
 ## Type Hints
 
