@@ -4,9 +4,11 @@ Adapters for loading and saving data.
 Initially we have CSV files locally, and Google Docs Spreadsheets.
 """
 
+import abc
 import csv
 import logging
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
+from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
 from typing import ClassVar, TextIO
@@ -29,93 +31,143 @@ def _stringify_records(
     return new_records
 
 
-class CSVAdapter:
-    def __init__(self) -> None:
-        self.selected_file: TextIO = StringIO()
-        self.remaining_file: TextIO = StringIO()
-        self.enable_selected_file_download = False
-        self.enable_remaining_file_download = False
+class AbstractDataSource(abc.ABC):
+    @abc.abstractmethod
+    @contextmanager
+    def read_feature_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
 
-    def load_features_from_file(self, features_file: Path) -> tuple[FeatureCollection, RunReport]:
+    @abc.abstractmethod
+    @contextmanager
+    def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str | int | float]]], None, None]: ...
+
+    @abc.abstractmethod
+    def write_selected(self, selected: list[list[str]]) -> None: ...
+
+    @abc.abstractmethod
+    def write_remaining(self, remaining: list[list[str]]) -> None: ...
+
+
+class SelectionData:
+    def __init__(self, data_source: AbstractDataSource) -> None:
+        self.data_source = data_source
+
+    def load_features(self) -> tuple[FeatureCollection, RunReport]:
         report = RunReport()
-        report.add_line(f"Loading from: {features_file}")
-        with open(features_file, newline="") as csv_file:
-            features = self._load_features(csv_file)
+        with self.data_source.read_feature_data(report) as headers_body:
+            headers, body = headers_body
+            features = read_in_features(list(headers), body)
         report.add_line(f"Number of features found: {len(features)}")
         return features, report
 
-    def load_features_from_str(self, file_contents: str) -> tuple[FeatureCollection, RunReport]:
+    def load_people(self, settings: Settings, features: FeatureCollection) -> tuple[People, RunReport]:
         report = RunReport()
-        report.add_line("Loading from string.")
-        features = self._load_features(StringIO(file_contents))
-        report.add_line(f"Number of features found: {len(features)}")
-        return features, report
-
-    def _load_features(self, file_obj: TextIO) -> FeatureCollection:
-        feature_reader = csv.DictReader(file_obj)
-        assert feature_reader.fieldnames is not None
-        features = read_in_features(list(feature_reader.fieldnames), feature_reader)
-        return features
-
-    def load_people_from_file(
-        self,
-        people_file: Path,
-        settings: Settings,
-        features: FeatureCollection,
-    ) -> tuple[People, RunReport]:
-        with open(people_file, newline="") as csv_file:
-            return self._load_people(csv_file, settings, features)
-
-    def load_people_from_str(
-        self,
-        file_contents: str,
-        settings: Settings,
-        features: FeatureCollection,
-    ) -> tuple[People, RunReport]:
-        return self._load_people(StringIO(file_contents), settings, features)
-
-    def _load_people(
-        self,
-        file_obj: TextIO,
-        settings: Settings,
-        features: FeatureCollection,
-    ) -> tuple[People, RunReport]:
-        people_data = csv.DictReader(file_obj)
-        people_str_data = _stringify_records(people_data)
-        assert people_data.fieldnames is not None
-        people, report = read_in_people(list(people_data.fieldnames), people_str_data, features, settings)
+        with self.data_source.read_people_data(report) as header_raw_body:
+            header, raw_body = header_raw_body
+            body = _stringify_records(raw_body)
+            people, report = read_in_people(list(header), body, features, settings)
         return people, report
 
-    def _write_rows(self, out_file: TextIO, rows: list[list[str]]) -> None:
-        writer = csv.writer(
-            out_file,
-            delimiter=",",
-            quotechar='"',
-            quoting=csv.QUOTE_MINIMAL,
-        )
-        for row in rows:
-            writer.writerow(row)
+    # TODO: decide if we want this - it would just call the function in core.py
+    # Is that worth it?
+    # def run_stratification(self):
 
-    # Actually useful to also write to a file all those who are NOT selected for later selection if people pull out etc
-    # BUT, we should not include in this people from the same address as someone who has been selected!
     def output_selected_remaining(
         self,
         people_selected_rows: list[list[str]],
         people_remaining_rows: list[list[str]],
     ) -> None:
-        self._write_rows(self.selected_file, people_selected_rows)
-        self._write_rows(self.remaining_file, people_remaining_rows)
-        # we have succeeded in CSV so can activate buttons in GUI...
-        self.enable_selected_file_download = True
-        self.enable_remaining_file_download = True
+        self.data_source.write_selected(people_selected_rows)
+        self.data_source.write_remaining(people_remaining_rows)
 
-    def output_multi_selections(
-        self,
-        multi_selections: list[list[str]],
-    ) -> None:
-        self._write_rows(self.selected_file, multi_selections)
-        # we have succeeded in CSV so can activate buttons in GUI...
-        self.enable_selected_file_download = True
+    def output_multi_selections(self, multi_selections: list[list[str]]) -> None:
+        self.data_source.write_selected(multi_selections)
+
+
+def _write_csv_rows(out_file: TextIO, rows: list[list[str]]) -> None:
+    writer = csv.writer(
+        out_file,
+        delimiter=",",
+        quotechar='"',
+        quoting=csv.QUOTE_MINIMAL,
+    )
+    for row in rows:
+        writer.writerow(row)
+
+
+class CSVStringDataSource(AbstractDataSource):
+    def __init__(self, features_data: str, people_data: str) -> None:
+        self.features_data = features_data
+        self.people_data = people_data
+        self.selected_file = StringIO()
+        self.remaining_file = StringIO()
+        self.selected_file_written = False
+        self.remaining_file_written = False
+
+    @contextmanager
+    def read_feature_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        report.add_line("Loading features from string.")
+        feature_reader = csv.DictReader(StringIO(self.features_data))
+        assert feature_reader.fieldnames is not None
+        yield list(feature_reader.fieldnames), feature_reader
+
+    @contextmanager
+    def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str | int | float]]], None, None]:
+        report.add_line("Loading people from string.")
+        people_reader = csv.DictReader(StringIO(self.people_data))
+        assert people_reader.fieldnames is not None
+        yield list(people_reader.fieldnames), people_reader
+
+    def write_selected(self, selected: list[list[str]]) -> None:
+        _write_csv_rows(self.selected_file, selected)
+        self.selected_file_written = True
+
+    def write_remaining(self, remaining: list[list[str]]) -> None:
+        _write_csv_rows(self.remaining_file, remaining)
+        self.remaining_file_written = True
+
+
+class CSVFileDataSource(AbstractDataSource):
+    def __init__(self, features_file: Path, people_file: Path, selected_file: Path, remaining_file: Path) -> None:
+        self.features_file = features_file
+        self.people_file = people_file
+        self.selected_file = selected_file
+        self.remaining_file = remaining_file
+
+    @contextmanager
+    def read_feature_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        report.add_line(f"Loading features from file {self.features_file}.")
+        with open(self.features_file, newline="") as csv_file:
+            feature_reader = csv.DictReader(csv_file)
+            assert feature_reader.fieldnames is not None
+            yield list(feature_reader.fieldnames), feature_reader
+
+    @contextmanager
+    def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str | int | float]]], None, None]:
+        report.add_line(f"Loading people from file {self.people_file}.")
+        with open(self.people_file, newline="") as csv_file:
+            people_reader = csv.DictReader(csv_file)
+            assert people_reader.fieldnames is not None
+            yield list(people_reader.fieldnames), people_reader
+
+    def write_selected(self, selected: list[list[str]]) -> None:
+        with open(self.selected_file, "w", newline="") as csv_file:
+            _write_csv_rows(csv_file, selected)
+
+    def write_remaining(self, remaining: list[list[str]]) -> None:
+        with open(self.remaining_file, "w", newline="") as csv_file:
+            _write_csv_rows(csv_file, remaining)
 
 
 class GSheetAdapter:

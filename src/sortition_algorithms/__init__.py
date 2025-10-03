@@ -1,6 +1,12 @@
 """Sortition algorithms for democratic lotteries."""
 
-from sortition_algorithms.adapters import CSVAdapter, GSheetAdapter
+from sortition_algorithms.adapters import (
+    AbstractDataSource,
+    CSVFileDataSource,
+    CSVStringDataSource,
+    GSheetAdapter,
+    SelectionData,
+)
 from sortition_algorithms.core import (
     find_random_sample,
     run_stratification,
@@ -12,9 +18,12 @@ from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport
 
 __all__ = [
-    "CSVAdapter",
+    "AbstractDataSource",
+    "CSVFileDataSource",
+    "CSVStringDataSource",
     "GSheetAdapter",
     "RunReport",
+    "SelectionData",
     "Settings",
     "find_random_sample",
     "read_in_features",

@@ -399,7 +399,9 @@ def override_logging_handlers(
 def set_log_level(log_level: int) -> None
 ```
 
-## Data Adapters
+## Data Sources
+
+TODO: Rewrite this section
 
 ### CSVAdapter
 

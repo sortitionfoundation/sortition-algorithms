@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from sortition_algorithms import core
-from sortition_algorithms.adapters import CSVAdapter
+from sortition_algorithms.adapters import CSVFileDataSource, CSVStringDataSource, SelectionData
 from sortition_algorithms.committee_generation import GUROBI_AVAILABLE
 from sortition_algorithms.core import run_stratification
 from sortition_algorithms.settings import Settings
@@ -64,12 +64,13 @@ def test_csv_selection_happy_path_defaults(algorithm):
     Expectations:
         Given default settings and an easy selection, we should get selected and remaining.
     """
-    adapter = CSVAdapter()
+    data_source = CSVStringDataSource(features_content, candidates_content)
+    select_data = SelectionData(data_source)
     settings = get_settings(algorithm)
-    features, _ = adapter.load_features_from_str(features_content)
-    people, people_msgs = adapter.load_people_from_str(candidates_content, settings, features)
+    features, _ = select_data.load_features()
+    people, people_report = select_data.load_people(settings, features)
     print("load_people_message: ")
-    print(people_msgs)
+    print(people_report.as_text())
 
     success, people_selected, _ = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
 
@@ -81,34 +82,41 @@ def test_csv_selection_happy_path_defaults(algorithm):
 
 
 def test_csv_load_feature_from_file_or_str_give_same_output():
-    adapter = CSVAdapter()
-    feature_from_file, _ = adapter.load_features_from_file(features_csv_path)
-    feature_from_str, _ = adapter.load_features_from_str(features_content)
+    string_data_source = CSVStringDataSource(features_content, candidates_content)
+    string_select_data = SelectionData(string_data_source)
+    file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    file_select_data = SelectionData(file_data_source)
+    feature_from_str, _ = string_select_data.load_features()
+    feature_from_file, _ = file_select_data.load_features()
     assert feature_from_file == feature_from_str
 
 
 def test_csv_load_people_from_file_or_str_give_same_output():
-    adapter = CSVAdapter()
+    string_data_source = CSVStringDataSource(features_content, candidates_content)
+    string_select_data = SelectionData(string_data_source)
+    file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    file_select_data = SelectionData(file_data_source)
     settings = get_settings()
-    features, _ = adapter.load_features_from_str(features_content)
-    people_from_file, _ = adapter.load_people_from_file(candidates_csv_path, settings, features)
-    people_from_str, _ = adapter.load_people_from_str(candidates_content, settings, features)
+    features, _ = string_select_data.load_features()
+    people_from_str, _ = string_select_data.load_people(settings, features)
+    people_from_file, _ = file_select_data.load_people(settings, features)
     assert people_from_file == people_from_str
 
 
 def test_csv_output_selected_remaining():
-    adapter = CSVAdapter()
+    data_source = CSVStringDataSource(features_content, candidates_content)
+    select_data = SelectionData(data_source)
     settings = get_settings()
-    features, _ = adapter.load_features_from_str(features_content)
-    people, _ = adapter.load_people_from_str(candidates_content, settings, features)
+    features, _ = select_data.load_features()
+    people, _ = select_data.load_people(settings, features)
 
     selected_rows, remaining_rows, _ = core.selected_remaining_tables(people, selected, features, settings)
-    adapter.output_selected_remaining(selected_rows, remaining_rows)
+    select_data.output_selected_remaining(selected_rows, remaining_rows)
 
-    selected_content = adapter.selected_file.getvalue()
+    selected_content = data_source.selected_file.getvalue()
     selected_lines = selected_content.splitlines()
     assert selected_lines[0] == csv_header
-    remaining_content = adapter.remaining_file.getvalue()
+    remaining_content = data_source.remaining_file.getvalue()
     remaining_lines = remaining_content.splitlines()
     assert remaining_lines[0] == csv_header
 

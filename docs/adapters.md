@@ -2,34 +2,35 @@
 
 Data adapters handle loading demographic data and candidate pools from various sources, and exporting selection results back to those sources. The library includes adapters for CSV files and Google Sheets, and you can write custom adapters for other data sources.
 
-## Built-in Adapters
+## Built-in Data Sources
 
-### CSVAdapter
+### CSVFileDataSource
 
 The most commonly used adapter for working with local CSV files.
 
 #### Basic Usage
 
 ```python
-from sortition_algorithms import CSVAdapter, Settings
+from sortition_algorithms import CSVFileDataSource, SelectionData, Settings
 from pathlib import Path
 
-adapter = CSVAdapter()
+data_source = CSVFileDataSource(
+    Path("demographics.csv"),
+    Path("candidates.csv"),
+    Path("selected.csv"),
+    Path("remaining.csv"),
+)
+select_data = SelectionData(data_source)
 
 # Load data
-features, report = adapter.load_features_from_file(Path("demographics.csv"))
-people, report = adapter.load_people_from_file(Path("candidates.csv"), Settings(), features)
+features, report = select_data.load_features()
+people, report = select_data.load_people(Settings(), features)
 
-# Configure output files
-adapter.selected_file = open("selected.csv", "w", newline="")
-adapter.remaining_file = open("remaining.csv", "w", newline="")
+# Do Selection
+# ...
 
 # Export results (after running selection)
-adapter.output_selected_remaining(selected_rows, remaining_rows)
-
-# Clean up
-adapter.selected_file.close()
-adapter.remaining_file.close()
+data_source.output_selected_remaining(selected_rows, remaining_rows)
 ```
 
 #### Working with String Data
@@ -46,27 +47,35 @@ people_csv = """id,Name,Gender
 p001,Alice,Female
 p002,Bob,Male"""
 
-features, report = adapter.load_features_from_str(features_csv)
-people, report = adapter.load_people_from_str(people_csv, settings, features)
+data_source = CSVStringDataSource(features_csv, people_csv)
+select_data = SelectionData(data_source)
+
+features, report = select_data.load_features()
+people, report = select_data.load_people(Settings(), features)
 ```
 
 #### Full CSV Workflow Example
 
 ```python
-from sortition_algorithms import CSVAdapter, run_stratification, selected_remaining_tables, Settings
+from sortition_algorithms import CSVFileDataSource, run_stratification, selected_remaining_tables, SelectionData, Settings
 from pathlib import Path
 import csv
 
 def csv_selection_workflow():
     # Initialize
-    adapter = CSVAdapter()
+    data_source = CSVFileDataSource(
+        Path("demographics.csv"),
+        Path("candidates.csv"),
+        Path("selected.csv"),
+        Path("remaining.csv"),
+    )
+    select_data = SelectionData(data_source)
     settings = Settings()
 
     # Load data
-    features, report = adapter.load_features_from_file(Path("demographics.csv"))
+    features, report = select_data.load_features()
     print(report.as_text())
-
-    people, report = adapter.load_people_from_file(Path("candidates.csv"), settings, features)
+    people, report = select_data.load_people(Settings(), features)
     print(report.as_text())
 
     # Run selection
@@ -79,13 +88,7 @@ def csv_selection_workflow():
         )
 
         # Export results
-        with open("selected.csv", "w", newline="") as selected_f, \\
-             open("remaining.csv", "w", newline="") as remaining_f:
-
-            adapter.selected_file = selected_f
-            adapter.remaining_file = remaining_f
-            adapter.output_selected_remaining(selected_table, remaining_table)
-
+        data_source.output_selected_remaining(selected_rows, remaining_rows)
         print(f"Selected {len(panels[0])} people successfully")
     else:
         print("Selection failed")

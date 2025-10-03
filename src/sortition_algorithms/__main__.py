@@ -85,13 +85,16 @@ def csv(
     """Do sortition with CSV files."""
     if verbose:
         set_log_level(logging.DEBUG)
-    adapter = adapters.CSVAdapter()
+    data_source = adapters.CSVFileDataSource(
+        Path(features_csv), Path(people_csv), Path(selected_csv), Path(remaining_csv)
+    )
+    select_data = adapters.SelectionData(data_source)
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
-    features, report = adapter.load_features_from_file(Path(features_csv))
+    features, report = select_data.load_features()
     echo_report(report)
 
-    people, report = adapter.load_people_from_file(Path(people_csv), settings_obj, features)
+    people, report = select_data.load_people(settings_obj, features)
     echo_report(report)
 
     success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
@@ -102,13 +105,7 @@ def csv(
     selected_rows, remaining_rows, _ = core.selected_remaining_tables(
         people, people_selected[0], features, settings_obj
     )
-    with (
-        open(selected_csv, "w", newline="") as selected_f,
-        open(remaining_csv, "w", newline="") as remaining_f,
-    ):
-        adapter.selected_file = selected_f
-        adapter.remaining_file = remaining_f
-        adapter.output_selected_remaining(selected_rows, remaining_rows)
+    select_data.output_selected_remaining(selected_rows, remaining_rows)
 
 
 @cli.command()
@@ -244,10 +241,11 @@ def gsheet(
 )
 def gen_sample(settings: str, features_csv: str, people_csv: str, number_wanted: int) -> None:
     """Generate a sample CSV file of people compatible with features and settings."""
-    adapter = adapters.CSVAdapter()
+    data_source = adapters.CSVFileDataSource(Path(features_csv), Path(people_csv), Path("/"), Path("/"))
+    select_data = adapters.SelectionData(data_source)
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
-    features, report = adapter.load_features_from_file(Path(features_csv))
+    features, report = select_data.load_features()
     echo_report(report)
     with open(people_csv, "w", newline="") as people_f:
         people_features.create_readable_sample_file(features, people_f, number_wanted, settings_obj)

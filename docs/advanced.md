@@ -48,8 +48,9 @@ def create_features_from_list(feature_list):
         csv_content += f"{feature},{value},{min_val},{max_val}\n"
 
     # Use CSV adapter to create FeatureCollection
-    adapter = CSVAdapter()
-    features, msgs = adapter.load_features_from_str(csv_content)
+    data_source = CSVStringDataSource(csv_content, "")
+    select_data = SelectionData(data_source)
+    features, msgs = data_source.load_features()
     return features
 ```
 
