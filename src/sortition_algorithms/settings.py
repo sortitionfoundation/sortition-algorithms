@@ -56,8 +56,6 @@ random_number_seed = 0
 def check_columns_for_same_address(instance: "Settings", attribute: Any, value: Any) -> None:
     if not isinstance(value, list):
         raise TypeError("check_same_address_columns must be a LIST of strings")
-    if len(value) not in (0, 2):
-        raise ValueError("check_same_address_columns must be a list of ZERO OR TWO strings")
     if not all(isinstance(element, str) for element in value):
         raise TypeError("check_same_address_columns must be a list of STRINGS")
     if len(value) == 0 and instance.check_same_address:

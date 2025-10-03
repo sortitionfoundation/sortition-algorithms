@@ -67,20 +67,6 @@ class TestSettingsConstructor:
         with pytest.raises(TypeError, match="check_same_address_columns must be a LIST of strings"):
             create_test_settings(check_same_address_columns="not_a_list")  # t
 
-    def test_check_same_address_columns_must_be_zero_or_two_items(self):
-        """Test that check_same_address_columns must have 0 or 2 items."""
-        with pytest.raises(
-            ValueError,
-            match="check_same_address_columns must be a list of ZERO OR TWO strings",
-        ):
-            create_test_settings(check_same_address_columns=["only_one"])
-
-        with pytest.raises(
-            ValueError,
-            match="check_same_address_columns must be a list of ZERO OR TWO strings",
-        ):
-            create_test_settings(check_same_address_columns=["one", "two", "three"])
-
     def test_check_same_address_columns_must_be_strings(self):
         """Test that check_same_address_columns must contain strings."""
         with pytest.raises(TypeError, match="check_same_address_columns must be a list of STRINGS"):
