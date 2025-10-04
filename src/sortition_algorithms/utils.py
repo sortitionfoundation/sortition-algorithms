@@ -24,7 +24,7 @@ def default_logging_setup() -> tuple[logging.Logger, logging.Logger]:
     user_logger.setLevel(logging.INFO)
     if not user_logger.handlers:
         # no set up has been done yet - so we do it here
-        pass
+        user_logger.addHandler(logging.StreamHandler(sys.stdout))
     logger = logging.getLogger("sortition_algorithms")
     logger.setLevel(logging.INFO)
     if not logger.handlers:
