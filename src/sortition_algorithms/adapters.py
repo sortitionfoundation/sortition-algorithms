@@ -385,7 +385,7 @@ class GSheetDataSource(AbstractDataSource):
         self.selected_tab_name = tab_selected.title
         tab_selected.update(selected)
         tab_selected.format("A1:U1", self.hl_light_blue)
-        user_logger.info("Selected people written to {tab_original_selected.title} tab")
+        user_logger.info(f"Selected people written to {tab_selected.title} tab")
 
     def write_remaining(self, remaining: list[list[str]]) -> None:
         tab_remaining = self._clear_or_create_tab(
@@ -396,7 +396,7 @@ class GSheetDataSource(AbstractDataSource):
         self.remaining_tab_name = tab_remaining.title
         tab_remaining.update(remaining)
         tab_remaining.format("A1:U1", self.hl_light_blue)
-        user_logger.info("Remaining people written to {tab_remaining.title} tab")
+        user_logger.info(f"Remaining people written to {tab_remaining.title} tab")
 
     def highlight_dupes(self, dupes: list[int]) -> None:
         tab_remaining = self._get_tab(self.remaining_tab_name)
