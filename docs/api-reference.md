@@ -320,7 +320,7 @@ Some report messages are also sent to the logging system in real-time. If your a
 
 The library uses Python's standard logging system with two loggers:
 
-- `sortition_algorithms.user` - Messages intended for end users
+- `sortition_algorithms_user` - Messages intended for end users
 - `sortition_algorithms` - Debug messages for developers
 
 ### Setting Up Custom Log Handlers

@@ -20,7 +20,7 @@ def default_logging_setup() -> tuple[logging.Logger, logging.Logger]:
     # we have two loggers
     # - user_logger is used for messages that any user should see
     # - logger is used for messages that only a developer or admin should need to see
-    user_logger = logging.getLogger("sortition_algorithms.user")
+    user_logger = logging.getLogger("sortition_algorithms_user")
     user_logger.setLevel(logging.INFO)
     if not user_logger.handlers:
         # no set up has been done yet - so we do it here
@@ -48,7 +48,7 @@ def override_logging_handlers(
 ) -> None:
     """Replace the default handlers with other ones"""
     if user_logger_handlers:
-        _override_handlers_for(logging.getLogger("sortition_algorithms.user"), user_logger_handlers)
+        _override_handlers_for(logging.getLogger("sortition_algorithms_user"), user_logger_handlers)
     if logger_handlers:
         _override_handlers_for(logging.getLogger("sortition_algorithms"), logger_handlers)
 
