@@ -164,7 +164,7 @@ def gsheet_selection_workflow():
         return
 
     # Run selection
-    success, panels, msgs = run_stratification(features, people, 120, settings)
+    success, panels, report = run_stratification(features, people, 120, settings)
 
     if success:
         # Format results
@@ -177,13 +177,13 @@ def gsheet_selection_workflow():
         adapter.remaining_tab_name = "Reserve Pool"
 
         # Export to Google Sheets
-        dupes = adapter.output_selected_remaining(selected_table, remaining_table, settings)
+        dupes, _ = adapter.output_selected_remaining(selected_table, remaining_table, settings)
 
         print(f"Selected {len(panels[0])} people successfully")
         if dupes:
             print(f"Warning: {len(dupes)} people in remaining pool share addresses")
     else:
-        print("Selection failed:", "\n".join(msgs))
+        print("Selection failed:", report.as_text())
 ```
 
 #### Google Sheets Data Format

@@ -475,7 +475,7 @@ success, panels, report = run_stratification(features, people, 100, settings)
 selected_rows, remaining_rows, _ = selected_remaining_tables(
     people, panels[0], features, settings
 )
-dupes = selection_data.output_selected_remaining(
+dupes, report = selection_data.output_selected_remaining(
     selected_rows, remaining_rows, settings
 )
 ```

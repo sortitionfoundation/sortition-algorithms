@@ -92,10 +92,10 @@ class AbstractDataSource(abc.ABC):
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
 
     @abc.abstractmethod
-    def write_selected(self, selected: list[list[str]]) -> None: ...
+    def write_selected(self, selected: list[list[str]], report: RunReport) -> None: ...
 
     @abc.abstractmethod
-    def write_remaining(self, remaining: list[list[str]]) -> None: ...
+    def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None: ...
 
     @abc.abstractmethod
     def highlight_dupes(self, dupes: list[int]) -> None: ...
@@ -131,18 +131,23 @@ class SelectionData:
         people_selected_rows: list[list[str]],
         people_remaining_rows: list[list[str]],
         settings: Settings,
-    ) -> list[int]:
-        self.data_source.write_selected(people_selected_rows)
+    ) -> tuple[list[int], RunReport]:
+        report = RunReport()
+        self.data_source.write_selected(people_selected_rows, report)
         if not self.gen_rem_tab:
-            return []
-        self.data_source.write_remaining(people_remaining_rows)
+            report.add_line_and_log("Finished writing selected (only)", logging.INFO)
+            return [], report
+        self.data_source.write_remaining(people_remaining_rows, report)
         dupes = generate_dupes(people_remaining_rows, settings)
         self.data_source.highlight_dupes(dupes)
-        return dupes
+        report.add_line_and_log("Finished writing both selected and remaining", logging.INFO)
+        return dupes, report
 
-    def output_multi_selections(self, multi_selections: list[list[str]]) -> None:
+    def output_multi_selections(self, multi_selections: list[list[str]]) -> RunReport:
         assert not self.gen_rem_tab
-        self.data_source.write_selected(multi_selections)
+        report = RunReport()
+        self.data_source.write_selected(multi_selections, report)
+        return report
 
 
 def _write_csv_rows(out_file: TextIO, rows: list[list[str]]) -> None:
@@ -183,11 +188,11 @@ class CSVStringDataSource(AbstractDataSource):
         assert people_reader.fieldnames is not None
         yield list(people_reader.fieldnames), people_reader
 
-    def write_selected(self, selected: list[list[str]]) -> None:
+    def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
         _write_csv_rows(self.selected_file, selected)
         self.selected_file_written = True
 
-    def write_remaining(self, remaining: list[list[str]]) -> None:
+    def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None:
         _write_csv_rows(self.remaining_file, remaining)
         self.remaining_file_written = True
 
@@ -222,11 +227,13 @@ class CSVFileDataSource(AbstractDataSource):
             assert people_reader.fieldnames is not None
             yield list(people_reader.fieldnames), people_reader
 
-    def write_selected(self, selected: list[list[str]]) -> None:
+    def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
+        report.add_line_and_log(f"Writing selected rows to {self.selected_file}", logging.INFO)
         with open(self.selected_file, "w", newline="") as csv_file:
             _write_csv_rows(csv_file, selected)
 
-    def write_remaining(self, remaining: list[list[str]]) -> None:
+    def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None:
+        report.add_line_and_log(f"Writing remaining rows to {self.selected_file}", logging.INFO)
         with open(self.remaining_file, "w", newline="") as csv_file:
             _write_csv_rows(csv_file, remaining)
 
@@ -376,27 +383,28 @@ class GSheetDataSource(AbstractDataSource):
         self._report.add_line(f"Reading in '{self.people_tab_name}' tab in above Google sheet.")
         yield people_head, people_body
 
-    def write_selected(self, selected: list[list[str]]) -> None:
+    def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
         tab_selected = self._clear_or_create_tab(
             self.selected_tab_name_stub,
             "ignoreme",
             0,
         )
+        report.add_line_and_log(f"Writing selected people to tab: {tab_selected.title}", logging.INFO)
         self.selected_tab_name = tab_selected.title
         tab_selected.update(selected)
         tab_selected.format("A1:U1", self.hl_light_blue)
         user_logger.info(f"Selected people written to {tab_selected.title} tab")
 
-    def write_remaining(self, remaining: list[list[str]]) -> None:
+    def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None:
         tab_remaining = self._clear_or_create_tab(
             self.remaining_tab_name_stub,
             self.selected_tab_name_stub,
             -1,
         )
+        report.add_line_and_log(f"Writing remaining people to tab: {tab_remaining.title}", logging.INFO)
         self.remaining_tab_name = tab_remaining.title
         tab_remaining.update(remaining)
         tab_remaining.format("A1:U1", self.hl_light_blue)
-        user_logger.info(f"Remaining people written to {tab_remaining.title} tab")
 
     def highlight_dupes(self, dupes: list[int]) -> None:
         tab_remaining = self._get_tab(self.remaining_tab_name)
