@@ -292,7 +292,7 @@ class GSheetDataSource(AbstractDataSource):
             else:
                 self._spreadsheet = self.client.open(self._g_sheet_name)
             self._open_g_sheet_name = self._g_sheet_name
-            self._report.add_line_and_log(f"Opened Google Sheet: '{self._g_sheet_name}'. ", log_level=logging.INFO)
+            self._report.add_line_and_log(f"Opened Google Sheet: '{self._spreadsheet.title}'. ", log_level=logging.INFO)
         return self._spreadsheet
 
     def _get_tab(self, tab_name: str) -> gspread.Worksheet | None:
