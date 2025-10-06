@@ -401,5 +401,7 @@ class GSheetDataSource(AbstractDataSource):
     def highlight_dupes(self, dupes: list[int]) -> None:
         tab_remaining = self._get_tab(self.remaining_tab_name)
         assert tab_remaining is not None, "highlight_dupes() has been called without first calling write_remaining()"
-        for i in range(min(30, len(dupes))):
-            tab_remaining.format(str(dupes[i]), self.hl_orange)
+        # note that the indexes we have produced start at 0, but the row indexes start at 1
+        # so we need to add 1 to the indexes.
+        row_strings = [f"A{index + 1}:U{index + 1}" for index in dupes]
+        tab_remaining.format(row_strings, self.hl_orange)
