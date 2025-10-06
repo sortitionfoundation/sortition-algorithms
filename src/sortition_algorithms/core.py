@@ -568,6 +568,9 @@ def run_stratification(
         except errors.InfeasibleQuotasError as err:
             report.add_lines(err.output)
             break
+        except errors.InfeasibleQuotasCantRelaxError as err:
+            report.add_line(err.message)
+            break
         except errors.SelectionError as serr:
             report.add_line(f"Failed: Selection Error thrown: {serr}")
 
