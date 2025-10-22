@@ -210,6 +210,41 @@ def gsheet(
 
 @cli.command()
 @click.option(
+    "--auth-json-file",
+    envvar="SORTITION_GDOC_AUTH",
+    type=click.Path(exists=True, dir_okay=False),
+    required=True,
+    help="Path to file with OAuth2 details to access google account.",
+)
+@click.option("-g", "--gsheet-name", required=True, help="Name of GDoc Spreadsheet to use.")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="If used, report what would be deleted without actually deleting.",
+)
+def cleanup_gsheet(auth_json_file: str, gsheet_name: str, dry_run: bool) -> None:
+    """Clean up old output tabs from a Google Spreadsheet."""
+    data_source = adapters.GSheetDataSource(
+        feature_tab_name="",
+        people_tab_name="",
+        auth_json_path=Path(auth_json_file),
+    )
+    data_source.set_g_sheet_name(gsheet_name)
+    deleted_tabs = data_source.delete_old_output_tabs(dry_run=dry_run)
+
+    if not deleted_tabs:
+        click.echo("No old output tabs found to delete.")
+    else:
+        if dry_run:
+            click.echo("Tabs that would be deleted:")
+        else:
+            click.echo("Deleted tabs:")
+        for tab_name in deleted_tabs:
+            click.echo(f"  - {tab_name}")
+
+
+@cli.command()
+@click.option(
     "-S",
     "--settings",
     envvar="SORTITION_SETTINGS",

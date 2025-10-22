@@ -415,3 +415,31 @@ class GSheetDataSource(AbstractDataSource):
         # so we need to add 1 to the indexes.
         row_strings = [f"A{index + 1}:U{index + 1}" for index in dupes]
         tab_remaining.format(row_strings, self.hl_orange)
+
+    def delete_old_output_tabs(self, dry_run: bool = False) -> list[str]:
+        """
+        Find and delete all tabs with names starting with selected_tab_name_stub or remaining_tab_name_stub.
+
+        Args:
+            dry_run: If True, report what would be deleted without actually deleting.
+
+        Returns:
+            List of tab names that were deleted (or would be deleted in dry_run mode).
+        """
+        if not self._g_sheet_name:
+            return []
+
+        all_tabs = self.spreadsheet.worksheets()
+        tabs_to_delete: list[gspread.Worksheet] = []
+
+        for tab in all_tabs:
+            if tab.title.startswith(self.selected_tab_name_stub) or tab.title.startswith(self.remaining_tab_name_stub):
+                tabs_to_delete.append(tab)
+
+        deleted_names: list[str] = []
+        for tab in tabs_to_delete:
+            deleted_names.append(tab.title)
+            if not dry_run:
+                self.spreadsheet.del_worksheet(tab)
+
+        return deleted_names
