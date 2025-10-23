@@ -278,7 +278,10 @@ class GSheetDataSource(AbstractDataSource):
                 str(self.auth_json_path),
                 self.scope,
             )
-            self._client = gspread.authorize(creds)
+            # if we're getting rate limited, go slower!
+            # by using the BackOffHTTPClient, that will sleep and retry
+            # if it gets an error related to API usage rate limits.
+            self._client = gspread.authorize(creds, http_client=gspread.BackOffHTTPClient)
         return self._client
 
     @property
