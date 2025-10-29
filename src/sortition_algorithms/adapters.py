@@ -310,14 +310,21 @@ class GSheetDataSource(AbstractDataSource):
     def _tab_exists(self, tab_name: str) -> bool:
         return bool(self._get_tab(tab_name))
 
+    def _get_tab_titles(self) -> list[str]:
+        if not self._g_sheet_name:
+            return []
+        return [tab.title for tab in self.spreadsheet.worksheets()]
+
     def _clear_or_create_tab(self, tab_name: str, other_tab_name: str, inc: int) -> gspread.Worksheet:
         # this now does not clear data but increments the sheet number...
         num = 0
         tab_ready: gspread.Worksheet | None = None
         tab_name_new = f"{tab_name}{num}"
         other_tab_name_new = f"{other_tab_name}{num}"
+        # get list of tabs once and cache it for a little while
+        current_tab_titles = self._get_tab_titles()
         while tab_ready is None:
-            if self._tab_exists(tab_name_new) or self._tab_exists(other_tab_name_new):
+            if tab_name_new in current_tab_titles or other_tab_name_new in current_tab_titles:
                 num += 1
                 tab_name_new = f"{tab_name}{num}"
                 other_tab_name_new = f"{other_tab_name}{num}"
@@ -399,6 +406,7 @@ class GSheetDataSource(AbstractDataSource):
         user_logger.info(f"Selected people written to {tab_selected.title} tab")
 
     def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None:
+        # TODO: do we need to call this again? Or just save the number used by selected?
         tab_remaining = self._clear_or_create_tab(
             self.remaining_tab_name_stub,
             self.selected_tab_name_stub,
