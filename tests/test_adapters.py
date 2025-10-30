@@ -3,9 +3,16 @@ from pathlib import Path
 import pytest
 
 from sortition_algorithms import core
-from sortition_algorithms.adapters import CSVFileDataSource, CSVStringDataSource, SelectionData, generate_dupes
+from sortition_algorithms.adapters import (
+    CSVFileDataSource,
+    CSVStringDataSource,
+    GSheetTabNamer,
+    SelectionData,
+    generate_dupes,
+)
 from sortition_algorithms.committee_generation import GUROBI_AVAILABLE
 from sortition_algorithms.core import run_stratification
+from sortition_algorithms.errors import SelectionError
 from sortition_algorithms.settings import Settings
 
 # only test leximin if gurobipy is available
@@ -304,3 +311,59 @@ def test_generate_dupes_partial_address_match():
     )
     dupes = generate_dupes(people_remaining_rows, settings)
     assert dupes == []
+
+
+def test_tab_namer_refuses_to_give_names_before_scanning():
+    """
+    Test the tab namer refuses to give names before running find_unused_tab_suffix()
+    """
+    namer = GSheetTabNamer()
+    with pytest.raises(SelectionError):
+        namer.selected_tab_name()
+    with pytest.raises(SelectionError):
+        namer.remaining_tab_name()
+
+
+def test_tab_namer_gives_names_after_scanning():
+    """
+    Test the tab namer give names after running find_unused_tab_suffix()
+    """
+    namer = GSheetTabNamer()
+    namer.find_unused_tab_suffix(["Categories", "Remaining"])
+    assert namer.selected_tab_name() == "Original Selected - output - 0"
+    assert namer.remaining_tab_name() == "Remaining - output - 0"
+
+
+def test_tab_namer_refuses_to_give_names_after_reset():
+    """
+    Test the tab namer refuses to give names before running find_unused_tab_suffix()
+    """
+    namer = GSheetTabNamer()
+    namer.find_unused_tab_suffix(["Categories", "Remaining"])
+    namer.reset()
+    with pytest.raises(SelectionError):
+        namer.selected_tab_name()
+    with pytest.raises(SelectionError):
+        namer.remaining_tab_name()
+
+
+@pytest.mark.parametrize(
+    "tab_names,selected_tab_name",
+    [
+        (["Cat"], "select 0"),
+        (["Cat", "select 1"], "select 0"),
+        (["Cat", "remain 1"], "select 0"),
+        (["Cat", "select 1", "remain 1"], "select 0"),
+        (["Cat", "select 0"], "select 1"),
+        (["Cat", "remain 0"], "select 1"),
+        (["Cat", "select 0", "remain 0"], "select 1"),
+        (["Cat", "select 0", "select 1"], "select 2"),
+        (["Cat", "select 0", "remain 1"], "select 2"),
+    ],
+)
+def test_tab_namer_finds_correct_suffix(tab_names, selected_tab_name):
+    namer = GSheetTabNamer()
+    namer.selected_tab_name_stub = "select "
+    namer.remaining_tab_name_stub = "remain "
+    namer.find_unused_tab_suffix(tab_names)
+    assert namer.selected_tab_name() == selected_tab_name

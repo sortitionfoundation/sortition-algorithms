@@ -241,6 +241,41 @@ class CSVFileDataSource(AbstractDataSource):
         """Cannot highlight a CSV file"""
 
 
+class GSheetTabNamer:
+    def __init__(self) -> None:
+        self.selected_tab_name_stub = "Original Selected - output - "
+        self.remaining_tab_name_stub = "Remaining - output - "
+        self._write_tab_suffix = ""
+
+    def reset(self) -> None:
+        self._write_tab_suffix = ""
+
+    def find_unused_tab_suffix(self, current_tab_titles: list[str]) -> None:
+        # have an upper limit to avoid infinite loops
+        for number in range(1000):
+            selected_tab_name_candidate = f"{self.selected_tab_name_stub}{number}"
+            remaining_tab_name_candidate = f"{self.remaining_tab_name_stub}{number}"
+            if (
+                selected_tab_name_candidate not in current_tab_titles
+                and remaining_tab_name_candidate not in current_tab_titles
+            ):
+                self._write_tab_suffix = f"{number}"
+                break
+
+    def selected_tab_name(self) -> str:
+        if not self._write_tab_suffix:
+            raise SelectionError("Logic error - trying to create new tab before choosing suffix")
+        return f"{self.selected_tab_name_stub}{self._write_tab_suffix}"
+
+    def remaining_tab_name(self) -> str:
+        if not self._write_tab_suffix:
+            raise SelectionError("Logic error - trying to create new tab before choosing suffix")
+        return f"{self.remaining_tab_name_stub}{self._write_tab_suffix}"
+
+    def matches_stubs(self, tab_name: str) -> bool:
+        return tab_name.startswith(self.selected_tab_name_stub) or tab_name.startswith(self.remaining_tab_name_stub)
+
+
 class GSheetDataSource(AbstractDataSource):
     scope: ClassVar = [
         "https://spreadsheets.google.com/feeds",
@@ -261,23 +296,19 @@ class GSheetDataSource(AbstractDataSource):
         self.auth_json_path = auth_json_path
         self._client: gspread.client.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
-        self.selected_tab_name_stub = "Original Selected - output - "
-        self.remaining_tab_name_stub = "Remaining - output - "
         self.new_tab_default_size_rows = 2
         self.new_tab_default_size_cols = 40
         self._g_sheet_name = ""
         self._open_g_sheet_name = ""
         self.selected_tab_name = ""
         self.remaining_tab_name = ""
+        self.tab_namer = GSheetTabNamer()
         self._report = RunReport()
 
     @property
     def client(self) -> gspread.client.Client:
         if self._client is None:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(
-                str(self.auth_json_path),
-                self.scope,
-            )
+            creds = ServiceAccountCredentials.from_json_keyfile_name(str(self.auth_json_path), self.scope)
             # if we're getting rate limited, go slower!
             # by using the BackOffHTTPClient, that will sleep and retry
             # if it gets an error related to API usage rate limits.
@@ -289,6 +320,7 @@ class GSheetDataSource(AbstractDataSource):
         if self._open_g_sheet_name != self._g_sheet_name:
             # reset the spreadsheet if the name changed
             self._spreadsheet = None
+            self.tab_namer.reset()
         if self._spreadsheet is None:
             if self._g_sheet_name.startswith("https://"):
                 self._spreadsheet = self.client.open_by_url(self._g_sheet_name)
@@ -315,34 +347,19 @@ class GSheetDataSource(AbstractDataSource):
             return []
         return [tab.title for tab in self.spreadsheet.worksheets()]
 
-    def _clear_or_create_tab(self, tab_name: str, other_tab_name: str, inc: int) -> gspread.Worksheet:
-        # this now does not clear data but increments the sheet number...
-        num = 0
-        tab_ready: gspread.Worksheet | None = None
-        tab_name_new = f"{tab_name}{num}"
-        other_tab_name_new = f"{other_tab_name}{num}"
-        # get list of tabs once and cache it for a little while
-        current_tab_titles = self._get_tab_titles()
-        while tab_ready is None:
-            if tab_name_new in current_tab_titles or other_tab_name_new in current_tab_titles:
-                num += 1
-                tab_name_new = f"{tab_name}{num}"
-                other_tab_name_new = f"{other_tab_name}{num}"
-            else:
-                if inc == -1:
-                    tab_name_new = f"{tab_name}{num - 1}"
-                tab_ready = self.spreadsheet.add_worksheet(
-                    title=tab_name_new,
-                    rows=self.new_tab_default_size_rows,
-                    cols=self.new_tab_default_size_cols,
-                )
-        return tab_ready
+    def _create_tab(self, tab_name: str) -> gspread.Worksheet:
+        return self.spreadsheet.add_worksheet(
+            title=tab_name,
+            rows=self.new_tab_default_size_rows,
+            cols=self.new_tab_default_size_cols,
+        )
 
     def set_g_sheet_name(self, g_sheet_name: str) -> None:
         # if we're changing spreadsheet, reset the spreadsheet object
         if self._g_sheet_name != g_sheet_name:
             self._spreadsheet = None
             self._g_sheet_name = g_sheet_name
+            self.tab_namer.reset()
 
     @contextmanager
     def read_feature_data(
@@ -394,11 +411,8 @@ class GSheetDataSource(AbstractDataSource):
         yield people_head, people_body
 
     def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
-        tab_selected = self._clear_or_create_tab(
-            self.selected_tab_name_stub,
-            "ignoreme",
-            0,
-        )
+        self.tab_namer.find_unused_tab_suffix(self._get_tab_titles())
+        tab_selected = self._create_tab(self.tab_namer.selected_tab_name())
         report.add_line_and_log(f"Writing selected people to tab: {tab_selected.title}", logging.INFO)
         self.selected_tab_name = tab_selected.title
         tab_selected.update(selected)
@@ -406,12 +420,8 @@ class GSheetDataSource(AbstractDataSource):
         user_logger.info(f"Selected people written to {tab_selected.title} tab")
 
     def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None:
-        # TODO: do we need to call this again? Or just save the number used by selected?
-        tab_remaining = self._clear_or_create_tab(
-            self.remaining_tab_name_stub,
-            self.selected_tab_name_stub,
-            -1,
-        )
+        # the number is selected during write_selected(), so we reuse it here
+        tab_remaining = self._create_tab(self.tab_namer.remaining_tab_name())
         report.add_line_and_log(f"Writing remaining people to tab: {tab_remaining.title}", logging.INFO)
         self.remaining_tab_name = tab_remaining.title
         tab_remaining.update(remaining)
@@ -420,7 +430,7 @@ class GSheetDataSource(AbstractDataSource):
     def highlight_dupes(self, dupes: list[int]) -> None:
         if not dupes:
             return
-        tab_remaining = self._get_tab(self.remaining_tab_name)
+        tab_remaining = self._get_tab(self.tab_namer.remaining_tab_name())
         assert tab_remaining is not None, "highlight_dupes() has been called without first calling write_remaining()"
         # note that the indexes we have produced start at 0, but the row indexes start at 1
         # so we need to add 1 to the indexes.
@@ -429,7 +439,7 @@ class GSheetDataSource(AbstractDataSource):
 
     def delete_old_output_tabs(self, dry_run: bool = False) -> list[str]:
         """
-        Find and delete all tabs with names starting with selected_tab_name_stub or remaining_tab_name_stub.
+        Find and delete all tabs with names starting with the tab stubs for selected or remaining
 
         Args:
             dry_run: If True, report what would be deleted without actually deleting.
@@ -444,7 +454,7 @@ class GSheetDataSource(AbstractDataSource):
         tabs_to_delete: list[gspread.Worksheet] = []
 
         for tab in all_tabs:
-            if tab.title.startswith(self.selected_tab_name_stub) or tab.title.startswith(self.remaining_tab_name_stub):
+            if self.tab_namer.matches_stubs(tab.title):
                 tabs_to_delete.append(tab)
 
         deleted_names: list[str] = []
