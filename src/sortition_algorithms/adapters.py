@@ -370,7 +370,7 @@ class GSheetDataSource(AbstractDataSource):
             if not self._tab_exists(self.feature_tab_name):
                 msg = (
                     f"Error in Google sheet: no tab called '{self.feature_tab_name}' "
-                    f"found in spreadsheet '{self._g_sheet_name}'."
+                    f"found in spreadsheet '{self.spreadsheet.title}'."
                 )
                 raise SelectionError(msg)
         except gspread.SpreadsheetNotFound as err:
@@ -390,7 +390,7 @@ class GSheetDataSource(AbstractDataSource):
             if not self._tab_exists(self.people_tab_name):
                 msg = (
                     f"Error in Google sheet: no tab called '{self.people_tab_name}' "
-                    f"found in spreadsheet '{self._g_sheet_name}'."
+                    f"found in spreadsheet '{self.spreadsheet.title}'."
                 )
                 raise SelectionError(msg)
         except gspread.SpreadsheetNotFound as err:

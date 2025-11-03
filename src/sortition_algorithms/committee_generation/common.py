@@ -302,9 +302,9 @@ def _extract_relaxed_features_and_messages(
 
         # Generate output messages
         if new_min < original_min:
-            output_lines.append(f"Recommend lowering lower quota of {feature_name}:{fvalue_name} to {new_min}.")
+            output_lines.append(f"Recommend lowering lower quota of '{feature_name}:{fvalue_name}' to {new_min}.")
         if new_max > original_max:
-            output_lines.append(f"Recommend raising upper quota of {feature_name}:{fvalue_name} to {new_max}.")
+            output_lines.append(f"Recommend raising upper quota of '{feature_name}:{fvalue_name}' to {new_max}.")
 
     return relaxed_features, output_lines
 
