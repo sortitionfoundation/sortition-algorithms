@@ -367,3 +367,22 @@ def test_tab_namer_finds_correct_suffix(tab_names, selected_tab_name):
     namer.remaining_tab_name_stub = "remain "
     namer.find_unused_tab_suffix(tab_names)
     assert namer.selected_tab_name() == selected_tab_name
+
+
+@pytest.mark.parametrize(
+    "tab_name,match",
+    [
+        ("select - 0", True),
+        ("select ", True),
+        ("select", False),
+        ("remain - 0", True),
+        ("remain ", True),
+        ("remain", False),
+        ("other - 0", False),
+    ],
+)
+def test_tab_namer_matches_stubs(tab_name, match):
+    namer = GSheetTabNamer()
+    namer.selected_tab_name_stub = "select "
+    namer.remaining_tab_name_stub = "remain "
+    assert namer.matches_stubs(tab_name) == match
