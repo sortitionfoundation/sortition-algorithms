@@ -361,7 +361,7 @@ def find_random_sample(
     return committee_lottery, report
 
 
-def _initial_print_category_info(
+def _initial_category_info_table(
     features: FeatureCollection,
     people: People,
 ) -> RunReport:
@@ -396,7 +396,7 @@ def _initial_print_category_info(
     return report
 
 
-def _print_category_info(
+def _category_info_table(
     features: FeatureCollection,
     people: People,
     people_selected: list[frozenset[str]],
@@ -446,7 +446,7 @@ def _check_category_selected(
     people: People,
     people_selected: list[frozenset[str]],
     number_selections: int,
-) -> tuple[bool, RunReport]:
+) -> None:
     """Check if selected committee meets all feature value targets.
 
     Args:
@@ -456,33 +456,36 @@ def _check_category_selected(
         number_selections: Number of selections made
 
     Returns:
-        Tuple of (success, output_messages)
+        None. Raises error if targets not hit.
     """
     report = RunReport()
     if number_selections > 1:
         report.add_line("No target checks done for multiple selections - please see your output files.")
-        return True, report
+        return
 
     if len(people_selected) != 1:
-        return True, report
-
-    hit_targets = True
-    last_feature_fail = ""
+        return
 
     # Make working copy and count selected people
     select_collection = select_from_feature_collection(features)
-
     simple_add_selected(people_selected[0], people, select_collection)
 
     # Check if quotas are met
+    feature_fails: list[str] = []
     for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
         if not fv_counts.hit_target:
-            hit_targets = False
-            last_feature_fail = f"{feature_name}: {fvalue_name}"
+            feature_fails.append(
+                f"{feature_name}/{fvalue_name} actual: {fv_counts.selected} "
+                f"min: {fv_counts.min_max.min} max: {fv_counts.min_max.max}"
+            )
 
-    if not hit_targets:
-        report.add_line(f"Failed to get minimum or got more than maximum in (at least) category: {last_feature_fail}")
-    return hit_targets, report
+    if not feature_fails:
+        return
+
+    raise errors.SelectionMultilineError([
+        "Failed to get minimum or got more than maximum in categories:",
+        *feature_fails,
+    ])
 
 
 def run_stratification(
@@ -530,8 +533,7 @@ def run_stratification(
         report.add_line("WARNING: Panel is not selected at random! Only use for testing!", ReportLevel.CRITICAL)
 
     report.add_line("Initial: (selected = 0)", ReportLevel.IMPORTANT)
-    initial_cat_report = _initial_print_category_info(features, people)
-    report.add_report(initial_cat_report)
+    report.add_report(_initial_category_info_table(features, people))
     people_selected: list[frozenset[str]] = []
 
     tries = 0
@@ -553,28 +555,24 @@ def run_stratification(
             report.add_report(new_report)
 
             # Check if targets were met (only works for number_selections = 1)
-            cat_report = _print_category_info(features, people, people_selected, number_people_wanted)
-            success, check_report = _check_category_selected(features, people, people_selected, number_selections)
+            # This raises an error if we did not select properly
+            _check_category_selected(features, people, people_selected, number_selections)
 
-            if success:
-                report.add_line("SUCCESS!! Final:", ReportLevel.IMPORTANT)
-                report.add_report(cat_report)
-                report.add_report(check_report)
-                break
+            report.add_line("SUCCESS!! Final:", ReportLevel.IMPORTANT)
+            report.add_report(_category_info_table(features, people, people_selected, number_people_wanted))
+            success = True
+            break
 
-        except (ValueError, RuntimeError) as err:
-            report.add_line(str(err))
-            break
-        except errors.InfeasibleQuotasError as err:
-            report.add_lines(err.output)
-            break
-        except errors.InfeasibleQuotasCantRelaxError as err:
-            report.add_line(err.message)
+        # these are all fatal errors
+        except (ValueError, RuntimeError, errors.InfeasibleQuotasError, errors.InfeasibleQuotasCantRelaxError) as err:
+            report.add_error(err)
             break
         except errors.SelectionError as serr:
-            report.add_line(f"Failed: Selection Error thrown: {serr}")
+            report.add_error(serr, is_fatal=False)
+            report.add_line(f"Failed one attempt. Selection Error raised - will retry. {serr}")
+            # we do not break here, we try again.
 
     if not success:
-        report.add_line(f"Failed {tries} times... gave up.")
+        report.add_line(f"Failed {tries + 1} times. Gave up.", level=ReportLevel.IMPORTANT)
 
     return success, people_selected, report
