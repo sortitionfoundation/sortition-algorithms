@@ -5,6 +5,7 @@ from typing import TypeAlias
 from attrs import define
 
 from sortition_algorithms import utils
+from sortition_algorithms.errors import SelectionMultilineError
 
 """
 Note on terminology.  The word "categories" can mean various things, so for this
@@ -100,17 +101,29 @@ def maximum_selection(fc: FeatureCollection) -> int:
     return min(_fv_maximum_selection(fv) for fv in fc.values())
 
 
+def report_min_max_error_details(fc: FeatureCollection) -> list[str]:
+    """
+    Return a list of problems in detail, so that the user can debug the errors in detail
+    """
+    if not fc:
+        return []
+
+    max_feature, max_val = min(((key, _fv_maximum_selection(fv)) for key, fv in fc.items()), key=lambda x: x[1])
+    min_feature, min_val = max(((key, _fv_minimum_selection(fv)) for key, fv in fc.items()), key=lambda x: x[1])
+    return [
+        "Inconsistent numbers in min and max in the features input:",
+        f"The smallest maximum is {max_val} for feature '{max_feature}'",
+        f"The largest minimum is {min_val} for feature '{min_feature}'",
+        f"You need to reduce the minimums for {min_feature} or increase the maximums for {max_feature}.",
+    ]
+
+
 def check_min_max(fc: FeatureCollection) -> None:
     """
     If the min is bigger than the max we're in trouble i.e. there's an input error
     """
     if minimum_selection(fc) > maximum_selection(fc):
-        msg = (
-            "Inconsistent numbers in min and max in the features input: the sum "
-            "of the minimum values of a features is larger than the sum of the "
-            "maximum values of a(nother) feature. "
-        )
-        raise ValueError(msg)
+        raise SelectionMultilineError(report_min_max_error_details(fc))
 
 
 def check_desired(fc: FeatureCollection, desired_number: int) -> None:

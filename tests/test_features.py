@@ -1,5 +1,6 @@
 import pytest
 
+from sortition_algorithms.errors import SelectionMultilineError
 from sortition_algorithms.features import (
     FEATURE_FILE_FIELD_NAMES,
     FEATURE_FILE_FIELD_NAMES_FLEX,
@@ -328,11 +329,19 @@ class TestReadInFeaturesErrorHandling:
                 "min": "1",
                 "max": "2",
             },  # min total: 2
-            {"feature": "age", "value": "old", "min": "1", "max": "2"},  # max total: 4
+            {
+                "feature": "age",
+                "value": "old",
+                "min": "1",
+                "max": "2",
+            },  # max total: 4
         ]
         # gender min total = 10, age max total = 4, so min > max which is inconsistent
-        with pytest.raises(ValueError, match="Inconsistent numbers in min and max"):
+        with pytest.raises(SelectionMultilineError) as context:
             read_in_features(head, body)
+        assert "Inconsistent numbers in min and max" in context.exconly()
+        assert "smallest maximum is 4 for feature 'age'" in context.exconly()
+        assert "largest minimum is 10 for feature 'gender'" in context.exconly()
 
 
 class TestReadInFeaturesDataTypes:
