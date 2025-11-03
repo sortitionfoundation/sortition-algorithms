@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from tabulate import tabulate
 
+from sortition_algorithms import errors
+
 if TYPE_CHECKING:
     from _typeshed import SupportsLenAndGetItem
 
@@ -80,11 +82,17 @@ class RunTable:
     data: list[list[str | int | float]]
 
 
+@dataclass
+class RunError:
+    error: Exception
+    is_fatal: bool
+
+
 class RunReport:
     """A class to hold a report to show to the user at the end"""
 
     def __init__(self) -> None:
-        self._data: list[RunLineLevel | RunTable] = []
+        self._data: list[RunLineLevel | RunTable | RunError] = []
 
     def __bool__(self) -> bool:
         """
@@ -138,10 +146,13 @@ class RunReport:
     def add_table(self, table_headings: list[str], table_data: list[list[str | int | float]]) -> None:
         self._data.append(RunTable(table_headings, table_data))
 
+    def add_error(self, error: Exception, is_fatal: bool = True) -> None:
+        self._data.append(RunError(error, is_fatal=is_fatal))
+
     def add_report(self, other: "RunReport") -> None:
         self._data += other._data
 
-    def _element_to_text(self, element: RunLineLevel | RunTable, include_logged: bool) -> str | None:
+    def _element_to_text(self, element: RunLineLevel | RunTable | RunError, include_logged: bool) -> str | None:
         if isinstance(element, RunLineLevel):
             # we might want to skip lines that were already logged
             if include_logged or element.log_level == logging.NOTSET:
@@ -150,10 +161,12 @@ class RunReport:
                 # sometimes we want empty strings for blank lines, so here we return None
                 # instead so the logged lines can be filtered out
                 return None
-        else:
+        elif isinstance(element, RunTable):
             table_text = tabulate(element.data, headers=element.headers, tablefmt="simple")
             # we want a blank line before and after the table.
             return f"\n{table_text}\n"
+        else:
+            return str(element.error)
 
     def as_text(self, include_logged: bool = True) -> str:
         parts = [self._element_to_text(element, include_logged) for element in self._data]
@@ -169,21 +182,35 @@ class RunReport:
         escaped_line = html.escape(line_level.line)
         return f"{start_tag}{escaped_line}{end_tag}"
 
-    def _element_to_html(self, element: RunLineLevel | RunTable, include_logged: bool) -> str | None:
+    def _error_to_html(self, run_error: RunError) -> str:
+        start_tag, end_tag = ("<b>", "</b>") if run_error.is_fatal else ("", "")
+        if isinstance(run_error.error, errors.SelectionMultilineError):
+            escaped_lines = [html.escape(line) for line in run_error.error.lines()]
+            escaped_error = "<br />\n".join(escaped_lines)
+        else:
+            escaped_error = html.escape(str(run_error.error))
+        return f"{start_tag}{escaped_error}{end_tag}"
+
+    def _element_to_html(self, element: RunLineLevel | RunTable | RunError, include_logged: bool) -> str | None:
         if isinstance(element, RunLineLevel):
             if include_logged or element.log_level == logging.NOTSET:
                 return self._line_to_html(element)
             else:
                 return None
-        else:
-            # TODO: add attributes to the `<table>` tag - the original code had:
-            # <table border='1' cellpadding='5'> - though do we really want that?
-            # Probably better to use CSS so others can style as they see fit.
+        elif isinstance(element, RunTable):
             return tabulate(element.data, headers=element.headers, tablefmt="html")
+        else:
+            return self._error_to_html(element)
 
     def as_html(self, include_logged: bool = True) -> str:
         parts = [self._element_to_html(element, include_logged) for element in self._data]
         return "<br />\n".join(p for p in parts if p is not None)
+
+    def last_error(self) -> Exception | None:
+        for element in reversed(self._data):
+            if isinstance(element, RunError):
+                return element.error
+        return None
 
 
 def strip_str_int(value: str | int | float) -> str:

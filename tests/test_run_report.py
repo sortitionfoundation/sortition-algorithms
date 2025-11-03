@@ -2,6 +2,7 @@ import logging
 import re
 from unittest.mock import patch
 
+from sortition_algorithms.errors import SelectionMultilineError
 from sortition_algorithms.utils import ReportLevel, RunReport
 
 
@@ -78,13 +79,29 @@ class TestRunReport:
         report = RunReport()
         report.add_line("Message with <tags> & ampersands")
         report.add_line("Important with <script>", ReportLevel.IMPORTANT)
+        report.add_error(Exception("This & that"))
 
         # Text output should preserve characters as-is
-        expected_text = "Message with <tags> & ampersands\nImportant with <script>"
+        expected_text = "Message with <tags> & ampersands\nImportant with <script>\nThis & that"
         assert report.as_text() == expected_text
 
         # HTML output should escape special characters
-        expected_html = "Message with &lt;tags&gt; &amp; ampersands<br />\n<b>Important with &lt;script&gt;</b>"
+        expected_html = (
+            "Message with &lt;tags&gt; &amp; ampersands<br />\n<b>Important with &lt;script&gt;</b><br />\n"
+            "<b>This &amp; that</b>"
+        )
+        assert report.as_html() == expected_html
+
+    def test_multi_line_errors(self):
+        report = RunReport()
+        report.add_line("straight")
+        report.add_error(SelectionMultilineError(["line 1", "line 2", "line 3"]))
+        report.add_line("curved")
+
+        expected_text = "straight\nline 1\nline 2\nline 3\ncurved"
+        assert report.as_text() == expected_text
+
+        expected_html = "straight<br />\n<b>line 1<br />\nline 2<br />\nline 3</b><br />\ncurved"
         assert report.as_html() == expected_html
 
     def test_default_level_is_normal(self):
@@ -155,16 +172,23 @@ class TestRunReport:
         report.add_line("Introduction")
         report.add_table(["Name", "Score"], [["Alice", 95], ["Bob", 87]])
         report.add_line("Summary", ReportLevel.IMPORTANT)
+        report.add_error(Exception("It blew up"))
+        report.add_error(Exception("passing problem"), is_fatal=False)
 
         text_output = report.as_text()
         assert "Introduction" in text_output
         assert "Alice" in text_output
         assert "Summary" in text_output
+        assert "It blew up" in text_output
+        assert "passing problem" in text_output
 
         html_output = report.as_html()
         assert "Introduction<br />" in html_output
         assert "<table>" in html_output
         assert "<b>Summary</b>" in html_output
+        assert "<b>It blew up</b>" in html_output
+        assert "passing problem" in html_output
+        assert "<b>passing problem</b>" not in html_output
 
     def test_multiple_tables(self):
         report = RunReport()
@@ -312,3 +336,18 @@ class TestRunReport:
         # Without logged lines - should be empty
         assert report.as_text(include_logged=False) == ""
         assert report.as_html(include_logged=False) == ""
+
+    def test_last_error(self):
+        """Check we get the last error added"""
+        report = RunReport()
+        report.add_error(Exception("passing problem"))
+        report.add_line("Only logged")
+        report.add_error(Exception("BIG problem"))
+        report.add_line("We're outta here")
+        assert str(report.last_error()) == "BIG problem"
+
+    def test_last_error_when_no_error_added(self):
+        """Check we get None if no error added"""
+        report = RunReport()
+        report.add_line("Only logged")
+        assert report.last_error() is None

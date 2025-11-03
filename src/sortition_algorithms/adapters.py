@@ -368,13 +368,14 @@ class GSheetDataSource(AbstractDataSource):
         self._report = report
         try:
             if not self._tab_exists(self.feature_tab_name):
-                msg = f"Error in Google sheet: no tab called '{self.feature_tab_name}' found."
-                self._report.add_line_and_log(msg, log_level=logging.ERROR)
-                raise SelectionError(msg, self._report)
+                msg = (
+                    f"Error in Google sheet: no tab called '{self.feature_tab_name}' "
+                    f"found in spreadsheet '{self._g_sheet_name}'."
+                )
+                raise SelectionError(msg)
         except gspread.SpreadsheetNotFound as err:
             msg = f"Google spreadsheet not found: {self._g_sheet_name}."
-            self._report.add_line_and_log(msg, log_level=logging.ERROR)
-            raise SelectionError(msg, self._report) from err
+            raise SelectionError(msg) from err
         tab_features = self.spreadsheet.worksheet(self.feature_tab_name)
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
@@ -387,13 +388,14 @@ class GSheetDataSource(AbstractDataSource):
         self._report = report
         try:
             if not self._tab_exists(self.people_tab_name):
-                msg = f"Error in Google sheet: no tab called '{self.people_tab_name}' found. "
-                self._report.add_line(msg)
-                raise SelectionError(msg, self._report)
+                msg = (
+                    f"Error in Google sheet: no tab called '{self.people_tab_name}' "
+                    f"found in spreadsheet '{self._g_sheet_name}'."
+                )
+                raise SelectionError(msg)
         except gspread.SpreadsheetNotFound as err:
             msg = f"Google spreadsheet not found: {self._g_sheet_name}. "
-            self._report.add_line(msg)
-            raise SelectionError(msg, self._report) from err
+            raise SelectionError(msg) from err
 
         tab_people = self.spreadsheet.worksheet(self.people_tab_name)
         # if we don't read this in here we can't check if there are 2 columns with the same name
