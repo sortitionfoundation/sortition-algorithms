@@ -84,7 +84,7 @@ class RunTable:
 
 @dataclass
 class RunError:
-    error: Exception
+    error: errors.SortitionBaseError
     is_fatal: bool
 
 
@@ -184,12 +184,7 @@ class RunReport:
 
     def _error_to_html(self, run_error: RunError) -> str:
         start_tag, end_tag = ("<b>", "</b>") if run_error.is_fatal else ("", "")
-        if isinstance(run_error.error, errors.SelectionMultilineError):
-            escaped_lines = [html.escape(line) for line in run_error.error.lines()]
-            escaped_error = "<br />\n".join(escaped_lines)
-        else:
-            escaped_error = html.escape(str(run_error.error))
-        return f"{start_tag}{escaped_error}{end_tag}"
+        return f"{start_tag}{run_error.error.to_html()}{end_tag}"
 
     def _element_to_html(self, element: RunLineLevel | RunTable | RunError, include_logged: bool) -> str | None:
         if isinstance(element, RunLineLevel):

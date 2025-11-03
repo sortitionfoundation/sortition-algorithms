@@ -1,3 +1,4 @@
+import html
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -7,6 +8,9 @@ if TYPE_CHECKING:
 
 class SortitionBaseError(Exception):
     """A base class that allows all errors to be caught easily."""
+
+    def to_html(self) -> str:
+        return html.escape(str(self))
 
 
 class BadDataError(SortitionBaseError):
@@ -25,6 +29,9 @@ class SelectionMultilineError(SelectionError):
 
     def __str__(self) -> str:
         return "\n".join(self.all_lines)
+
+    def to_html(self) -> str:
+        return "<br />".join(html.escape(line) for line in self.all_lines)
 
     def lines(self) -> list[str]:
         return self.all_lines

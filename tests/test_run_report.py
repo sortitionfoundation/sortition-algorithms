@@ -2,7 +2,7 @@ import logging
 import re
 from unittest.mock import patch
 
-from sortition_algorithms.errors import SelectionMultilineError
+from sortition_algorithms.errors import SelectionError, SelectionMultilineError
 from sortition_algorithms.utils import ReportLevel, RunReport
 
 
@@ -79,7 +79,7 @@ class TestRunReport:
         report = RunReport()
         report.add_line("Message with <tags> & ampersands")
         report.add_line("Important with <script>", ReportLevel.IMPORTANT)
-        report.add_error(Exception("This & that"))
+        report.add_error(SelectionError("This & that"))
 
         # Text output should preserve characters as-is
         expected_text = "Message with <tags> & ampersands\nImportant with <script>\nThis & that"
@@ -101,7 +101,7 @@ class TestRunReport:
         expected_text = "straight\nline 1\nline 2\nline 3\ncurved"
         assert report.as_text() == expected_text
 
-        expected_html = "straight<br />\n<b>line 1<br />\nline 2<br />\nline 3</b><br />\ncurved"
+        expected_html = "straight<br />\n<b>line 1<br />line 2<br />line 3</b><br />\ncurved"
         assert report.as_html() == expected_html
 
     def test_default_level_is_normal(self):
@@ -172,8 +172,8 @@ class TestRunReport:
         report.add_line("Introduction")
         report.add_table(["Name", "Score"], [["Alice", 95], ["Bob", 87]])
         report.add_line("Summary", ReportLevel.IMPORTANT)
-        report.add_error(Exception("It blew up"))
-        report.add_error(Exception("passing problem"), is_fatal=False)
+        report.add_error(SelectionError("It blew up"))
+        report.add_error(SelectionError("passing problem"), is_fatal=False)
 
         text_output = report.as_text()
         assert "Introduction" in text_output
@@ -340,9 +340,9 @@ class TestRunReport:
     def test_last_error(self):
         """Check we get the last error added"""
         report = RunReport()
-        report.add_error(Exception("passing problem"))
+        report.add_error(SelectionError("passing problem"))
         report.add_line("Only logged")
-        report.add_error(Exception("BIG problem"))
+        report.add_error(SelectionError("BIG problem"))
         report.add_line("We're outta here")
         assert str(report.last_error()) == "BIG problem"
 
