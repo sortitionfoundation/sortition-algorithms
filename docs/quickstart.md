@@ -79,6 +79,8 @@ if success:
     print("Selected IDs:", list(selected_people)[:5], "...")
 else:
     print("❌ Selection failed")
+    if report.last_error():
+        print(str(report.last_error()))
 
 # Display the detailed report
 print(report.as_text())
@@ -212,6 +214,9 @@ html_report = report.as_html()
 
 # Control whether to show messages that were already logged
 summary = report.as_text(include_logged=False)
+
+# Extract the last error added to the report (or None if there was no error)
+error = report.last_error()
 ```
 
 ### Custom Logging Integration

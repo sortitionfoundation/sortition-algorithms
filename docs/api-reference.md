@@ -287,6 +287,10 @@ Returns the report as HTML with styling for different message importance levels 
 
 - `include_logged`: Same as `as_text()`
 
+### Extracting Errors
+
+You can call `last_error()` to extract the last error that was added to the report. It will return `None` if no error was added.
+
 ### Usage Pattern
 
 Most library functions return a tuple containing results and a `RunReport`:
@@ -310,6 +314,9 @@ html_content = report.as_html()
 
 # Exclude already-logged messages if user saw them during execution
 summary = report.as_text(include_logged=False)
+
+# Extract the last error added to the report (or None if there was no error)
+error = report.last_error()
 ```
 
 ### Logging Integration
