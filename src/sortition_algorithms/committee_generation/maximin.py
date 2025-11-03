@@ -11,7 +11,7 @@ from sortition_algorithms.committee_generation.common import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import RunReport, logger
+from sortition_algorithms.utils import RunReport
 
 
 def _find_maximin_primal(
@@ -239,7 +239,7 @@ def _run_maximin_optimization_loop(
             value,
         )
         if counter > 0:
-            logger.info(f"Heuristic successfully generated {counter} additional committees.")
+            report.add_line_and_log(f"Heuristic successfully generated {counter} additional committees.", logging.INFO)
 
 
 def find_distribution_maximin(

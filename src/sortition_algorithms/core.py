@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterable
 from copy import deepcopy
 
@@ -339,19 +340,21 @@ def find_random_sample(
         )
         raise ValueError(msg)
 
+    report.add_report(new_report)
+
     # Post-process the distribution
     committees, probabilities = standardize_distribution(committees, probabilities)
     if len(committees) > people.count:
-        logger.warning(
+        report.add_line_and_log(
             "INFO: The distribution over panels is what is known as a 'basic solution'. There is no reason for concern "
             "about the correctness of your output, but we'd appreciate if you could reach out to panelot"
             f"@paulgoelz.de with the following information: algorithm={selection_algorithm}, "
-            f"num_panels={len(committees)}, num_agents={people.count}, min_probs={min(probabilities)}."
+            f"num_panels={len(committees)}, num_agents={people.count}, min_probs={min(probabilities)}.",
+            logging.WARNING,
         )
 
     assert len(set(committees)) == len(committees)
 
-    report.add_report(new_report)
     stats_report = _distribution_stats(people, committees, probabilities)
     report.add_report(stats_report)
 
@@ -540,7 +543,7 @@ def run_stratification(
     for tries in range(settings.max_attempts):
         people_selected = []
 
-        report.add_line(f"Trial number: {tries}", ReportLevel.IMPORTANT)
+        report.add_line_and_log(f"Trial number: {tries + 1}", logging.WARNING)
 
         try:
             people_selected, new_report = find_random_sample(
