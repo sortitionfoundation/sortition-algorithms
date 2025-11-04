@@ -253,7 +253,7 @@ class TestReadInFeaturesErrorHandling:
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "", "min": "1", "max": "2"}]
 
-        with pytest.raises(ValueError, match="found a blank cell"):
+        with pytest.raises(SelectionMultilineError, match="containing gender - there is nothing in the 'value' column"):
             read_in_features(head, body)
 
     def test_blank_min_raises_error(self):
@@ -261,7 +261,20 @@ class TestReadInFeaturesErrorHandling:
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "male", "min": "", "max": "2"}]
 
-        with pytest.raises(ValueError, match="found a blank cell"):
+        with pytest.raises(
+            SelectionMultilineError, match="containing gender/male - there is nothing in the 'min' column"
+        ):
+            read_in_features(head, body)
+
+    def test_non_integer_min_raises_error(self):
+        """Test that non-integer min values raise an error."""
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [{"feature": "gender", "value": "male", "min": "burble", "max": "2"}]
+
+        with pytest.raises(
+            SelectionMultilineError,
+            match="containing gender/male - the 'min' value 'burble' cannot be converted to an integer",
+        ):
             read_in_features(head, body)
 
     def test_blank_max_raises_error(self):
@@ -269,7 +282,9 @@ class TestReadInFeaturesErrorHandling:
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "male", "min": "1", "max": ""}]
 
-        with pytest.raises(ValueError, match="found a blank cell"):
+        with pytest.raises(
+            SelectionMultilineError, match="containing gender/male - there is nothing in the 'max' column"
+        ):
             read_in_features(head, body)
 
     def test_blank_flex_values_raise_error(self):
@@ -285,11 +300,13 @@ class TestReadInFeaturesErrorHandling:
                 "max_flex": "3",
             }
         ]
-        with pytest.raises(ValueError, match="found a blank min_flex or max_flex cell"):
+        with pytest.raises(
+            SelectionMultilineError, match="containing gender/male - there is nothing in the 'min_flex' column"
+        ):
             read_in_features(head, body)
 
-    def test_inconsistent_flex_values_raise_error(self):
-        """Test that flex values outside min/max range raise an error."""
+    def test_inconsistent_min_flex_values_raise_error(self):
+        """Test that min_flex value below min raise an error."""
         head = FEATURE_FILE_FIELD_NAMES_FLEX
         body = [
             {
@@ -302,8 +319,27 @@ class TestReadInFeaturesErrorHandling:
             }
         ]
         with pytest.raises(
-            ValueError,
-            match="flex values must be equal or outside the max and min values",
+            SelectionMultilineError,
+            match="containing gender/male - min_flex value 3 should not be greater than min value 2",
+        ):
+            read_in_features(head, body)
+
+    def test_inconsistent_max_flex_values_raise_error(self):
+        """Test that max_flex value below max raise an error."""
+        head = FEATURE_FILE_FIELD_NAMES_FLEX
+        body = [
+            {
+                "feature": "gender",
+                "value": "male",
+                "min": "2",
+                "max": "5",
+                "min_flex": "1",  # min_flex > min, which is invalid
+                "max_flex": "4",
+            }
+        ]
+        with pytest.raises(
+            SelectionMultilineError,
+            match="containing gender/male - max_flex value 4 should not be less than max value 5",
         ):
             read_in_features(head, body)
 

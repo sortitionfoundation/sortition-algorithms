@@ -204,49 +204,82 @@ def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
     raise ValueError(msg)
 
 
+class ListOfNonEmptyStrings:
+    """List that we can add strings to, but non-empty strings will be dropped"""
+
+    def __init__(self) -> None:
+        self.strings: list[str] = []
+
+    def __len__(self) -> int:
+        """This means that we will be falsy if len is 0, so is effectively a __bool__ as well"""
+        return len(self.strings)
+
+    def append(self, new_string: str) -> None:
+        if new_string:
+            self.strings.append(new_string)
+
+
+def _row_val_to_int(row: utils.StrippedDict, key: str, row_id: str) -> tuple[int, str]:
+    """
+    Convert row value to integer, with detailed error messages if it fails
+    """
+    if row[key] == "":
+        return 0, f"row containing {row_id} - there is nothing in the '{key}' column."
+    try:
+        int_value = int(row[key])
+    except ValueError:
+        return 0, f"row containing {row_id} - the '{key}' value '{row[key]}' cannot be converted to an integer"
+    return int_value, ""
+
+
 def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, FeatureValueMinMax]:
     """
     allow for some dirty data - at least strip white space from feature name and value
     but only if they are strings! (sometimes people use ints as feature names or values
     and then strip produces an exception...)
     """
+    errors = ListOfNonEmptyStrings()
+    # this column has been checked to ensure it is not empty before this function is called
     feature_name = row["feature"]
     # check for blank entries and report a meaningful error
     feature_value = row["value"]
-    if feature_value == "" or row["min"] == "" or row["max"] == "":
-        msg = f"ERROR reading in feature file: found a blank cell in a row of the feature: {feature_name}."
-        raise ValueError(msg)
-    # must convert min/max to ints
-    try:
-        value_min = int(row["min"])
-        value_max = int(row["max"])
-    except ValueError as err:
-        msg = (
-            f"ERROR reading in feature file: min/max ({row['min']}/{row['max']}) "
-            f"cannot be converted to integer: {feature_name}/{feature_value}."
-        )
-        raise ValueError(msg) from err
+    if feature_value == "":
+        raise SelectionMultilineError([f"row containing {feature_name} - there is nothing in the 'value' column."])
+
+    row_id = f"{feature_name}/{feature_value}"
+    value_min, error_min = _row_val_to_int(row, "min", row_id)
+    errors.append(error_min)
+    value_max, error_max = _row_val_to_int(row, "max", row_id)
+    errors.append(error_max)
+
+    if errors:
+        raise SelectionMultilineError(["ERROR reading in feature file:", *errors.strings])
 
     if feature_flex:
-        if row["min_flex"] == "" or row["max_flex"] == "":
-            msg = (
-                f"ERROR reading in feature file: found a blank min_flex or "
-                f"max_flex cell in a feature value: {feature_value}."
-            )
-            raise ValueError(msg)
-        value_min_flex = int(row["min_flex"])
-        value_max_flex = int(row["max_flex"])
+        value_min_flex, error_min_flex = _row_val_to_int(row, "min_flex", row_id)
+        errors.append(error_min_flex)
+        value_max_flex, error_max_flex = _row_val_to_int(row, "max_flex", row_id)
+        errors.append(error_max_flex)
         # if these values exist they must be at least this...
-        if value_min_flex > value_min or value_max_flex < value_max:
-            msg = (
-                f"Inconsistent numbers in min_flex and max_flex in the features input for {feature_value}: "
-                f"the flex values must be equal or outside the max and min values."
-            )
-            raise ValueError(msg)
+        if not errors:
+            if value_min_flex > value_min:
+                errors.append(
+                    f"row containing {row_id} - min_flex value {value_min_flex} should not be greater than "
+                    f"min value {value_min}."
+                )
+            if value_max_flex < value_max:
+                errors.append(
+                    f"row containing {row_id} - max_flex value {value_max_flex} should not be less than "
+                    f"max value {value_max}."
+                )
     else:
         value_min_flex = 0
         # since we don't know self.number_people_to_select yet! We correct this below
         value_max_flex = MAX_FLEX_UNSET
+
+    if errors:
+        raise SelectionMultilineError(["ERROR reading in feature file:", *errors.strings])
+
     fv_minmax = FeatureValueMinMax(
         min=value_min,
         max=value_max,
