@@ -14,14 +14,12 @@ from sortition_algorithms.committee_generation import GUROBI_AVAILABLE
 from sortition_algorithms.core import run_stratification
 from sortition_algorithms.errors import SelectionError
 from sortition_algorithms.settings import Settings
+from tests.helpers import candidates_csv_path, features_csv_path, get_settings_for_fixtures
 
 # only test leximin if gurobipy is available
 ALGORITHMS = ("legacy", "maximin", "leximin", "nash") if GUROBI_AVAILABLE else ("legacy", "maximin", "nash")
 PEOPLE_TO_SELECT = 22
 
-test_path = Path(__file__).parent
-features_csv_path = test_path / "fixtures/features.csv"
-candidates_csv_path = test_path / "fixtures/candidates.csv"
 features_content = features_csv_path.read_text("utf8")
 candidates_content = candidates_csv_path.read_text("utf8")
 candidates_lines = [line.strip() for line in candidates_content.split("\n") if line.strip()]
@@ -37,30 +35,6 @@ csv_header = (
 )
 
 
-def get_settings(algorithm="legacy"):
-    columns_to_keep = [
-        "first_name",
-        "last_name",
-        "mobile_number",
-        "email",
-        "primary_address1",
-        "primary_address2",
-        "primary_city",
-        "primary_zip",
-        "gender",
-        "age_bracket",
-        "geo_bucket",
-        "edu_level",
-    ]
-    return Settings(
-        id_column="nationbuilder_id",
-        columns_to_keep=columns_to_keep,
-        check_same_address=True,
-        check_same_address_columns=["primary_address1", "primary_zip"],
-        selection_algorithm=algorithm,
-    )
-
-
 @pytest.mark.slow
 @pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_csv_selection_happy_path_defaults(algorithm):
@@ -73,7 +47,7 @@ def test_csv_selection_happy_path_defaults(algorithm):
     """
     data_source = CSVStringDataSource(features_content, candidates_content)
     select_data = SelectionData(data_source)
-    settings = get_settings(algorithm)
+    settings = get_settings_for_fixtures(algorithm)
     features, _ = select_data.load_features()
     people, people_report = select_data.load_people(settings, features)
     print("load_people_message: ")
@@ -103,7 +77,7 @@ def test_csv_load_people_from_file_or_str_give_same_output():
     string_select_data = SelectionData(string_data_source)
     file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
     file_select_data = SelectionData(file_data_source)
-    settings = get_settings()
+    settings = get_settings_for_fixtures()
     features, _ = string_select_data.load_features()
     people_from_str, _ = string_select_data.load_people(settings, features)
     people_from_file, _ = file_select_data.load_people(settings, features)
@@ -113,7 +87,7 @@ def test_csv_load_people_from_file_or_str_give_same_output():
 def test_csv_output_selected_remaining():
     data_source = CSVStringDataSource(features_content, candidates_content)
     select_data = SelectionData(data_source)
-    settings = get_settings()
+    settings = get_settings_for_fixtures()
     features, _ = select_data.load_features()
     people, _ = select_data.load_people(settings, features)
 

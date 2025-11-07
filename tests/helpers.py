@@ -2,9 +2,17 @@
 ABOUTME: Provides standardized ways to create Settings, People, and FeatureCollection objects.
 """
 
+from pathlib import Path
+
+import tomli_w
+
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
+
+test_path = Path(__file__).parent
+features_csv_path = test_path / "fixtures/features.csv"
+candidates_csv_path = test_path / "fixtures/candidates.csv"
 
 
 def create_test_settings(
@@ -45,6 +53,36 @@ def create_test_settings(
         random_number_seed=random_number_seed,
         **kwargs,
     )
+
+
+def get_settings_for_fixtures(algorithm="legacy"):
+    columns_to_keep = [
+        "first_name",
+        "last_name",
+        "mobile_number",
+        "email",
+        "primary_address1",
+        "primary_address2",
+        "primary_city",
+        "primary_zip",
+        "gender",
+        "age_bracket",
+        "geo_bucket",
+        "edu_level",
+    ]
+    return Settings(
+        id_column="nationbuilder_id",
+        columns_to_keep=columns_to_keep,
+        check_same_address=True,
+        check_same_address_columns=["primary_address1", "primary_zip"],
+        selection_algorithm=algorithm,
+    )
+
+
+def create_settings_file_for_fixtures(file_path: Path, algorithm="maximin") -> None:
+    settings = get_settings_for_fixtures(algorithm)
+    with file_path.open("wb") as file:
+        tomli_w.dump(settings.as_dict(), file)
 
 
 def create_simple_features(

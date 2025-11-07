@@ -7,7 +7,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from tabulate import tabulate
 
@@ -224,7 +224,7 @@ class StrippedDict:
     def __init__(self, raw_dict: Mapping[str, str] | Mapping[str, str | int]) -> None:
         self.raw_dict = raw_dict
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
             return False
         return self.raw_dict == other.raw_dict

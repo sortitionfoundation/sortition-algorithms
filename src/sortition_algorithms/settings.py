@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from attrs import define, field, validators
-from cattrs import structure
+from cattrs import structure, unstructure
 
 from sortition_algorithms.utils import ReportLevel, RunReport
 
@@ -113,6 +113,12 @@ class Settings:
         """
         extra_address_columns = [col for col in self.check_same_address_columns if col not in self.columns_to_keep]
         return [*self.columns_to_keep, *extra_address_columns]
+
+    def as_dict(self) -> dict[str, Any]:
+        dict_repr = unstructure(self)
+        assert isinstance(dict_repr, dict)
+        assert all(isinstance(key, str) for key in dict_repr)
+        return dict_repr
 
     @classmethod
     def load_from_file(
