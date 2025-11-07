@@ -116,14 +116,14 @@ class People:
 
 
 # simple helper function to tidy the code below
-def _check_columns_exist_or_multiple(people_head: list[str], column_list: Iterable[str], error_text: str) -> None:
+def _check_columns_exist_or_multiple(people_head: list[str], column_list: Iterable[str], error_label: str) -> None:
     for column in column_list:
         column_count = people_head.count(column)
         if column_count == 0:
-            msg = f"No '{column}' column {error_text} found in people data!"
+            msg = f"No '{column}' column {error_label} found in people data!"
             raise errors.BadDataError(msg)
         elif column_count > 1:
-            msg = f"MORE THAN 1 '{column}' column {error_text} found in people data!"
+            msg = f"MORE THAN 1 '{column}' column {error_label} found in people data!"
             raise errors.BadDataError(msg)
 
 
