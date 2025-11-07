@@ -5,6 +5,7 @@ from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import (
     People,
     _check_columns_exist_or_multiple,
+    check_for_duplicate_people,
     read_in_people,
 )
 from sortition_algorithms.settings import Settings
@@ -881,3 +882,141 @@ class TestPeopleMatchingAddress:
         matches = list(people.matching_address("5", ["address1", "postcode"]))
         expected_matches = [str(i) for i in range(10) if i != 5]
         assert set(matches) == set(expected_matches)
+
+    def test_check_for_duplicate_people_with_no_dupes(self):
+        settings = Settings(
+            id_column="id",
+            columns_to_keep=["name", "email"],
+        )
+
+        people_body = [
+            {
+                "id": "1",
+                "name": "John Doe",
+                "email": "john@example.com",
+                "gender": "male",
+                "age": "young",
+            },
+            {
+                "id": "2",
+                "name": "Jane Smith",
+                "email": "jane@example.com",
+                "gender": "female",
+                "age": "old",
+            },
+            {
+                "id": "3",
+                "name": "Bob Johnson",
+                "email": "bob@example.com",
+                "gender": "male",
+                "age": "old",
+            },
+        ]
+        stripped_people_body = [StrippedDict(row) for row in people_body]
+        assert check_for_duplicate_people(stripped_people_body, settings) == []
+
+    def test_check_for_duplicate_people_with_exact_dupes(self):
+        """
+        When there are duplicate rows with exactly the same data,
+        there should be messages to be logged, but nothing raised.
+        """
+        settings = Settings(
+            id_column="id",
+            columns_to_keep=["name", "email"],
+        )
+
+        people_body = [
+            {
+                "id": "1",
+                "name": "John Doe",
+                "email": "john@example.com",
+                "gender": "male",
+                "age": "young",
+            },
+            {
+                "id": "2",
+                "name": "Jane Smith",
+                "email": "jane@example.com",
+                "gender": "female",
+                "age": "old",
+            },
+            {
+                "id": "2",
+                "name": "Jane Smith",
+                "email": "jane@example.com",
+                "gender": "female",
+                "age": "old",
+            },
+            {
+                "id": "3",
+                "name": "Bob Johnson",
+                "email": "bob@example.com",
+                "gender": "male",
+                "age": "old",
+            },
+        ]
+        stripped_people_body = [StrippedDict(row) for row in people_body]
+        combined_messages = " ".join(check_for_duplicate_people(stripped_people_body, settings)).lower()
+        assert "found 1 ids that have more than one row" in combined_messages
+        assert "duplicated ids are: 2" in combined_messages
+        assert "all duplicate rows have identical data" in combined_messages
+
+    def test_check_for_duplicate_people_with_dupes_with_mismatching_data(self):
+        """
+        When there are duplicate rows with data that does not match then
+        an error should be raised.
+        """
+        settings = Settings(
+            id_column="id",
+            columns_to_keep=["name", "email"],
+        )
+
+        people_body = [
+            {
+                "id": "1",
+                "name": "John Doe",
+                "email": "john@example.com",
+                "gender": "male",
+                "age": "young",
+            },
+            {
+                "id": "2",
+                "name": "Jane Smith",
+                "email": "jane@example.com",
+                "gender": "female",
+                "age": "old",
+            },
+            {
+                "id": "2",
+                "name": "Jane Smith",
+                "email": "jane@example.com",
+                "gender": "female",
+                "age": "old",
+            },
+            {
+                "id": "3",
+                "name": "Bob Johnson",
+                "email": "bob@example.com",
+                "gender": "male",
+                "age": "old",
+            },
+            {
+                "id": "3",
+                "name": "Bob J. Johnson",
+                "email": "bob42@example.com",
+                "gender": "male",
+                "age": "old",
+            },
+        ]
+        stripped_people_body = [StrippedDict(row) for row in people_body]
+        with pytest.raises(errors.SelectionMultilineError) as exc_context:
+            check_for_duplicate_people(stripped_people_body, settings)
+        combined_messages = str(exc_context.value).lower()
+
+        assert "found 2 ids that have more than one row" in combined_messages
+        assert "duplicated ids are: 2 3" in combined_messages
+        assert "for id '3' one row of data is" in combined_messages
+        assert "bob@example.com" in combined_messages
+        assert "bob42@example.com" in combined_messages
+
+        assert "jane@example.com" not in combined_messages

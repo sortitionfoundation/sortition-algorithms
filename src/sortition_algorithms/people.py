@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import ItemsView, Iterable, Iterator
 from typing import Any
 
@@ -141,17 +141,63 @@ def _check_people_head(people_head: list[str], features: FeatureCollection, sett
     )
 
 
+def _all_in_list_equal(list_to_check: list[Any]) -> bool:
+    return all(item == list_to_check[0] for item in list_to_check)
+
+
+def check_for_duplicate_people(people_body: Iterable[StrippedDict], settings: Settings) -> list[str]:
+    """
+    If we have rows with duplicate IDs things are going to go bad.
+    First check for any duplicate IDs. If we find any, check if the duplicates are identical.
+    """
+    # first check for any duplicate_ids
+    id_counter = Counter(row[settings.id_column] for row in people_body)
+    duplicate_ids = {k for k, v in id_counter.items() if v > 1}
+    if not duplicate_ids:
+        return []
+
+    # find the duplicate rows
+    output: list[str] = []
+    duplicate_rows: dict[str, list[StrippedDict]] = defaultdict(list)
+    for row in people_body:
+        pkey = row[settings.id_column]
+        if pkey in duplicate_ids:
+            duplicate_rows[pkey].append(row)
+    output += [
+        f"Found {len(duplicate_rows)} IDs that have more than one row",
+        f"Duplicated IDs are: {' '.join(duplicate_rows)}",
+    ]
+    # find rows where everything is not equal
+    duplicate_differing_rows: dict[str, list[StrippedDict]] = {}
+    for key, value in duplicate_rows.items():
+        if not _all_in_list_equal(value):
+            duplicate_differing_rows[key] = value
+    if not duplicate_differing_rows:
+        output += [
+            "All duplicate rows have identical data - processing continuing.",
+        ]
+        return output
+
+    output.append(f"Found {len(duplicate_differing_rows)} IDs that have more than one row with different data")
+    for key, value in duplicate_differing_rows.items():
+        for row in value:
+            output.append(f"For ID '{key}' one row of data is: {row.raw_dict}")
+    raise errors.SelectionMultilineError(output)
+
+
 def read_in_people(
     people_head: list[str],
-    people_body: Iterable[dict[str, str]],
+    people_body: Iterable[dict[str, str] | dict[str, str | int]],
     features: FeatureCollection,
     settings: Settings,
 ) -> tuple[People, RunReport]:
     report = RunReport()
     _check_people_head(people_head, features, settings)
+    # we need to iterate through more than once, so save as list here
+    stripped_people_body = [StrippedDict(row) for row in people_body]
+    report.add_lines(check_for_duplicate_people(stripped_people_body, settings))
     people = People(settings.full_columns_to_keep)
-    for index, row in enumerate(people_body):
-        stripped_row = StrippedDict(row)
+    for index, stripped_row in enumerate(stripped_people_body):
         pkey = stripped_row[settings.id_column]
         # skip over any blank lines... but warn the user
         if pkey == "":

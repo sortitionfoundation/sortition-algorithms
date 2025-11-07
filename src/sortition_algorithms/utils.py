@@ -224,6 +224,11 @@ class StrippedDict:
     def __init__(self, raw_dict: Mapping[str, str] | Mapping[str, str | int]) -> None:
         self.raw_dict = raw_dict
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self.raw_dict == other.raw_dict
+
     def __getitem__(self, key: str) -> str:
         return strip_str_int(self.raw_dict[key])
 
