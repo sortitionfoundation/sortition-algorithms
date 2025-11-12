@@ -253,7 +253,7 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, F
     errors.append(error_max)
 
     if errors:
-        raise SelectionMultilineError(["ERROR reading in feature file:", *errors.strings])
+        raise SelectionMultilineError(errors.strings)
 
     if feature_flex:
         value_min_flex, error_min_flex = _row_val_to_int(row, "min_flex", row_id)
@@ -278,7 +278,7 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, F
         value_max_flex = MAX_FLEX_UNSET
 
     if errors:
-        raise SelectionMultilineError(["ERROR reading in feature file:", *errors.strings])
+        raise SelectionMultilineError(errors.strings)
 
     fv_minmax = FeatureValueMinMax(
         min=value_min,
@@ -297,14 +297,24 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
     """
     features: FeatureCollection = defaultdict(dict)
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
+    combined_error = SelectionMultilineError(["ERROR reading in feature file:"])
     for row in features_body:
         # check the set of keys in the row are the same as the headers
         assert set(filtered_headers) <= set(row.keys())
         stripped_row = utils.StrippedDict(_normalise_col_names(row))
         if not stripped_row["feature"]:
             continue
-        fname, fvalue, fv_minmax = _clean_row(stripped_row, features_flex)
-        features[fname][fvalue] = fv_minmax
+        try:
+            fname, fvalue, fv_minmax = _clean_row(stripped_row, features_flex)
+        except SelectionMultilineError as error:
+            # add all the lines into one large error, so we report all the errors in one go
+            combined_error.combine(error)
+        else:
+            features[fname][fvalue] = fv_minmax
+
+    # if we got any errors in the above loop, raise the combined error.
+    if len(combined_error.all_lines) > 1:
+        raise combined_error
 
     check_min_max(features)
     # check feature_flex to see if we need to set the max here

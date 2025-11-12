@@ -36,6 +36,10 @@ class SelectionMultilineError(SelectionError):
     def lines(self) -> list[str]:
         return self.all_lines
 
+    def combine(self, other: "SelectionMultilineError") -> None:
+        """Add all the lines from the other error to this one."""
+        self.all_lines += other.all_lines
+
 
 class InfeasibleQuotasError(SelectionMultilineError):
     """

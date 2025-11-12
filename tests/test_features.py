@@ -287,6 +287,44 @@ class TestReadInFeaturesErrorHandling:
         ):
             read_in_features(head, body)
 
+    def test_multiple_errors_all_reported(self):
+        """When there are errors in more than one row, check all are reported, not just the first row"""
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {
+                "feature": "gender",
+                "value": "",
+                "min": "5",
+                "max": "6",
+            },
+            {
+                "feature": "gender",
+                "value": "female",
+                "min": "",
+                "max": "6",
+            },
+            {
+                "feature": "age",
+                "value": "young",
+                "min": "5",
+                "max": "",
+            },
+            {
+                "feature": "age",
+                "value": "old",
+                "min": "burble",
+                "max": "6",
+            },
+        ]
+        with pytest.raises(SelectionMultilineError) as context:
+            read_in_features(head, body)
+        assert "row containing gender - there is nothing in the 'value' column" in context.exconly()
+        assert "row containing gender/female - there is nothing in the 'min' column" in context.exconly()
+        assert "row containing age/young - there is nothing in the 'max' column" in context.exconly()
+        assert (
+            "row containing age/old - the 'min' value 'burble' cannot be converted to an integer" in context.exconly()
+        )
+
     def test_blank_flex_values_raise_error(self):
         """Test that blank flex values raise an error when flex headers are present."""
         head = FEATURE_FILE_FIELD_NAMES_FLEX
