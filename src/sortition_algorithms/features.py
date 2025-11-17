@@ -229,11 +229,11 @@ def _row_val_to_int(row: utils.StrippedDict, key: str, row_id: str) -> tuple[int
     Convert row value to integer, with detailed error messages if it fails
     """
     if row[key] == "":
-        return 0, f"row containing {row_id} - there is nothing in the '{key}' column."
+        return 0, f"There is no {key} set for {row_id}."
     try:
         int_value = int(row[key])
     except ValueError:
-        return 0, f"row containing {row_id} - the '{key}' value '{row[key]}' cannot be converted to an integer"
+        return 0, f"'{row[key]}' is not a number. In column {key} in row containing {row_id}"
     return int_value, ""
 
 
@@ -269,13 +269,11 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, F
         if not errors:
             if value_min_flex > value_min:
                 errors.append(
-                    f"row containing {row_id} - min_flex value {value_min_flex} should not be greater than "
-                    f"min value {value_min}."
+                    f"min_flex ({value_min_flex}) should not be greater than min ({value_min}) - for row {row_id}."
                 )
             if value_max_flex < value_max:
                 errors.append(
-                    f"row containing {row_id} - max_flex value {value_max_flex} should not be less than "
-                    f"max value {value_max}."
+                    f"max_flex ({value_max_flex}) should not be less than max ({value_max}) - for row {row_id}."
                 )
     else:
         value_min_flex = 0

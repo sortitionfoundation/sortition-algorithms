@@ -261,9 +261,7 @@ class TestReadInFeaturesErrorHandling:
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "male", "min": "", "max": "2"}]
 
-        with pytest.raises(
-            SelectionMultilineError, match="containing gender/male - there is nothing in the 'min' column"
-        ):
+        with pytest.raises(SelectionMultilineError, match="no min set for gender/male"):
             read_in_features(head, body)
 
     def test_non_integer_min_raises_error(self):
@@ -272,8 +270,7 @@ class TestReadInFeaturesErrorHandling:
         body = [{"feature": "gender", "value": "male", "min": "burble", "max": "2"}]
 
         with pytest.raises(
-            SelectionMultilineError,
-            match="containing gender/male - the 'min' value 'burble' cannot be converted to an integer",
+            SelectionMultilineError, match="'burble' is not a number. In column min in row containing gender/male"
         ):
             read_in_features(head, body)
 
@@ -282,9 +279,7 @@ class TestReadInFeaturesErrorHandling:
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "male", "min": "1", "max": ""}]
 
-        with pytest.raises(
-            SelectionMultilineError, match="containing gender/male - there is nothing in the 'max' column"
-        ):
+        with pytest.raises(SelectionMultilineError, match="no max set for gender/male"):
             read_in_features(head, body)
 
     def test_multiple_errors_all_reported(self):
@@ -319,11 +314,9 @@ class TestReadInFeaturesErrorHandling:
         with pytest.raises(SelectionMultilineError) as context:
             read_in_features(head, body)
         assert "row containing gender - there is nothing in the 'value' column" in context.exconly()
-        assert "row containing gender/female - there is nothing in the 'min' column" in context.exconly()
-        assert "row containing age/young - there is nothing in the 'max' column" in context.exconly()
-        assert (
-            "row containing age/old - the 'min' value 'burble' cannot be converted to an integer" in context.exconly()
-        )
+        assert "no min set for gender/female" in context.exconly()
+        assert "no max set for age/young" in context.exconly()
+        assert "'burble' is not a number. In column min in row containing age/old" in context.exconly()
 
     def test_blank_flex_values_raise_error(self):
         """Test that blank flex values raise an error when flex headers are present."""
@@ -338,9 +331,7 @@ class TestReadInFeaturesErrorHandling:
                 "max_flex": "3",
             }
         ]
-        with pytest.raises(
-            SelectionMultilineError, match="containing gender/male - there is nothing in the 'min_flex' column"
-        ):
+        with pytest.raises(SelectionMultilineError, match="no min_flex set for gender/male"):
             read_in_features(head, body)
 
     def test_inconsistent_min_flex_values_raise_error(self):
@@ -358,7 +349,7 @@ class TestReadInFeaturesErrorHandling:
         ]
         with pytest.raises(
             SelectionMultilineError,
-            match="containing gender/male - min_flex value 3 should not be greater than min value 2",
+            match=r"min_flex \(3\) should not be greater than min \(2\) - for row gender/male",
         ):
             read_in_features(head, body)
 
@@ -377,7 +368,7 @@ class TestReadInFeaturesErrorHandling:
         ]
         with pytest.raises(
             SelectionMultilineError,
-            match="containing gender/male - max_flex value 4 should not be less than max value 5",
+            match=r"max_flex \(4\) should not be less than max \(5\) - for row gender/male",
         ):
             read_in_features(head, body)
 
