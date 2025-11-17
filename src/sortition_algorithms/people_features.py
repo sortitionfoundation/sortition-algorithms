@@ -1,10 +1,11 @@
 import csv
 import typing
 from collections import defaultdict
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, MutableMapping
 from copy import deepcopy
 
 from attrs import define
+from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax, iterate_feature_collection
@@ -62,13 +63,13 @@ class SelectCounts:
         return self.selected >= self.min_max.min or self.remaining >= self.people_still_needed
 
 
-SelectCollection: typing.TypeAlias = dict[str, dict[str, SelectCounts]]  # noqa: UP040
+SelectCollection: typing.TypeAlias = MutableMapping[str, MutableMapping[str, SelectCounts]]  # noqa: UP040
 # TODO: when python3.11 is dropped, change to:
 # type SelectCollection = dict[str, dict[str, SelectCounts]]
 
 
 def select_from_feature_collection(fc: FeatureCollection) -> SelectCollection:
-    select_collection: SelectCollection = defaultdict(dict)
+    select_collection: SelectCollection = defaultdict(CaseInsensitiveDict)
     for fname, fvalue_name, fv_minmax in iterate_feature_collection(fc):
         select_collection[fname][fvalue_name] = SelectCounts(min_max=fv_minmax)
     return select_collection
