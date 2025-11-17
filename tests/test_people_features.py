@@ -582,9 +582,9 @@ class TestCaseInsensitivePeopleFeatures:
             counts,
         ) in iterate_select_collection(people_features.select_collection):
             expected = expected_counts[(feature_name, value_name)]
-            assert (
-                counts.remaining == expected
-            ), f"Expected {feature_name}/{value_name} remaining to be {expected}, got {counts.remaining}"
+            assert counts.remaining == expected, (
+                f"Expected {feature_name}/{value_name} remaining to be {expected}, got {counts.remaining}"
+            )
 
     def test_select_person_with_case_mismatch(self):
         """Test that selecting a person works when people data has different case."""

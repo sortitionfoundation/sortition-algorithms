@@ -1,7 +1,7 @@
 import csv
 import typing
 from collections import defaultdict
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, MutableMapping
 from copy import deepcopy
 
 from attrs import define
@@ -63,7 +63,7 @@ class SelectCounts:
         return self.selected >= self.min_max.min or self.remaining >= self.people_still_needed
 
 
-SelectCollection: typing.TypeAlias = dict[str, dict[str, SelectCounts]]  # noqa: UP040
+SelectCollection: typing.TypeAlias = MutableMapping[str, MutableMapping[str, SelectCounts]]  # noqa: UP040
 # TODO: when python3.11 is dropped, change to:
 # type SelectCollection = dict[str, dict[str, SelectCounts]]
 
