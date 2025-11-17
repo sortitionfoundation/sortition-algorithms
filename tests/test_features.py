@@ -527,6 +527,29 @@ class TestFeatureValueCounts:
 class TestCaseInsensitiveMatching:
     """Test that feature values are matched case-insensitively."""
 
+    def test_case_insensitive_features(self):
+        """Test that features can be accessed case-insensitively."""
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {"feature": "gender", "value": "Male", "min": "2", "max": "4"},
+            {"feature": "gender", "value": "Female", "min": "2", "max": "4"},
+        ]
+        features = read_in_features(head, body)
+
+        # Should be able to access with different case
+        assert "male" in features["gender"]
+        assert "male" in features["Gender"]
+        assert "male" in features["GENDER"]
+        assert "female" in features["gender"]
+        assert "female" in features["Gender"]
+        assert "female" in features["GENDER"]
+
+        # All variations should return the same object
+        assert features["gender"]["male"] is features["Gender"]["male"]
+        assert features["gender"]["male"] is features["GENDER"]["male"]
+        assert features["gender"]["female"] is features["Gender"]["female"]
+        assert features["gender"]["female"] is features["GENDER"]["female"]
+
     def test_case_insensitive_feature_values(self):
         """Test that feature values can be accessed case-insensitively."""
         head = FEATURE_FILE_FIELD_NAMES
@@ -555,9 +578,9 @@ class TestCaseInsensitiveMatching:
         head = FEATURE_FILE_FIELD_NAMES
         body = [
             {"feature": "gender", "value": "MALE", "min": "1", "max": "3"},
-            {"feature": "gender", "value": "female", "min": "1", "max": "3"},
+            {"feature": "Gender", "value": "female", "min": "1", "max": "3"},
             {"feature": "ethnicity", "value": "White British", "min": "1", "max": "2"},
-            {"feature": "ethnicity", "value": "Asian", "min": "1", "max": "2"},
+            {"feature": "ETHNICITY", "value": "Asian", "min": "1", "max": "2"},
         ]
         features = read_in_features(head, body)
 
@@ -573,3 +596,4 @@ class TestCaseInsensitiveMatching:
         assert "white british" in features["ethnicity"]
         assert "White British" in features["ethnicity"]
         assert "WHITE BRITISH" in features["ethnicity"]
+        assert "asian" in features["ethnicity"]

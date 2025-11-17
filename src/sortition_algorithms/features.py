@@ -1,4 +1,3 @@
-from collections import defaultdict
 from collections.abc import Generator, Iterable, Iterator, MutableMapping
 from typing import TypeAlias
 
@@ -301,7 +300,7 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
 
     Note we do want features_head to ensure we don't have multiple columns with the same name
     """
-    features: FeatureCollection = defaultdict(CaseInsensitiveDict)
+    features: FeatureCollection = CaseInsensitiveDict()
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
     combined_error = SelectionMultilineError(["ERROR reading in feature file:"])
     for row in features_body:
@@ -316,6 +315,8 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
             # add all the lines into one large error, so we report all the errors in one go
             combined_error.combine(error)
         else:
+            if fname not in features:
+                features[fname] = CaseInsensitiveDict()
             features[fname][fvalue] = fv_minmax
 
     # if we got any errors in the above loop, raise the combined error.
@@ -326,4 +327,4 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
     # check feature_flex to see if we need to set the max here
     # this only changes the max_flex value if these (optional) flex values are NOT set already
     set_default_max_flex(features)
-    return features
+    return CaseInsensitiveDict(features)

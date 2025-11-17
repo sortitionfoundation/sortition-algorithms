@@ -72,7 +72,7 @@ def select_from_feature_collection(fc: FeatureCollection) -> SelectCollection:
     select_collection: SelectCollection = defaultdict(CaseInsensitiveDict)
     for fname, fvalue_name, fv_minmax in iterate_feature_collection(fc):
         select_collection[fname][fvalue_name] = SelectCounts(min_max=fv_minmax)
-    return select_collection
+    return CaseInsensitiveDict(select_collection)
 
 
 def iterate_select_collection(select_collection: SelectCollection) -> Generator[tuple[str, str, SelectCounts]]:
