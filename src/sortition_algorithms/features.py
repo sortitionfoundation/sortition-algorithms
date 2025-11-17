@@ -161,10 +161,15 @@ def _normalise_col_names(row: dict[str, str]) -> dict[str, str]:
     if the dict has "category" as the key, change that to "feature"
     if the dict has "name" as the key, change that to "value"
     """
-    if "category" in row:
-        row["feature"] = row.pop("category")
-    if "name" in row:
-        row["value"] = row.pop("name")
+    renames = {
+        "category": "feature",
+        "name": "value",
+        "category value": "value",
+        "category_value": "value",
+    }
+    for old, new in renames.items():
+        if old in row:
+            row[new] = row.pop(old)
     return row
 
 
