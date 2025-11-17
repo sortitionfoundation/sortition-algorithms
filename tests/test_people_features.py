@@ -534,3 +534,98 @@ class TestPeopleFeatures:
                 assert counts.selected == 0  # Household members aren't "selected"
                 assert counts.remaining == 1  # Only Alice remains
                 break
+
+
+class TestCaseInsensitivePeopleFeatures:
+    """Test that PeopleFeatures handles case-insensitive feature value matching."""
+
+    def test_people_features_with_mismatched_case(self):
+        """Test that people data with different case than features still works."""
+        # Create features with uppercase values
+        features_data = [
+            {"feature": "gender", "value": "MALE", "min": "1", "max": "5"},
+            {"feature": "gender", "value": "FEMALE", "min": "1", "max": "5"},
+            {"feature": "age", "value": "YOUNG", "min": "1", "max": "3"},
+            {"feature": "age", "value": "OLD", "min": "1", "max": "3"},
+        ]
+        head = ["feature", "value", "min", "max"]
+        features = read_in_features(head, features_data)
+
+        # Create people with lowercase values
+        settings = create_test_settings()
+        people_data = [
+            {"id": "0", "name": "John", "gender": "male", "age": "young"},
+            {"id": "1", "name": "Jane", "gender": "female", "age": "young"},
+            {"id": "2", "name": "Bob", "gender": "male", "age": "old"},
+            {"id": "3", "name": "Alice", "gender": "female", "age": "old"},
+        ]
+        people_head = ["id", "name", "gender", "age"]
+        from sortition_algorithms.people import read_in_people
+
+        people, _ = read_in_people(people_head, people_data, features, settings)
+
+        # Create PeopleFeatures and verify it works
+        people_features = PeopleFeatures(people, features)
+        people_features.update_all_features_remaining()
+
+        # Verify counts are correct despite case mismatch
+        expected_counts = {
+            ("gender", "MALE"): 2,  # John, Bob
+            ("gender", "FEMALE"): 2,  # Jane, Alice
+            ("age", "YOUNG"): 2,  # John, Jane
+            ("age", "OLD"): 2,  # Bob, Alice
+        }
+
+        for (
+            feature_name,
+            value_name,
+            counts,
+        ) in iterate_select_collection(people_features.select_collection):
+            expected = expected_counts[(feature_name, value_name)]
+            assert (
+                counts.remaining == expected
+            ), f"Expected {feature_name}/{value_name} remaining to be {expected}, got {counts.remaining}"
+
+    def test_select_person_with_case_mismatch(self):
+        """Test that selecting a person works when people data has different case."""
+        # Features with mixed case
+        features_data = [
+            {"feature": "gender", "value": "Male", "min": "0", "max": "2"},
+            {"feature": "gender", "value": "Female", "min": "0", "max": "2"},
+        ]
+        head = ["feature", "value", "min", "max"]
+        features = read_in_features(head, features_data)
+
+        # People with different case
+        settings = create_test_settings()
+        people_data = [
+            {"id": "0", "name": "John", "gender": "MALE"},
+            {"id": "1", "name": "Jane", "gender": "female"},
+        ]
+        people_head = ["id", "name", "gender"]
+        from sortition_algorithms.people import read_in_people
+
+        people, _ = read_in_people(people_head, people_data, features, settings)
+
+        # Create and use PeopleFeatures
+        people_features = PeopleFeatures(people, features)
+        people_features.update_all_features_remaining()
+
+        # Verify initial remaining counts
+        for feature_name, value_name, counts in iterate_select_collection(people_features.select_collection):
+            if feature_name == "gender" and value_name.lower() == "male":
+                assert counts.remaining == 1  # John
+            elif feature_name == "gender" and value_name.lower() == "female":
+                assert counts.remaining == 1  # Jane
+
+        # Select John (who has "MALE" while features has "Male")
+        people_features.select_person("0")
+
+        # Verify the counts were updated correctly
+        for feature_name, value_name, counts in iterate_select_collection(people_features.select_collection):
+            if feature_name == "gender" and value_name.lower() == "male":
+                assert counts.selected == 1
+                assert counts.remaining == 0  # John was removed
+            elif feature_name == "gender" and value_name.lower() == "female":
+                assert counts.selected == 0
+                assert counts.remaining == 1  # Jane still there

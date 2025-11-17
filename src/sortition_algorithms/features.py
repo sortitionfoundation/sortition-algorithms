@@ -3,6 +3,7 @@ from collections.abc import Generator, Iterable, Iterator
 from typing import TypeAlias
 
 from attrs import define
+from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms import utils
 from sortition_algorithms.errors import SelectionMultilineError
@@ -295,7 +296,7 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
 
     Note we do want features_head to ensure we don't have multiple columns with the same name
     """
-    features: FeatureCollection = defaultdict(dict)
+    features: FeatureCollection = defaultdict(CaseInsensitiveDict)
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
     combined_error = SelectionMultilineError(["ERROR reading in feature file:"])
     for row in features_body:

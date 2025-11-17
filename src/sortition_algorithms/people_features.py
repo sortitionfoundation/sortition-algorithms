@@ -5,6 +5,7 @@ from collections.abc import Generator, Iterable
 from copy import deepcopy
 
 from attrs import define
+from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax, iterate_feature_collection
@@ -68,7 +69,7 @@ SelectCollection: typing.TypeAlias = dict[str, dict[str, SelectCounts]]  # noqa:
 
 
 def select_from_feature_collection(fc: FeatureCollection) -> SelectCollection:
-    select_collection: SelectCollection = defaultdict(dict)
+    select_collection: SelectCollection = defaultdict(CaseInsensitiveDict)
     for fname, fvalue_name, fv_minmax in iterate_feature_collection(fc):
         select_collection[fname][fvalue_name] = SelectCounts(min_max=fv_minmax)
     return select_collection

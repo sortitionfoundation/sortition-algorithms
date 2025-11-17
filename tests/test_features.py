@@ -522,3 +522,54 @@ class TestFeatureValueCounts:
 
         counts.set_default_max_flex(10)
         assert counts.max_flex == 5  # Should remain unchanged
+
+
+class TestCaseInsensitiveMatching:
+    """Test that feature values are matched case-insensitively."""
+
+    def test_case_insensitive_feature_values(self):
+        """Test that feature values can be accessed case-insensitively."""
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {"feature": "gender", "value": "Male", "min": "2", "max": "4"},
+            {"feature": "gender", "value": "Female", "min": "2", "max": "4"},
+        ]
+        features = read_in_features(head, body)
+
+        # Should be able to access with different case
+        assert "male" in features["gender"]
+        assert "MALE" in features["gender"]
+        assert "Male" in features["gender"]
+        assert "female" in features["gender"]
+        assert "FEMALE" in features["gender"]
+        assert "Female" in features["gender"]
+
+        # All variations should return the same object
+        assert features["gender"]["male"] is features["gender"]["Male"]
+        assert features["gender"]["male"] is features["gender"]["MALE"]
+        assert features["gender"]["female"] is features["gender"]["Female"]
+        assert features["gender"]["female"] is features["gender"]["FEMALE"]
+
+    def test_case_insensitive_with_mixed_case_input(self):
+        """Test that mixed case input still works correctly."""
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {"feature": "gender", "value": "MALE", "min": "1", "max": "3"},
+            {"feature": "gender", "value": "female", "min": "1", "max": "3"},
+            {"feature": "ethnicity", "value": "White British", "min": "1", "max": "2"},
+            {"feature": "ethnicity", "value": "Asian", "min": "1", "max": "2"},
+        ]
+        features = read_in_features(head, body)
+
+        # Check all variations work
+        assert "male" in features["gender"]
+        assert "Male" in features["gender"]
+        assert "MALE" in features["gender"]
+
+        assert "female" in features["gender"]
+        assert "Female" in features["gender"]
+        assert "FEMALE" in features["gender"]
+
+        assert "white british" in features["ethnicity"]
+        assert "White British" in features["ethnicity"]
+        assert "WHITE BRITISH" in features["ethnicity"]
