@@ -75,8 +75,12 @@ class ParseTableMultiError(SelectionMultilineError):
     relating to a CSV file, Spreadsheet etc.
     """
 
-    def __init__(self, errors: list[ParseTableErrorMsg | ParseTableMultiValueErrorMsg]) -> None:
-        self.all_errors = errors
+    def __init__(self, errors: list[ParseTableErrorMsg | ParseTableMultiValueErrorMsg] | None = None) -> None:
+        self.all_errors: list[ParseTableErrorMsg | ParseTableMultiValueErrorMsg] = errors or []
+
+    def __len__(self) -> int:
+        """This means that we will be falsy if len is 0, so is effectively a __bool__ as well"""
+        return len(self.all_errors)
 
     def lines(self) -> list[str]:
         return [str(e) for e in self.all_errors]

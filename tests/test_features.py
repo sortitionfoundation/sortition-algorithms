@@ -294,6 +294,17 @@ class TestReadInFeaturesErrorHandling:
             read_in_features(head, body)
         assert excinfo.value.all_errors[0].row_name == "gender/male"
 
+    def test_min_gt_max_raises_error(self):
+        """Test that min > max raises an error."""
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [{"feature": "gender", "value": "male", "min": "10", "max": "5"}]
+
+        with pytest.raises(
+            ParseTableMultiError, match=r"Minimum \(10\) should not be greater than maximum \(5\)"
+        ) as excinfo:
+            read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender/male"
+
     def test_multiple_errors_all_reported(self):
         """When there are errors in more than one row, check all are reported, not just the first row"""
         head = FEATURE_FILE_FIELD_NAMES
@@ -325,10 +336,10 @@ class TestReadInFeaturesErrorHandling:
         ]
         with pytest.raises(ParseTableMultiError) as context:
             read_in_features(head, body)
-        assert "Empty value in feature gender: for row 1" in str(context.value)
-        assert "no min value set: for row 2" in str(context.value)
-        assert "no max value set: for row 3" in str(context.value)
-        assert "'burble' is not a number: for row 4" in context.exconly()
+        assert "Empty value in feature gender: for row 2" in str(context.value)
+        assert "no min value set: for row 3" in str(context.value)
+        assert "no max value set: for row 4" in str(context.value)
+        assert "'burble' is not a number: for row 5" in context.exconly()
 
     def test_blank_flex_values_raise_error(self):
         """Test that blank flex values raise an error when flex headers are present."""

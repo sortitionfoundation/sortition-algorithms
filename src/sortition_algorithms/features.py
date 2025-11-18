@@ -314,8 +314,9 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
     """
     features: FeatureCollection = CaseInsensitiveDict()
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
-    combined_error = ParseTableMultiError([])
-    for feature_number, row in enumerate(features_body):
+    combined_error = ParseTableMultiError()
+    # row 1 is the header, so the body starts on row 2
+    for row_number, row in enumerate(features_body, start=2):
         # check the set of keys in the row are the same as the headers
         assert set(filtered_headers) <= set(row.keys())
         stripped_row = utils.StrippedDict(row)
@@ -323,7 +324,7 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
         if not fname:
             continue
         try:
-            fname, fvalue, fv_minmax = _clean_row(stripped_row, features_flex, feature_number + 1)
+            fname, fvalue, fv_minmax = _clean_row(stripped_row, features_flex, row_number)
         except ParseTableMultiError as error:
             # add all the lines into one large error, so we report all the errors in one go
             combined_error.combine(error)
@@ -333,7 +334,7 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
             features[fname][fvalue] = fv_minmax
 
     # if we got any errors in the above loop, raise the combined error.
-    if len(combined_error.lines()):
+    if combined_error:
         raise combined_error
 
     check_min_max(features)
