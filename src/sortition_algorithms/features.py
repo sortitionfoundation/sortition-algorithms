@@ -105,7 +105,7 @@ def maximum_selection(fc: FeatureCollection) -> int:
     return min(_fv_maximum_selection(fv) for fv in fc.values())
 
 
-def report_min_max_error_details(fc: FeatureCollection) -> list[str]:
+def report_min_max_error_details(fc: FeatureCollection, feature_column_name: str = "feature") -> list[str]:
     """
     Return a list of problems in detail, so that the user can debug the errors in detail
     """
@@ -115,19 +115,19 @@ def report_min_max_error_details(fc: FeatureCollection) -> list[str]:
     max_feature, max_val = min(((key, _fv_maximum_selection(fv)) for key, fv in fc.items()), key=lambda x: x[1])
     min_feature, min_val = max(((key, _fv_minimum_selection(fv)) for key, fv in fc.items()), key=lambda x: x[1])
     return [
-        "Inconsistent numbers in min and max in the features input:",
-        f"The smallest maximum is {max_val} for feature '{max_feature}'",
-        f"The largest minimum is {min_val} for feature '{min_feature}'",
+        f"Inconsistent numbers in min and max in the {feature_column_name} input:",
+        f"The smallest maximum is {max_val} for {feature_column_name} '{max_feature}'",
+        f"The largest minimum is {min_val} for {feature_column_name} '{min_feature}'",
         f"You need to reduce the minimums for {min_feature} or increase the maximums for {max_feature}.",
     ]
 
 
-def check_min_max(fc: FeatureCollection) -> None:
+def check_min_max(fc: FeatureCollection, feature_column_name: str = "feature") -> None:
     """
     If the min is bigger than the max we're in trouble i.e. there's an input error
     """
     if minimum_selection(fc) > maximum_selection(fc):
-        raise SelectionMultilineError(report_min_max_error_details(fc))
+        raise SelectionMultilineError(report_min_max_error_details(fc, feature_column_name))
 
 
 def check_desired(fc: FeatureCollection, desired_number: int) -> None:
@@ -344,7 +344,7 @@ def read_in_features(
     if combined_error:
         raise combined_error
 
-    check_min_max(features)
+    check_min_max(features, feature_column_name)
     # check feature_flex to see if we need to set the max here
     # this only changes the max_flex value if these (optional) flex values are NOT set already
     set_default_max_flex(features)
