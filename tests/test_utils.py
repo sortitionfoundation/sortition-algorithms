@@ -1,9 +1,41 @@
 import logging
 import re
+from typing import ClassVar
 from unittest.mock import patch
 
+import pytest
+
 from sortition_algorithms.errors import SelectionError, SelectionMultilineError
-from sortition_algorithms.utils import ReportLevel, RunReport
+from sortition_algorithms.utils import ReportLevel, RunReport, get_cell_name
+
+
+class TestGetCellName:
+    short_headers = ("first", "second", "third")
+    long_headers: ClassVar = [f"col{index}" for index in range(1, 100)]
+
+    def test_get_cell_name_a1(self):
+        assert get_cell_name(1, "first", self.short_headers) == "A1"
+
+    def test_get_cell_name_z100(self):
+        assert get_cell_name(100, "col26", self.long_headers) == "Z100"
+
+    @pytest.mark.parametrize(
+        "col_name,expected",
+        [
+            ("col27", "AA10"),
+            ("col28", "AB10"),
+            ("col52", "AZ10"),
+            ("col53", "BA10"),
+            ("col78", "BZ10"),
+            ("col79", "CA10"),
+        ],
+    )
+    def test_get_cell_name_beyond_z(self, col_name: str, expected: str):
+        assert get_cell_name(10, col_name, self.long_headers) == expected
+
+    def test_get_cell_name_not_in_headers(self):
+        with pytest.raises(ValueError):
+            get_cell_name(10, "unknown", self.short_headers)
 
 
 class TestRunReport:

@@ -3,9 +3,10 @@ import html
 import logging
 import random
 import secrets
+import string
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable, Mapping
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -15,6 +16,18 @@ from sortition_algorithms import errors
 
 if TYPE_CHECKING:
     from _typeshed import SupportsLenAndGetItem
+
+
+def get_cell_name(row: int, col_name: str, headers: Sequence[str]) -> str:
+    """Given the column_name, get the spreadsheet cell name, eg "A5" """
+    col_index = headers.index(col_name)
+    if col_index > 25:
+        col1 = ["", *string.ascii_uppercase][col_index // 26]
+        col2 = string.ascii_uppercase[col_index % 26]
+        col_name = f"{col1}{col2}"
+    else:
+        col_name = string.ascii_uppercase[col_index]
+    return f"{col_name}{row}"
 
 
 def default_logging_setup() -> tuple[logging.Logger, logging.Logger]:
