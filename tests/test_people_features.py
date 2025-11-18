@@ -22,7 +22,7 @@ class TestSelectCollection:
         # Create features using the new API
         features_data = [{"feature": "gender", "value": "male", "min": "1", "max": "3"}]
         head = ["feature", "value", "min", "max"]
-        features = read_in_features(head, features_data)
+        features, _, _ = read_in_features(head, features_data)
 
         select_collection = select_from_feature_collection(features)
         select_counts = select_collection["gender"]["male"]
@@ -549,7 +549,7 @@ class TestCaseInsensitivePeopleFeatures:
             {"feature": "age", "value": "OLD", "min": "1", "max": "3"},
         ]
         head = ["feature", "value", "min", "max"]
-        features = read_in_features(head, features_data)
+        features, _, _ = read_in_features(head, features_data)
 
         # Create people with lowercase values
         settings = create_test_settings()
@@ -594,7 +594,7 @@ class TestCaseInsensitivePeopleFeatures:
             {"feature": "gender", "value": "Female", "min": "0", "max": "2"},
         ]
         head = ["feature", "value", "min", "max"]
-        features = read_in_features(head, features_data)
+        features, _, _ = read_in_features(head, features_data)
 
         # People with different case
         settings = create_test_settings()

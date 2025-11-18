@@ -306,7 +306,9 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool, row_number: int) -> 
     return feature_name, feature_value, fv_minmax
 
 
-def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[str, str]]) -> FeatureCollection:
+def read_in_features(
+    features_head: Iterable[str], features_body: Iterable[dict[str, str]]
+) -> tuple[FeatureCollection, str, str]:
     """
     Read in stratified selection features and values
 
@@ -315,8 +317,13 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
     features: FeatureCollection = CaseInsensitiveDict()
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
     combined_error = ParseTableMultiError()
+    feature_column_name = "feature"
+    feature_value_column_name = "value"
     # row 1 is the header, so the body starts on row 2
     for row_number, row in enumerate(features_body, start=2):
+        if row_number == 2:
+            _, feature_column_name = _get_feature_from_row(row)
+            _, feature_value_column_name = _get_feature_value_from_row(row)
         # check the set of keys in the row are the same as the headers
         assert set(filtered_headers) <= set(row.keys())
         stripped_row = utils.StrippedDict(row)
@@ -341,4 +348,4 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
     # check feature_flex to see if we need to set the max here
     # this only changes the max_flex value if these (optional) flex values are NOT set already
     set_default_max_flex(features)
-    return CaseInsensitiveDict(features)
+    return CaseInsensitiveDict(features), feature_column_name, feature_value_column_name

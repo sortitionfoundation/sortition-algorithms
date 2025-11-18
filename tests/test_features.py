@@ -23,49 +23,53 @@ def test_read_in_features_without_flex():
         {"feature": "gender", "value": "female", "min": "4", "max": "6"},
         {"feature": "gender", "value": "non-binary-other", "min": "0", "max": "1"},
     ]
-    features = read_in_features(head, body)
+    features, feature_column_name, feature_value_column_name = read_in_features(head, body)
     assert list(features.keys()) == ["gender"]
     assert sorted(features["gender"].keys()) == ["female", "male", "non-binary-other"]
     assert minimum_selection(features) == 8
     assert maximum_selection(features) == 13
+    assert feature_column_name == "feature"
+    assert feature_value_column_name == "value"
 
 
 def test_read_in_features_with_flex():
     """
     Test a basic import with a single feature/category
     """
-    head = FEATURE_FILE_FIELD_NAMES_FLEX
+    head = FEATURE_FILE_FIELD_NAMES_FLEX_OLD
     body = [
         {
-            "feature": "gender",
-            "value": "male",
+            "category": "gender",
+            "name": "male",
             "min": "4",
             "max": "6",
             "min_flex": "4",
             "max_flex": "6",
         },
         {
-            "feature": "gender",
-            "value": "female",
+            "category": "gender",
+            "name": "female",
             "min": "4",
             "max": "6",
             "min_flex": "4",
             "max_flex": "6",
         },
         {
-            "feature": "gender",
-            "value": "non-binary-other",
+            "category": "gender",
+            "name": "non-binary-other",
             "min": "0",
             "max": "1",
             "min_flex": "0",
             "max_flex": "1",
         },
     ]
-    features = read_in_features(head, body)
+    features, feature_column_name, feature_value_column_name = read_in_features(head, body)
     assert list(features.keys()) == ["gender"]
     assert sorted(features["gender"].keys()) == ["female", "male", "non-binary-other"]
     assert minimum_selection(features) == 8
     assert maximum_selection(features) == 13
+    assert feature_column_name == "category"
+    assert feature_value_column_name == "name"
 
 
 def test_read_in_features_without_flex_old_names():
@@ -78,7 +82,7 @@ def test_read_in_features_without_flex_old_names():
         {"category": "gender", "name": "female", "min": "4", "max": "6"},
         {"category": "gender", "name": "non-binary-other", "min": "0", "max": "1"},
     ]
-    features = read_in_features(head, body)
+    features, _, _ = read_in_features(head, body)
     assert list(features.keys()) == ["gender"]
     assert sorted(features["gender"].keys()) == ["female", "male", "non-binary-other"]
     assert minimum_selection(features) == 8
@@ -116,7 +120,7 @@ def test_read_in_features_with_flex_old_names():
             "max_flex": "1",
         },
     ]
-    features = read_in_features(head, body)
+    features, _, _ = read_in_features(head, body)
     assert list(features.keys()) == ["gender"]
     assert sorted(features["gender"].keys()) == ["female", "male", "non-binary-other"]
     assert minimum_selection(features) == 8
@@ -136,7 +140,7 @@ class TestReadInFeaturesMultipleFeatures:
             {"feature": "age", "value": "31-50", "min": "2", "max": "5"},
             {"feature": "age", "value": "51+", "min": "1", "max": "2"},
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         # Check we have both features
         assert sorted(features.keys()) == ["age", "gender"]
@@ -189,7 +193,7 @@ class TestReadInFeaturesMultipleFeatures:
                 "max_flex": "5",
             },
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         assert sorted(features.keys()) == ["education", "gender"]
         assert minimum_selection(features) == 4  # max(4, 3) = 4
@@ -226,7 +230,7 @@ class TestReadInFeaturesErrorHandling:
             "suggest max",
         ]  # extra "suggest min/max" headers
         body = [{"feature": "gender", "value": "male", "min": "1", "max": "2"}]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         assert list(features.keys()) == ["gender"]
         assert list(features["gender"].keys()) == ["male"]
@@ -243,7 +247,7 @@ class TestReadInFeaturesErrorHandling:
             },  # blank feature, should be skipped
             {"feature": "gender", "value": "female", "min": "2", "max": "3"},
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         assert list(features.keys()) == ["gender"]
         assert list(features["gender"].keys()) == ["female"]
@@ -441,7 +445,7 @@ class TestReadInFeaturesDataTypes:
             {"feature": "  gender  ", "value": "  male  ", "min": "1", "max": "2"},
             {"feature": "gender", "value": "female", "min": "2", "max": "3"},
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         assert "gender" in features
         assert sorted(features["gender"].keys()) == ["female", "male"]
@@ -453,7 +457,7 @@ class TestReadInFeaturesDataTypes:
             {"feature": 123, "value": 456, "min": "1", "max": "2"},
             {"feature": 123, "value": 789, "min": "2", "max": "3"},
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         assert "123" in features
         assert sorted(features["123"].keys()) == ["456", "789"]
@@ -469,7 +473,7 @@ class TestReadInFeaturesOldColumnNames:
             {"category": "gender", "name": "male", "min": "1", "max": "2"},
             {"category": "gender", "name": "female", "min": "2", "max": "3"},
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         assert "gender" in features
         assert sorted(features["gender"].keys()) == ["female", "male"]
@@ -495,7 +499,7 @@ class TestReadInFeaturesOldColumnNames:
                 "max_flex": "4",
             },
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         assert "gender" in features
         assert sorted(features["gender"].keys()) == ["female", "male"]
@@ -547,7 +551,7 @@ class TestCaseInsensitiveMatching:
             {"feature": "gender", "value": "Male", "min": "2", "max": "4"},
             {"feature": "gender", "value": "Female", "min": "2", "max": "4"},
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         # Should be able to access with different case
         assert "male" in features["gender"]
@@ -570,7 +574,7 @@ class TestCaseInsensitiveMatching:
             {"feature": "gender", "value": "Male", "min": "2", "max": "4"},
             {"feature": "gender", "value": "Female", "min": "2", "max": "4"},
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         # Should be able to access with different case
         assert "male" in features["gender"]
@@ -595,7 +599,7 @@ class TestCaseInsensitiveMatching:
             {"feature": "ethnicity", "value": "White British", "min": "1", "max": "2"},
             {"feature": "ETHNICITY", "value": "Asian", "min": "1", "max": "2"},
         ]
-        features = read_in_features(head, body)
+        features, _, _ = read_in_features(head, body)
 
         # Check all variations work
         assert "male" in features["gender"]

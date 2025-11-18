@@ -34,7 +34,14 @@ class People:
     def items(self) -> ItemsView[str, dict[str, str]]:
         return self._full_data.items()
 
-    def add(self, person_key: str, data: StrippedDict, features: FeatureCollection, row_number: int) -> None:
+    def add(
+        self,
+        person_key: str,
+        data: StrippedDict,
+        features: FeatureCollection,
+        row_number: int,
+        feature_column_name: str = "feature",
+    ) -> None:
         person_full_data: dict[str, str] = {}
         errors = ParseErrorsCollector()
         # get the feature values: these are the most important and we must check them
@@ -46,13 +53,12 @@ class People:
             if p_value in feature_values:
                 person_full_data[feature_name] = p_value
             else:
-                errors.add(
-                    msg=f"Value '{p_value}' not in category/feature {feature_name}",
-                    key=feature_name,
-                    value=p_value,
-                    row=row_number,
-                    row_name=person_key,
+                msg = (
+                    f"Value '{p_value}' not in {feature_column_name} {feature_name}"
+                    if p_value
+                    else f"Empty value in {feature_column_name} {feature_name}"
                 )
+                errors.add(msg=msg, key=feature_name, value=p_value, row=row_number, row_name=person_key)
         if errors:
             raise errors.to_error()
         # then get the other column values we need
@@ -202,6 +208,7 @@ def read_in_people(
     people_body: Iterable[dict[str, str] | dict[str, str | int]],
     features: FeatureCollection,
     settings: Settings,
+    feature_column_name: str = "feature",
 ) -> tuple[People, RunReport]:
     report = RunReport()
     _check_people_head(people_head, features, settings)
@@ -218,7 +225,13 @@ def read_in_people(
             report.add_line(f"WARNING: blank cell found in ID column in row {row_number} - skipped that line!")
             continue
         try:
-            people.add(pkey, stripped_row, features, row_number)
+            people.add(
+                person_key=pkey,
+                data=stripped_row,
+                features=features,
+                row_number=row_number,
+                feature_column_name=feature_column_name,
+            )
         except ParseTableMultiError as error:
             # gather all the errors so we can tell the user as many problems as possible in one pass
             combined_error.combine(error)

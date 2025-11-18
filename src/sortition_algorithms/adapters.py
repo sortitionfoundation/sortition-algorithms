@@ -121,13 +121,17 @@ class SelectionData:
         self.data_source = data_source
         # short for "generate remaining tab"
         self.gen_rem_tab = gen_rem_tab  # Added for checkbox in strat select app
+        # record the column headers for feature/category and for value
+        self.feature_column_name = "feature"
+        self.feature_value_column_name = "value"
 
     def load_features(self) -> tuple[FeatureCollection, RunReport]:
         report = RunReport()
         with self.data_source.read_feature_data(report) as headers_body:
-            headers, body = headers_body
+            headers_iter, body = headers_body
+            headers = list(headers_iter)
             try:
-                features = read_in_features(list(headers), body)
+                features, self.feature_column_name, self.feature_value_column_name = read_in_features(headers, body)
             except ParseTableMultiError as error:
                 new_error = self.data_source.customise_features_parse_error(error, headers)
                 raise new_error from error
@@ -137,9 +141,16 @@ class SelectionData:
     def load_people(self, settings: Settings, features: FeatureCollection) -> tuple[People, RunReport]:
         report = RunReport()
         with self.data_source.read_people_data(report) as headers_body:
-            headers, body = headers_body
+            headers_iter, body = headers_body
+            headers = list(headers_iter)
             try:
-                people, report = read_in_people(list(headers), body, features, settings)
+                people, report = read_in_people(
+                    people_head=headers,
+                    people_body=body,
+                    features=features,
+                    settings=settings,
+                    feature_column_name=self.feature_column_name,
+                )
             except ParseTableMultiError as error:
                 new_error = self.data_source.customise_people_parse_error(error, headers)
                 raise new_error from error

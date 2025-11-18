@@ -454,4 +454,4 @@ def test_csv_load_people_from_file_failure(tmp_path: Path):
     with pytest.raises(SelectionMultilineError) as excinfo:
         file_select_data.load_people(settings, features)
     assert "new_people.csv" in str(excinfo.value)
-    assert "'PictsieLand' not in category/feature geo_bucket" in str(excinfo.value)
+    assert "'PictsieLand' not in feature geo_bucket" in str(excinfo.value)

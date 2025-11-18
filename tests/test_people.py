@@ -19,7 +19,7 @@ def create_simple_test_features() -> FeatureCollection:
         {"feature": "gender", "value": "female", "min": "1", "max": "10"},
     ]
     head = ["feature", "value", "min", "max"]
-    features = read_in_features(head, features_data)
+    features, _, _ = read_in_features(head, features_data)
     return features
 
 
@@ -32,7 +32,7 @@ def create_test_features() -> FeatureCollection:
         {"feature": "age", "value": "old", "min": "1", "max": "3"},
     ]
     head = ["feature", "value", "min", "max"]
-    features = read_in_features(head, features_data)
+    features, _, _ = read_in_features(head, features_data)
     return features
 
 
@@ -89,7 +89,7 @@ class TestPeople:
             "gender": "other",  # Not in allowed values
         })
 
-        with pytest.raises(errors.ParseTableMultiError, match="Value 'other' not in category/feature gender"):
+        with pytest.raises(errors.ParseTableMultiError, match="Value 'other' not in feature gender"):
             people.add("123", person_data, features, 1)
 
     def test_people_remove_person(self):
@@ -283,7 +283,7 @@ class TestReadInPeople:
         # Change gender to invalid value
         people_body[0]["gender"] = "unknown"
 
-        with pytest.raises(errors.ParseTableMultiError, match="Value 'unknown' not in category/feature gender"):
+        with pytest.raises(errors.ParseTableMultiError, match="Value 'unknown' not in feature gender"):
             read_in_people(people_head, people_body, features, settings)
 
     def test_read_in_people_missing_id_column(self):

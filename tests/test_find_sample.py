@@ -164,7 +164,7 @@ class TestFindRandomSampleLegacy:
             {"feature": "gender", "value": "female", "min": "0", "max": "0"},  # Don't want any females
         ]
         head = ["feature", "value", "min", "max"]
-        features = read_in_features(head, features_data)
+        features, _, _ = read_in_features(head, features_data)
 
         settings = create_test_settings(columns_to_keep=["name"])
         people = create_simple_people(features, settings, count=3)
