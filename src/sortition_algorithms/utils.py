@@ -5,7 +5,7 @@ import random
 import secrets
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping
+from collections.abc import Generator, Iterable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -215,7 +215,7 @@ def strip_str_int(value: str | int | float) -> str:
     return str(value).strip()
 
 
-class StrippedDict:
+class StrippedDict(Mapping):
     """
     Wraps a dict, and whenever we get a value from it, we convert to str and
     strip() whitespace
@@ -231,6 +231,12 @@ class StrippedDict:
 
     def __getitem__(self, key: str) -> str:
         return strip_str_int(self.raw_dict[key])
+
+    def __iter__(self) -> Generator[str]:
+        yield from self.raw_dict
+
+    def __len__(self) -> int:
+        return len(self.raw_dict)
 
 
 class RandomProvider(ABC):

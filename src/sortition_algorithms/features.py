@@ -1,11 +1,15 @@
-from collections.abc import Generator, Iterable, Iterator, MutableMapping
+from collections.abc import Generator, Iterable, Iterator, Mapping, MutableMapping
 from typing import TypeAlias
 
 from attrs import define
 from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms import utils
-from sortition_algorithms.errors import SelectionMultilineError
+from sortition_algorithms.errors import (
+    ParseErrorsCollector,
+    ParseTableMultiError,
+    SelectionMultilineError,
+)
 
 """
 Note on terminology.  The word "categories" can mean various things, so for this
@@ -155,21 +159,22 @@ def set_default_max_flex(fc: FeatureCollection) -> None:
             fv_minmax.set_default_max_flex(max_flex)
 
 
-def _normalise_col_names(row: dict[str, str]) -> dict[str, str]:
-    """
-    if the dict has "category" as the key, change that to "feature"
-    if the dict has "name" as the key, change that to "value"
-    """
-    renames = {
-        "category": "feature",
-        "name": "value",
-        "category value": "value",
-        "category_value": "value",
-    }
-    for old, new in renames.items():
-        if old in row:
-            row[new] = row.pop(old)
-    return row
+def _get_feature_from_row(row: Mapping[str, str]) -> tuple[str, str]:
+    feature_column_names = ("feature", "category")
+    for key in feature_column_names:
+        if key in row:
+            return row[key], key
+    raise ValueError(f"Could not find feature column, looked for column headers: {' '.join(feature_column_names)}")
+
+
+def _get_feature_value_from_row(row: Mapping[str, str]) -> tuple[str, str]:
+    feature_value_column_names = ("value", "name", "category value", "category_value", "category-value")
+    for key in feature_value_column_names:
+        if key in row:
+            return row[key], key
+    raise ValueError(
+        f"Could not find feature value column, looked for column headers: {' '.join(feature_value_column_names)}"
+    )
 
 
 def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
@@ -209,71 +214,80 @@ def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
     raise ValueError(msg)
 
 
-class ListOfNonEmptyStrings:
-    """List that we can add strings to, but non-empty strings will be dropped"""
-
-    def __init__(self) -> None:
-        self.strings: list[str] = []
-
-    def __len__(self) -> int:
-        """This means that we will be falsy if len is 0, so is effectively a __bool__ as well"""
-        return len(self.strings)
-
-    def append(self, new_string: str) -> None:
-        if new_string:
-            self.strings.append(new_string)
-
-
-def _row_val_to_int(row: utils.StrippedDict, key: str, row_id: str) -> tuple[int, str]:
+def _row_val_to_int(row: utils.StrippedDict, key: str) -> tuple[int, str]:
     """
     Convert row value to integer, with detailed error messages if it fails
     """
     if row[key] == "":
-        return 0, f"There is no {key} set for {row_id}."
+        return 0, f"There is no {key} value set"
     try:
         int_value = int(row[key])
     except ValueError:
-        return 0, f"'{row[key]}' is not a number. In column {key} in row containing {row_id}"
+        return 0, f"'{row[key]}' is not a number"
     return int_value, ""
 
 
-def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, FeatureValueMinMax]:
+def _clean_row(row: utils.StrippedDict, feature_flex: bool, row_number: int) -> tuple[str, str, FeatureValueMinMax]:
     """
     allow for some dirty data - at least strip white space from feature name and value
     but only if they are strings! (sometimes people use ints as feature names or values
     and then strip produces an exception...)
     """
-    errors = ListOfNonEmptyStrings()
+    errors = ParseErrorsCollector()
     # this column has been checked to ensure it is not empty before this function is called
-    feature_name = row["feature"]
+    feature_name, feature_column_name = _get_feature_from_row(row)
     # check for blank entries and report a meaningful error
-    feature_value = row["value"]
+    feature_value, value_column_name = _get_feature_value_from_row(row)
     if feature_value == "":
-        raise SelectionMultilineError([f"row containing {feature_name} - there is nothing in the 'value' column."])
+        errors.add(
+            row=row_number,
+            row_name=feature_name,
+            key=value_column_name,
+            value="",
+            msg=f"Empty {value_column_name} in {feature_column_name} {feature_name}",
+        )
+        raise errors.to_error()
 
-    row_id = f"{feature_name}/{feature_value}"
-    value_min, error_min = _row_val_to_int(row, "min", row_id)
-    errors.append(error_min)
-    value_max, error_max = _row_val_to_int(row, "max", row_id)
-    errors.append(error_max)
-
+    row_name = f"{feature_name}/{feature_value}"
+    value_min, error_min = _row_val_to_int(row, "min")
+    errors.add(row=row_number, row_name=row_name, key="min", value=row["min"], msg=error_min)
+    value_max, error_max = _row_val_to_int(row, "max")
+    errors.add(row=row_number, row_name=row_name, key="max", value=row["max"], msg=error_max)
     if errors:
-        raise SelectionMultilineError(errors.strings)
+        # if we don't have valid min/max values, exit here
+        raise errors.to_error()
+
+    if value_min > value_max:
+        errors.add_multi_value(
+            row=row_number,
+            row_name=row_name,
+            keys=["min", "max"],
+            values=[row["min"], row["max"]],
+            msg=f"Minimum ({value_min}) should not be greater than maximum ({value_max})",
+        )
 
     if feature_flex:
-        value_min_flex, error_min_flex = _row_val_to_int(row, "min_flex", row_id)
-        errors.append(error_min_flex)
-        value_max_flex, error_max_flex = _row_val_to_int(row, "max_flex", row_id)
-        errors.append(error_max_flex)
+        value_min_flex, error_min_flex = _row_val_to_int(row, "min_flex")
+        errors.add(row=row_number, row_name=row_name, key="min_flex", value=row["min_flex"], msg=error_min_flex)
+        value_max_flex, error_max_flex = _row_val_to_int(row, "max_flex")
+        errors.add(row=row_number, row_name=row_name, key="max_flex", value=row["max_flex"], msg=error_max_flex)
         # if these values exist they must be at least this...
         if not errors:
             if value_min_flex > value_min:
-                errors.append(
-                    f"min_flex ({value_min_flex}) should not be greater than min ({value_min}) - for row {row_id}."
+                errors.add_multi_value(
+                    row=row_number,
+                    row_name=row_name,
+                    keys=["min", "min_flex"],
+                    values=[row["min"], row["min_flex"]],
+                    msg=f"min_flex ({value_min_flex}) should not be greater than min ({value_min})",
                 )
             if value_max_flex < value_max:
-                errors.append(
-                    f"max_flex ({value_max_flex}) should not be less than max ({value_max}) - for row {row_id}."
+                errors.add_multi_value(
+                    row=row_number,
+                    row_name=row_name,
+                    keys=["max", "max_flex"],
+                    values=[row["max"], row["max_flex"]],
+                    msg=f"max_flex ({value_max_flex}) should not be less than max ({value_max})",
                 )
     else:
         value_min_flex = 0
@@ -281,7 +295,7 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool) -> tuple[str, str, F
         value_max_flex = MAX_FLEX_UNSET
 
     if errors:
-        raise SelectionMultilineError(errors.strings)
+        raise errors.to_error()
 
     fv_minmax = FeatureValueMinMax(
         min=value_min,
@@ -300,16 +314,17 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
     """
     features: FeatureCollection = CaseInsensitiveDict()
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
-    combined_error = SelectionMultilineError(["ERROR reading in feature file:"])
-    for row in features_body:
+    combined_error = ParseTableMultiError([])
+    for feature_number, row in enumerate(features_body):
         # check the set of keys in the row are the same as the headers
         assert set(filtered_headers) <= set(row.keys())
-        stripped_row = utils.StrippedDict(_normalise_col_names(row))
-        if not stripped_row["feature"]:
+        stripped_row = utils.StrippedDict(row)
+        fname, _ = _get_feature_from_row(row)
+        if not fname:
             continue
         try:
-            fname, fvalue, fv_minmax = _clean_row(stripped_row, features_flex)
-        except SelectionMultilineError as error:
+            fname, fvalue, fv_minmax = _clean_row(stripped_row, features_flex, feature_number + 1)
+        except ParseTableMultiError as error:
             # add all the lines into one large error, so we report all the errors in one go
             combined_error.combine(error)
         else:
@@ -318,7 +333,7 @@ def read_in_features(features_head: Iterable[str], features_body: Iterable[dict[
             features[fname][fvalue] = fv_minmax
 
     # if we got any errors in the above loop, raise the combined error.
-    if len(combined_error.all_lines) > 1:
+    if len(combined_error.lines()):
         raise combined_error
 
     check_min_max(features)

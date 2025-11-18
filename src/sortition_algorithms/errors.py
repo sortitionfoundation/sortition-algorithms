@@ -1,4 +1,5 @@
 import html
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -28,17 +29,86 @@ class SelectionMultilineError(SelectionError):
         self.all_lines = lines
 
     def __str__(self) -> str:
-        return "\n".join(self.all_lines)
+        return "\n".join(self.lines())
 
     def to_html(self) -> str:
-        return "<br />".join(html.escape(line) for line in self.all_lines)
+        return "<br />".join(html.escape(line) for line in self.lines())
 
     def lines(self) -> list[str]:
         return self.all_lines
 
     def combine(self, other: "SelectionMultilineError") -> None:
         """Add all the lines from the other error to this one."""
-        self.all_lines += other.all_lines
+        self.all_lines += other.lines()
+
+
+@dataclass
+class ParseTableErrorMsg:
+    row: int
+    row_name: str  # this could be "feature_name/feature_value"
+    key: str
+    value: str
+    msg: str
+
+    def __str__(self) -> str:
+        return f"{self.msg}: for row {self.row}, column header {self.key}"
+
+
+@dataclass
+class ParseTableMultiValueErrorMsg:
+    row: int
+    row_name: str  # this could be "feature_name/feature_value"
+    keys: list[str]
+    values: list[str]
+    msg: str
+
+    def __str__(self) -> str:
+        return f"{self.msg}: for row {self.row}, column headers {', '.join(self.keys)}"
+
+
+class ParseTableMultiError(SelectionMultilineError):
+    """
+    Specifically for collecting errors from parsing a table
+
+    This has information that can be collected at a low level. Then higher level code can read
+    the errors and make a SelectionMultilineError instance with strings with more context,
+    relating to a CSV file, Spreadsheet etc.
+    """
+
+    def __init__(self, errors: list[ParseTableErrorMsg | ParseTableMultiValueErrorMsg]) -> None:
+        self.all_errors = errors
+
+    def lines(self) -> list[str]:
+        return [str(e) for e in self.all_errors]
+
+    def combine(self, other: SelectionMultilineError) -> None:
+        """Add all the lines from the other error to this one."""
+        assert isinstance(other, ParseTableMultiError)
+        self.all_errors += other.all_errors
+
+
+class ParseErrorsCollector:
+    """Class that we can add errors to, but errors with empty messages will be dropped"""
+
+    def __init__(self) -> None:
+        self.errors: list[ParseTableErrorMsg | ParseTableMultiValueErrorMsg] = []
+
+    def __len__(self) -> int:
+        """This means that we will be falsy if len is 0, so is effectively a __bool__ as well"""
+        return len(self.errors)
+
+    def add(self, msg: str, key: str, value: str, row: int, row_name: str) -> None:
+        if msg:
+            self.errors.append(ParseTableErrorMsg(row=row, row_name=row_name, key=key, value=value, msg=msg))
+
+    def add_multi_value(self, msg: str, keys: list[str], values: list[str], row: int, row_name: str) -> None:
+        if msg:
+            self.errors.append(
+                ParseTableMultiValueErrorMsg(row=row, row_name=row_name, keys=keys, values=values, msg=msg)
+            )
+
+    def to_error(self) -> ParseTableMultiError:
+        return ParseTableMultiError(self.errors)
 
 
 class InfeasibleQuotasError(SelectionMultilineError):

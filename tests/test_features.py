@@ -1,6 +1,6 @@
 import pytest
 
-from sortition_algorithms.errors import SelectionMultilineError
+from sortition_algorithms.errors import ParseTableMultiError, SelectionMultilineError
 from sortition_algorithms.features import (
     FEATURE_FILE_FIELD_NAMES,
     FEATURE_FILE_FIELD_NAMES_FLEX,
@@ -253,34 +253,46 @@ class TestReadInFeaturesErrorHandling:
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "", "min": "1", "max": "2"}]
 
-        with pytest.raises(SelectionMultilineError, match="containing gender - there is nothing in the 'value' column"):
+        with pytest.raises(ParseTableMultiError, match="Empty value in feature gender") as excinfo:
             read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender"
+        assert excinfo.value.all_errors[0].key == "value"
+
+    def test_blank_value_raises_error_with_old_column_headings(self):
+        head = FEATURE_FILE_FIELD_NAMES_OLD
+        body = [{"category": "gender", "name": "", "min": "1", "max": "2"}]
+
+        with pytest.raises(ParseTableMultiError, match="Empty name in category gender") as excinfo:
+            read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender"
+        assert excinfo.value.all_errors[0].key == "name"
 
     def test_blank_min_raises_error(self):
         """Test that blank min values raise an error."""
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "male", "min": "", "max": "2"}]
 
-        with pytest.raises(SelectionMultilineError, match="no min set for gender/male"):
+        with pytest.raises(ParseTableMultiError, match="no min value set") as excinfo:
             read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender/male"
 
     def test_non_integer_min_raises_error(self):
         """Test that non-integer min values raise an error."""
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "male", "min": "burble", "max": "2"}]
 
-        with pytest.raises(
-            SelectionMultilineError, match="'burble' is not a number. In column min in row containing gender/male"
-        ):
+        with pytest.raises(ParseTableMultiError, match="'burble' is not a number") as excinfo:
             read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender/male"
 
     def test_blank_max_raises_error(self):
         """Test that blank max values raise an error."""
         head = FEATURE_FILE_FIELD_NAMES
         body = [{"feature": "gender", "value": "male", "min": "1", "max": ""}]
 
-        with pytest.raises(SelectionMultilineError, match="no max set for gender/male"):
+        with pytest.raises(ParseTableMultiError, match="no max value set") as excinfo:
             read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender/male"
 
     def test_multiple_errors_all_reported(self):
         """When there are errors in more than one row, check all are reported, not just the first row"""
@@ -311,12 +323,12 @@ class TestReadInFeaturesErrorHandling:
                 "max": "6",
             },
         ]
-        with pytest.raises(SelectionMultilineError) as context:
+        with pytest.raises(ParseTableMultiError) as context:
             read_in_features(head, body)
-        assert "row containing gender - there is nothing in the 'value' column" in context.exconly()
-        assert "no min set for gender/female" in context.exconly()
-        assert "no max set for age/young" in context.exconly()
-        assert "'burble' is not a number. In column min in row containing age/old" in context.exconly()
+        assert "Empty value in feature gender: for row 1" in str(context.value)
+        assert "no min value set: for row 2" in str(context.value)
+        assert "no max value set: for row 3" in str(context.value)
+        assert "'burble' is not a number: for row 4" in context.exconly()
 
     def test_blank_flex_values_raise_error(self):
         """Test that blank flex values raise an error when flex headers are present."""
@@ -331,8 +343,9 @@ class TestReadInFeaturesErrorHandling:
                 "max_flex": "3",
             }
         ]
-        with pytest.raises(SelectionMultilineError, match="no min_flex set for gender/male"):
+        with pytest.raises(ParseTableMultiError, match="no min_flex value set") as excinfo:
             read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender/male"
 
     def test_inconsistent_min_flex_values_raise_error(self):
         """Test that min_flex value below min raise an error."""
@@ -348,10 +361,10 @@ class TestReadInFeaturesErrorHandling:
             }
         ]
         with pytest.raises(
-            SelectionMultilineError,
-            match=r"min_flex \(3\) should not be greater than min \(2\) - for row gender/male",
-        ):
+            ParseTableMultiError, match=r"min_flex \(3\) should not be greater than min \(2\)"
+        ) as excinfo:
             read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender/male"
 
     def test_inconsistent_max_flex_values_raise_error(self):
         """Test that max_flex value below max raise an error."""
@@ -366,11 +379,9 @@ class TestReadInFeaturesErrorHandling:
                 "max_flex": "4",
             }
         ]
-        with pytest.raises(
-            SelectionMultilineError,
-            match=r"max_flex \(4\) should not be less than max \(5\) - for row gender/male",
-        ):
+        with pytest.raises(ParseTableMultiError, match=r"max_flex \(4\) should not be less than max \(5\)") as excinfo:
             read_in_features(head, body)
+        assert excinfo.value.all_errors[0].row_name == "gender/male"
 
     def test_inconsistent_min_max_across_features(self):
         """Test error when minimum selection exceeds maximum selection across features."""
