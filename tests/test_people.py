@@ -63,7 +63,7 @@ class TestPeople:
             "gender": "male",
         })
 
-        people.add("123", person_data, features)
+        people.add("123", person_data, features, 1)
 
         assert people.count == 1
         # testing both methods, to be sure
@@ -89,8 +89,8 @@ class TestPeople:
             "gender": "other",  # Not in allowed values
         })
 
-        with pytest.raises(errors.BadDataError, match="has value 'other' not in feature gender"):
-            people.add("123", person_data, features)
+        with pytest.raises(errors.ParseTableMultiError, match="Value 'other' not in category/feature gender"):
+            people.add("123", person_data, features, 1)
 
     def test_people_remove_person(self):
         """Test removing a person from the People collection."""
@@ -100,7 +100,7 @@ class TestPeople:
         features = create_simple_test_features()
 
         person_data = StrippedDict({"id": "123", "name": "John", "gender": "male"})
-        people.add("123", person_data, features)
+        people.add("123", person_data, features, 1)
 
         assert people.count == 1
 
@@ -119,7 +119,7 @@ class TestPeople:
         # Add multiple people
         for i, name in enumerate(["John", "Jane", "Bob"]):
             person_data = StrippedDict({"id": str(i), "name": name, "gender": "male"})
-            people.add(str(i), person_data, features)
+            people.add(str(i), person_data, features, i)
 
         # Test iteration
         person_keys = list(people)
@@ -259,7 +259,7 @@ class TestReadInPeople:
         assert people.count == 3  # Blank ID row should be skipped
         report_text = report.as_text()
         assert "blank cell found in ID column" in report_text
-        assert "row 3" in report_text  # 0-indexed, so row 3 is the 4th row
+        assert "row 5" in report_text  # The 1st row is the header, so the 4th data row is row 5
 
     def test_read_in_people_with_whitespace_stripping(self):
         """Test that read_in_people strips whitespace from data."""
@@ -283,7 +283,7 @@ class TestReadInPeople:
         # Change gender to invalid value
         people_body[0]["gender"] = "unknown"
 
-        with pytest.raises(errors.BadDataError, match="has value 'unknown' not in feature gender"):
+        with pytest.raises(errors.ParseTableMultiError, match="Value 'unknown' not in category/feature gender"):
             read_in_people(people_head, people_body, features, settings)
 
     def test_read_in_people_missing_id_column(self):
@@ -424,7 +424,7 @@ class TestPeopleHouseholds:
             "postcode": "12345",
             "gender": "male",
         })
-        people.add("1", person_data, features)
+        people.add("1", person_data, features, 1)
 
         households = people.households(["address1", "postcode"])
 
@@ -453,7 +453,7 @@ class TestPeopleHouseholds:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         households = people.households(["address1", "postcode"])
 
@@ -482,7 +482,7 @@ class TestPeopleHouseholds:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         households = people.households(["address1", "postcode"])
 
@@ -517,7 +517,7 @@ class TestPeopleHouseholds:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         households = people.households(["address1", "postcode"])
 
@@ -548,7 +548,7 @@ class TestPeopleHouseholds:
                 "address1": address1,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         households = people.households(["address1"])
 
@@ -579,7 +579,7 @@ class TestPeopleHouseholds:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         households = people.households(["address1", "postcode"])
 
@@ -599,7 +599,7 @@ class TestPeopleHouseholds:
             "name": "John Doe",
             "gender": "male",
         })
-        people.add("1", person_data, features)
+        people.add("1", person_data, features, 1)
 
         households = people.households([])
 
@@ -633,7 +633,7 @@ class TestPeopleMatchingAddress:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         # John should have no matches
         matches = list(people.matching_address("1", ["address1", "postcode"]))
@@ -662,7 +662,7 @@ class TestPeopleMatchingAddress:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         # John should match Jane and Bob
         matches = list(people.matching_address("1", ["address1", "postcode"]))
@@ -691,7 +691,7 @@ class TestPeopleMatchingAddress:
             "postcode": "12345",
             "gender": "male",
         })
-        people.add("1", person_data, features)
+        people.add("1", person_data, features, 1)
 
         # Should not match himself
         matches = list(people.matching_address("1", ["address1", "postcode"]))
@@ -717,7 +717,7 @@ class TestPeopleMatchingAddress:
                 "address1": address1,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         # John should match Jane
         matches = list(people.matching_address("1", ["address1"]))
@@ -748,7 +748,7 @@ class TestPeopleMatchingAddress:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         # Should match due to whitespace stripping
         matches = list(people.matching_address("1", ["address1", "postcode"]))
@@ -773,7 +773,7 @@ class TestPeopleMatchingAddress:
                 "name": name,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         # With empty address columns, everyone should match everyone else
         matches = list(people.matching_address("1", []))
@@ -815,7 +815,7 @@ class TestPeopleMatchingAddress:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         # John should have no matches (both address1 AND postcode must match)
         matches = list(people.matching_address("1", ["address1", "postcode"]))
@@ -841,7 +841,7 @@ class TestPeopleMatchingAddress:
                 "postcode": postcode,
                 "gender": gender,
             })
-            people.add(person_id, person_data, features)
+            people.add(person_id, person_data, features, 1)
 
         # Should NOT match due to case difference (StrippedDict only strips, doesn't normalize case)
         matches = list(people.matching_address("1", ["address1", "postcode"]))
@@ -871,7 +871,7 @@ class TestPeopleMatchingAddress:
                 "postcode": "12345",
                 "gender": "male" if i % 2 == 0 else "female",
             })
-            people.add(str(i), person_data, features)
+            people.add(str(i), person_data, features, 1)
 
         # Person 0 should match all others (1-9)
         matches = list(people.matching_address("0", ["address1", "postcode"]))

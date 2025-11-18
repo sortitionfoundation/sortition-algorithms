@@ -2,7 +2,13 @@ from collections import Counter, defaultdict
 from collections.abc import ItemsView, Iterable, Iterator
 from typing import Any
 
-from sortition_algorithms import errors
+from sortition_algorithms.errors import (
+    BadDataError,
+    ParseErrorsCollector,
+    ParseTableMultiError,
+    SelectionError,
+    SelectionMultilineError,
+)
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport, StrippedDict
@@ -28,21 +34,27 @@ class People:
     def items(self) -> ItemsView[str, dict[str, str]]:
         return self._full_data.items()
 
-    def add(self, person_key: str, data: StrippedDict, features: FeatureCollection) -> None:
+    def add(self, person_key: str, data: StrippedDict, features: FeatureCollection, row_number: int) -> None:
         person_full_data: dict[str, str] = {}
+        errors = ParseErrorsCollector()
         # get the feature values: these are the most important and we must check them
         for feature_name, feature_values in features.items():
             # check for input errors here - if it's not in the list of feature values...
             # allow for some unclean data - at least strip empty space, but only if a str!
             # (some values will can be numbers)
             p_value = data[feature_name]
-            if p_value not in feature_values:
-                exc_msg = (
-                    f"ERROR reading in people (read_in_people): "
-                    f"Person (id = {person_key}) has value '{p_value}' not in feature {feature_name}"
+            if p_value in feature_values:
+                person_full_data[feature_name] = p_value
+            else:
+                errors.add(
+                    msg=f"Value '{p_value}' not in category/feature {feature_name}",
+                    key=feature_name,
+                    value=p_value,
+                    row=row_number,
+                    row_name=person_key,
                 )
-                raise errors.BadDataError(exc_msg)
-            person_full_data[feature_name] = p_value
+        if errors:
+            raise errors.to_error()
         # then get the other column values we need
         # this is address, name etc that we need to keep for output file
         # we don't check anything here - it's just for user convenience
@@ -112,7 +124,7 @@ class People:
 
         # Should always find someone if position is valid
         msg = f"Failed to find person at position {position} in {feature_name}/{feature_value}"
-        raise errors.SelectionError(msg)
+        raise SelectionError(msg)
 
 
 # simple helper function to tidy the code below
@@ -121,10 +133,10 @@ def _check_columns_exist_or_multiple(people_head: list[str], column_list: Iterab
         column_count = people_head.count(column)
         if column_count == 0:
             msg = f"No '{column}' column {error_label} found in people data!"
-            raise errors.BadDataError(msg)
+            raise BadDataError(msg)
         elif column_count > 1:
             msg = f"MORE THAN 1 '{column}' column {error_label} found in people data!"
-            raise errors.BadDataError(msg)
+            raise BadDataError(msg)
 
 
 def _check_people_head(people_head: list[str], features: FeatureCollection, settings: Settings) -> None:
@@ -182,7 +194,7 @@ def check_for_duplicate_people(people_body: Iterable[StrippedDict], settings: Se
     for key, value in duplicate_differing_rows.items():
         for row in value:
             output.append(f"For ID '{key}' one row of data is: {row.raw_dict}")
-    raise errors.SelectionMultilineError(output)
+    raise SelectionMultilineError(output)
 
 
 def read_in_people(
@@ -197,13 +209,24 @@ def read_in_people(
     stripped_people_body = [StrippedDict(row) for row in people_body]
     report.add_lines(check_for_duplicate_people(stripped_people_body, settings))
     people = People(settings.full_columns_to_keep)
-    for index, stripped_row in enumerate(stripped_people_body):
+    combined_error = ParseTableMultiError()
+    # row 1 is the header, so the body starts on row 2
+    for row_number, stripped_row in enumerate(stripped_people_body, start=2):
         pkey = stripped_row[settings.id_column]
         # skip over any blank lines... but warn the user
         if pkey == "":
-            report.add_line(f"WARNING: blank cell found in ID column in row {index} - skipped that line!")
+            report.add_line(f"WARNING: blank cell found in ID column in row {row_number} - skipped that line!")
             continue
-        people.add(pkey, stripped_row, features)
+        try:
+            people.add(pkey, stripped_row, features, row_number)
+        except ParseTableMultiError as error:
+            # gather all the errors so we can tell the user as many problems as possible in one pass
+            combined_error.combine(error)
+
+    # if we got any errors in the above loop, raise the combined error.
+    if combined_error:
+        raise combined_error
+
     # Note this function just reads in people but doesn't update the features
     # to generate the remaining and prune those with max 0.
     # That is done in committee_generation.legacy.find_random_sample_legacy()

@@ -60,7 +60,7 @@ def convert_people_data(
         if person_id in columns_data:
             person_data.update(columns_data[person_id])
 
-        people.add(person_id, StrippedDict(person_data), features)
+        people.add(person_id, StrippedDict(person_data), features, 0)
 
     return people
 
