@@ -8,7 +8,7 @@ import abc
 import csv
 import logging
 from collections import defaultdict
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
@@ -17,11 +17,16 @@ from typing import ClassVar, TextIO
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-from sortition_algorithms.errors import SelectionError
+from sortition_algorithms.errors import (
+    ParseTableErrorMsg,
+    ParseTableMultiError,
+    SelectionError,
+    SelectionMultilineError,
+)
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import RunReport, user_logger
+from sortition_algorithms.utils import RunReport, get_cell_name, user_logger
 
 
 def _stringify_records(
@@ -100,6 +105,16 @@ class AbstractDataSource(abc.ABC):
     @abc.abstractmethod
     def highlight_dupes(self, dupes: list[int]) -> None: ...
 
+    @abc.abstractmethod
+    def customise_features_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError: ...
+
+    @abc.abstractmethod
+    def customise_people_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError: ...
+
 
 class SelectionData:
     def __init__(self, data_source: AbstractDataSource, gen_rem_tab: bool = True) -> None:
@@ -111,15 +126,23 @@ class SelectionData:
         report = RunReport()
         with self.data_source.read_feature_data(report) as headers_body:
             headers, body = headers_body
-            features = read_in_features(list(headers), body)
+            try:
+                features = read_in_features(list(headers), body)
+            except ParseTableMultiError as error:
+                new_error = self.data_source.customise_features_parse_error(error, headers)
+                raise new_error from error
         report.add_line(f"Number of features found: {len(features)}")
         return features, report
 
     def load_people(self, settings: Settings, features: FeatureCollection) -> tuple[People, RunReport]:
         report = RunReport()
-        with self.data_source.read_people_data(report) as header_body:
-            header, body = header_body
-            people, report = read_in_people(list(header), body, features, settings)
+        with self.data_source.read_people_data(report) as headers_body:
+            headers, body = headers_body
+            try:
+                people, report = read_in_people(list(headers), body, features, settings)
+            except ParseTableMultiError as error:
+                new_error = self.data_source.customise_people_parse_error(error, headers)
+                raise new_error from error
         return people, report
 
     # TODO: decide if we want this - it would just call the function in core.py
@@ -199,6 +222,18 @@ class CSVStringDataSource(AbstractDataSource):
     def highlight_dupes(self, dupes: list[int]) -> None:
         """Cannot highlight a CSV file"""
 
+    def customise_features_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        # given the info is in strings, we can't usefully add anything
+        return error
+
+    def customise_people_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        # given the info is in strings, we can't usefully add anything
+        return error
+
 
 class CSVFileDataSource(AbstractDataSource):
     def __init__(self, features_file: Path, people_file: Path, selected_file: Path, remaining_file: Path) -> None:
@@ -239,6 +274,22 @@ class CSVFileDataSource(AbstractDataSource):
 
     def highlight_dupes(self, dupes: list[int]) -> None:
         """Cannot highlight a CSV file"""
+
+    def customise_features_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        return SelectionMultilineError([
+            f"Parser error(s) while reading features from {self.features_file}",
+            *[str(e) for e in error.all_errors],
+        ])
+
+    def customise_people_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        return SelectionMultilineError([
+            f"Parser error(s) while reading people from {self.people_file}",
+            *[str(e) for e in error.all_errors],
+        ])
 
 
 class GSheetTabNamer:
@@ -466,3 +517,30 @@ class GSheetDataSource(AbstractDataSource):
                 self.spreadsheet.del_worksheet(tab)
 
         return deleted_names
+
+    def _annotate_parse_errors_with_cell_names(self, error: ParseTableMultiError, headers: Sequence[str]) -> list[str]:
+        msgs: list[str] = []
+        for sub_error in error.all_errors:
+            if isinstance(sub_error, ParseTableErrorMsg):
+                cell_name = get_cell_name(sub_error.row, sub_error.key, headers)
+                msgs.append(f"{sub_error.msg} - see cell {cell_name}")
+            else:
+                cell_names = [get_cell_name(sub_error.row, key, headers) for key in sub_error.keys]
+                msgs.append(f"{sub_error.msg} - see cells {' '.join(cell_names)}")
+        return msgs
+
+    def customise_features_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        return SelectionMultilineError([
+            f"Parser error(s) while reading features from {self.feature_tab_name} worksheet",
+            *self._annotate_parse_errors_with_cell_names(error, headers),
+        ])
+
+    def customise_people_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        return SelectionMultilineError([
+            f"Parser error(s) while reading people from {self.people_tab_name} worksheet",
+            *self._annotate_parse_errors_with_cell_names(error, headers),
+        ])

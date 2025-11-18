@@ -45,7 +45,7 @@ class SelectionMultilineError(SelectionError):
 @dataclass
 class ParseTableErrorMsg:
     row: int
-    row_name: str  # this could be "feature_name/feature_value"
+    row_name: str  # this could be "feature_name/feature_value" or "person_id"
     key: str
     value: str
     msg: str

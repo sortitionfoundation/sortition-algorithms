@@ -6,13 +6,20 @@ from sortition_algorithms import core
 from sortition_algorithms.adapters import (
     CSVFileDataSource,
     CSVStringDataSource,
+    GSheetDataSource,
     GSheetTabNamer,
     SelectionData,
     generate_dupes,
 )
 from sortition_algorithms.committee_generation import GUROBI_AVAILABLE
 from sortition_algorithms.core import run_stratification
-from sortition_algorithms.errors import SelectionError
+from sortition_algorithms.errors import (
+    ParseTableErrorMsg,
+    ParseTableMultiError,
+    ParseTableMultiValueErrorMsg,
+    SelectionError,
+    SelectionMultilineError,
+)
 from sortition_algorithms.settings import Settings
 from tests.helpers import candidates_csv_path, features_csv_path, get_settings_for_fixtures
 
@@ -360,3 +367,91 @@ def test_tab_namer_matches_stubs(tab_name, match):
     namer.selected_tab_name_stub = "select "
     namer.remaining_tab_name_stub = "remain "
     assert namer.matches_stubs(tab_name) == match
+
+
+def test_csv_files_customise_features_parse_error():
+    file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    parse_features_error = ParseTableMultiError([
+        ParseTableErrorMsg(4, row_name="gender", key="name", value="", msg="Some error")
+    ])
+    new_error = file_data_source.customise_features_parse_error(parse_features_error, headers=("category", "name"))
+    assert "Some error" in str(new_error)
+    assert str(features_csv_path) in str(new_error)
+
+
+def test_csv_files_customise_people_parse_error():
+    file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    parse_features_error = ParseTableMultiError([
+        ParseTableErrorMsg(4, row_name="nb_1234", key="gender", value="asdf", msg="Another error")
+    ])
+    new_error = file_data_source.customise_people_parse_error(
+        parse_features_error, headers=("nationbuilder_id", "gender")
+    )
+    assert "Another error" in str(new_error)
+    assert str(candidates_csv_path) in str(new_error)
+
+
+def test_gsheet_customise_features_parse_error():
+    gsheet_data_source = GSheetDataSource(
+        feature_tab_name="Categories", people_tab_name="Respondents", auth_json_path=Path("/")
+    )
+    parse_features_error = ParseTableMultiError([
+        ParseTableErrorMsg(4, row_name="gender", key="name", value="", msg="Some error"),
+        ParseTableMultiValueErrorMsg(
+            6, row_name="gender", keys=["min", "max"], values=["6", "4"], msg="Min greater than max"
+        ),
+    ])
+    new_error = gsheet_data_source.customise_features_parse_error(
+        parse_features_error, headers=("category", "name", "min", "max")
+    )
+    assert "Some error - see cell B4" in str(new_error)
+    assert "Min greater than max - see cells C6 D6" in str(new_error)
+    assert "Categories worksheet" in str(new_error)
+
+
+def test_gsheet_customise_people_parse_error():
+    gsheet_data_source = GSheetDataSource(
+        feature_tab_name="Categories", people_tab_name="Respondents", auth_json_path=Path("/")
+    )
+    parse_features_error = ParseTableMultiError([
+        ParseTableErrorMsg(4, row_name="nb_1234", key="gender", value="asdf", msg="Another error")
+    ])
+    new_error = gsheet_data_source.customise_people_parse_error(
+        parse_features_error, headers=("nationbuilder_id", "name", "gender")
+    )
+    assert "Another error - see cell C4" in str(new_error)
+    assert "Respondents worksheet" in str(new_error)
+
+
+def test_csv_load_feature_from_file_failure(tmp_path: Path):
+    new_features_csv_path = tmp_path / "new_features.csv"
+    with open(new_features_csv_path, "wb") as new_file:
+        new_file.write(features_csv_path.read_bytes())
+        # this line has min > max
+        new_file.write(b"\ngeo_bucket,PictsieLand,5,3,0,5\n")
+    file_data_source = CSVFileDataSource(new_features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    file_select_data = SelectionData(file_data_source)
+    with pytest.raises(SelectionMultilineError) as excinfo:
+        file_select_data.load_features()
+    assert "new_features.csv" in str(excinfo.value)
+    assert "Minimum (5) should not be greater than maximum (3)" in str(excinfo.value)
+
+
+def test_csv_load_people_from_file_failure(tmp_path: Path):
+    new_people_csv_path = tmp_path / "new_people.csv"
+    with open(new_people_csv_path, "wb") as new_file:
+        new_file.write(candidates_csv_path.read_bytes())
+        # this line has PictsieLand but the features do not have that
+        new_file.write(
+            b"p9991,first_name1,last_name1,email1,mobile_number1,"
+            b"primary_address11,primary_address21,primary_city1,primary_zip1,Female,16-29,"
+            b"PictsieLand,Level 1"
+        )
+    file_data_source = CSVFileDataSource(features_csv_path, new_people_csv_path, Path("/"), Path("/"))
+    file_select_data = SelectionData(file_data_source)
+    settings = get_settings_for_fixtures("maximin")
+    features, _ = file_select_data.load_features()
+    with pytest.raises(SelectionMultilineError) as excinfo:
+        file_select_data.load_people(settings, features)
+    assert "new_people.csv" in str(excinfo.value)
+    assert "'PictsieLand' not in category/feature geo_bucket" in str(excinfo.value)
