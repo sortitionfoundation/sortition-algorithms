@@ -358,6 +358,7 @@ def distribution_okay(
 # Maximin Algorithm Tests
 
 
+@pytest.mark.slow
 def test_maximin_no_address_example1() -> None:
     """Test maximin without address constraints on example1."""
     features = deepcopy(example1.features)
@@ -392,6 +393,7 @@ def test_maximin_no_address_example1() -> None:
     assert abs(marginals["marge"] - 2 / 3) < 10 ** (-precision)
 
 
+@pytest.mark.slow
 def test_maximin_with_address_example1() -> None:
     """Test maximin with address constraints on example1."""
     features = deepcopy(example1.features)
@@ -416,6 +418,7 @@ def test_maximin_with_address_example1() -> None:
     assert abs(marginals["marge"] - 1) < 10 ** (-precision)
 
 
+@pytest.mark.slow
 def test_maximin_no_address_example3() -> None:
     """Test maximin without address constraints on example3."""
     features = deepcopy(example3.features)
@@ -448,6 +451,7 @@ def test_maximin_no_address_example3() -> None:
     assert abs(marginals["d"] - 1 / 3) < 10 ** (-precision)
 
 
+@pytest.mark.slow
 def test_maximin_no_address_example4_infeasible() -> None:
     """Test maximin on example4 which should be infeasible."""
     features = deepcopy(example4.features)
@@ -459,6 +463,7 @@ def test_maximin_no_address_example4_infeasible() -> None:
         find_distribution_maximin(features, people, number_people_wanted, example4.no_address_columns)
 
 
+@pytest.mark.slow
 def test_maximin_no_address_example5() -> None:
     """Test maximin without address constraints on example5."""
     features = deepcopy(example5.features)
@@ -518,6 +523,7 @@ def test_maximin_no_address_example6() -> None:
 # Nash Algorithm Tests
 
 
+@pytest.mark.slow
 def test_nash_no_address_example4_infeasible() -> None:
     """Test Nash on example4 which should be infeasible."""
     features = deepcopy(example4.features)
@@ -529,6 +535,7 @@ def test_nash_no_address_example4_infeasible() -> None:
         find_distribution_nash(features, people, number_people_wanted, [])
 
 
+@pytest.mark.slow
 def test_nash_no_address_example5() -> None:
     """Test Nash without address constraints on example5."""
     features = deepcopy(example5.features)

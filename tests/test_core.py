@@ -4,6 +4,7 @@ from sortition_algorithms.core import run_stratification
 from tests.helpers import create_gender_only_features, create_simple_people, create_test_scenario, create_test_settings
 
 
+@pytest.mark.slow
 def test_run_stratification_basic_success():
     """Test basic successful run of stratification algorithm."""
     # Create test scenario with coordinated objects
@@ -48,6 +49,7 @@ def test_run_stratification_infeasible_quotas():
         )
 
 
+@pytest.mark.slow
 def test_run_stratification_multiple_attempts():
     """Test run_stratification with retry logic."""
     # Create test scenario that should succeed

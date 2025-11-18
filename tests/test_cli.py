@@ -2,6 +2,7 @@ import csv
 from pathlib import Path
 from typing import Any
 
+import pytest
 from click.testing import CliRunner
 
 from sortition_algorithms.__main__ import cli
@@ -15,6 +16,7 @@ def get_rows_from_csv(csv_path: Path) -> list[dict[str, Any]]:
         return rows
 
 
+@pytest.mark.slow
 def test_csv_happy_path(tmp_path):
     runner = CliRunner()
     settings_file = tmp_path / "settings.toml"
