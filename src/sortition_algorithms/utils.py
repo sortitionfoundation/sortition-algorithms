@@ -7,9 +7,9 @@ import string
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable, Mapping, Sequence
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from attrs import define, field
 from tabulate import tabulate
 
 from sortition_algorithms import errors
@@ -82,30 +82,30 @@ class ReportLevel(enum.Enum):
     CRITICAL = 2
 
 
-@dataclass
+@define(slots=True)
 class RunLineLevel:
     line: str
     level: ReportLevel
     log_level: int = logging.NOTSET
 
 
-@dataclass
+@define(slots=True)
 class RunTable:
     headers: list[str]
     data: list[list[str | int | float]]
 
 
-@dataclass
+@define(slots=True)
 class RunError:
     error: Exception
     is_fatal: bool
 
 
+@define
 class RunReport:
     """A class to hold a report to show to the user at the end"""
 
-    def __init__(self) -> None:
-        self._data: list[RunLineLevel | RunTable | RunError] = []
+    _data: list[RunLineLevel | RunTable | RunError] = field(factory=list)
 
     def __bool__(self) -> bool:
         """
