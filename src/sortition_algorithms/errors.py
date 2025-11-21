@@ -1,6 +1,7 @@
 import html
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from attrs import define
 
 if TYPE_CHECKING:
     # this is done to avoid circular imports
@@ -42,7 +43,7 @@ class SelectionMultilineError(SelectionError):
         self.all_lines += other.lines()
 
 
-@dataclass
+@define
 class ParseTableErrorMsg:
     row: int
     row_name: str  # this could be "feature_name/feature_value" or "person_id"
@@ -54,7 +55,7 @@ class ParseTableErrorMsg:
         return f"{self.msg}: for row {self.row}, column header {self.key}"
 
 
-@dataclass
+@define
 class ParseTableMultiValueErrorMsg:
     row: int
     row_name: str  # this could be "feature_name/feature_value"

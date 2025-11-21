@@ -383,3 +383,153 @@ class TestRunReport:
         report = RunReport()
         report.add_line("Only logged")
         assert report.last_error() is None
+
+
+class TestRunReportSerialisation:
+    def test_empty_run_report_serialisation(self):
+        report = RunReport()
+        serialised_form = report.serialize()
+        assert serialised_form == {"_data": []}
+
+    def test_empty_run_report_deserialisation(self):
+        serialised_form = {"_data": []}
+        report = RunReport.deserialize(serialised_form)
+        assert report == RunReport()
+
+    def test_run_report_with_line_serialisation(self):
+        report = RunReport()
+        report.add_line("some text", level=ReportLevel.CRITICAL)
+        serialised_form = report.serialize()
+        assert serialised_form == {"_data": [{"level": 2, "line": "some text", "log_level": 0}]}
+
+    def test_run_report_with_line_deserialisation(self):
+        serialised_form = {"_data": [{"line": "some text", "level": 2, "log_level": 0}]}
+        deserialised_report = RunReport.deserialize(serialised_form)
+        expected_report = RunReport()
+        expected_report.add_line("some text", level=ReportLevel.CRITICAL)
+        assert deserialised_report == expected_report
+
+    def test_run_report_with_table_serialisation(self):
+        report = RunReport()
+        report.add_table(["Name", "Age"], [["Alice", 30], ["Bob", 25]])
+        serialised_form = report.serialize()
+        assert serialised_form == {"_data": [{"headers": ["Name", "Age"], "data": [["Alice", 30], ["Bob", 25]]}]}
+
+    def test_run_report_with_table_deserialisation(self):
+        serialised_form = {"_data": [{"headers": ["Name", "Age"], "data": [["Alice", 30], ["Bob", 25]]}]}
+        deserialised_report = RunReport.deserialize(serialised_form)
+        expected_report = RunReport()
+        expected_report.add_table(["Name", "Age"], [["Alice", 30], ["Bob", 25]])
+        assert deserialised_report == expected_report
+
+    def test_run_report_with_mixed_type_table_serialisation(self):
+        """Test table with str, int, and float values"""
+        report = RunReport()
+        report.add_table(["Product", "Price", "Stock"], [["Widget", 19.99, 100], ["Gadget", 29.5, 0]])
+        serialised_form = report.serialize()
+        assert serialised_form == {
+            "_data": [
+                {
+                    "headers": ["Product", "Price", "Stock"],
+                    "data": [["Widget", 19.99, 100], ["Gadget", 29.5, 0]],
+                }
+            ]
+        }
+
+    def test_run_report_with_mixed_type_table_deserialisation(self):
+        """Test table with str, int, and float values"""
+        serialised_form = {
+            "_data": [
+                {
+                    "headers": ["Product", "Price", "Stock"],
+                    "data": [["Widget", 19.99, 100], ["Gadget", 29.5, 0]],
+                }
+            ]
+        }
+        deserialised_report = RunReport.deserialize(serialised_form)
+        expected_report = RunReport()
+        expected_report.add_table(["Product", "Price", "Stock"], [["Widget", 19.99, 100], ["Gadget", 29.5, 0]])
+        assert deserialised_report == expected_report
+
+    def test_run_report_with_error_serialisation(self):
+        report = RunReport()
+        report.add_error(SelectionError("Something went wrong"))
+        serialised_form = report.serialize()
+        # Check the structure - exact match depends on exception serialization
+        assert "_data" in serialised_form
+        assert len(serialised_form["_data"]) == 1
+        assert "error" in serialised_form["_data"][0]
+        assert serialised_form["_data"][0]["is_fatal"] is True
+
+    def test_run_report_with_error_deserialisation(self):
+        report = RunReport()
+        report.add_error(SelectionError("Something went wrong"))
+        serialised_form = report.serialize()
+        deserialised_report = RunReport.deserialize(serialised_form)
+
+        # Check the error is preserved
+        assert deserialised_report.last_error() is not None
+        assert str(deserialised_report.last_error()) == "Something went wrong"
+        assert isinstance(deserialised_report.last_error(), SelectionError)
+
+    def test_run_report_with_non_fatal_error_serialisation(self):
+        report = RunReport()
+        report.add_error(SelectionError("Minor issue"), is_fatal=False)
+        serialised_form = report.serialize()
+        assert serialised_form["_data"][0]["is_fatal"] is False
+
+    def test_run_report_with_non_fatal_error_deserialisation(self):
+        report = RunReport()
+        report.add_error(SelectionError("Minor issue"), is_fatal=False)
+        serialised_form = report.serialize()
+        deserialised_report = RunReport.deserialize(serialised_form)
+
+        # Verify is_fatal is preserved
+        assert str(deserialised_report.last_error()) == "Minor issue"
+
+    def test_run_report_with_multiline_error_serialisation(self):
+        report = RunReport()
+        report.add_error(SelectionMultilineError(["Error line 1", "Error line 2", "Error line 3"]))
+        serialised_form = report.serialize()
+        assert "_data" in serialised_form
+        assert len(serialised_form["_data"]) == 1
+
+    def test_run_report_with_multiline_error_deserialisation(self):
+        report = RunReport()
+        error = SelectionMultilineError(["Error line 1", "Error line 2", "Error line 3"])
+        report.add_error(error)
+        serialised_form = report.serialize()
+        deserialised_report = RunReport.deserialize(serialised_form)
+
+        # Check the error is preserved with all lines
+        assert deserialised_report.last_error() is not None
+        assert str(deserialised_report.last_error()) == "Error line 1\nError line 2\nError line 3"
+        assert isinstance(deserialised_report.last_error(), SelectionMultilineError)
+
+    def test_run_report_with_mixed_content_serialisation_deserialisation(self):
+        """Test round-trip with lines, tables, and errors mixed together"""
+        report = RunReport()
+        report.add_line("Introduction", ReportLevel.IMPORTANT)
+        report.add_table(["Col1", "Col2"], [["A", 1], ["B", 2]])
+        report.add_line("Middle section")
+        report.add_error(SelectionError("An error occurred"))
+        report.add_line("Conclusion", ReportLevel.CRITICAL)
+
+        # Round trip
+        serialised_form = report.serialize()
+        deserialised_report = RunReport.deserialize(serialised_form)
+
+        # Verify the text and HTML output is the same (we can't use == because Exception doesn't define equality)
+        assert deserialised_report.as_text() == report.as_text()
+        assert deserialised_report.as_html() == report.as_html()
+
+        # Verify structure is preserved
+        assert len(deserialised_report._data) == len(report._data)
+        assert isinstance(deserialised_report._data[0], type(report._data[0]))
+        assert isinstance(deserialised_report._data[1], type(report._data[1]))
+        assert isinstance(deserialised_report._data[2], type(report._data[2]))
+        assert isinstance(deserialised_report._data[3], type(report._data[3]))
+        assert isinstance(deserialised_report._data[4], type(report._data[4]))
+
+        # Verify the error message is preserved
+        assert str(deserialised_report.last_error()) == str(report.last_error())

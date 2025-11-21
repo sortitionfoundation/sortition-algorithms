@@ -10,9 +10,13 @@ from collections.abc import Generator, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from attrs import define, field
+from cattrs import Converter
 from tabulate import tabulate
 
 from sortition_algorithms import errors
+
+# Create a configured converter for RunReport serialization
+_converter = Converter()
 
 if TYPE_CHECKING:
     from _typeshed import SupportsLenAndGetItem
@@ -82,26 +86,87 @@ class ReportLevel(enum.Enum):
     CRITICAL = 2
 
 
-@define(slots=True)
+@define(slots=True, eq=True)
 class RunLineLevel:
     line: str
     level: ReportLevel
     log_level: int = logging.NOTSET
 
 
-@define(slots=True)
+@define(slots=True, eq=True)
 class RunTable:
     headers: list[str]
     data: list[list[str | int | float]]
 
 
-@define(slots=True)
+@define(slots=True, eq=True)
 class RunError:
     error: Exception
     is_fatal: bool
 
 
-@define
+# Configure cattrs to handle union types in RunReport
+def _structure_table_cell(obj: Any, _: Any) -> str | int | float:
+    """Structure hook for table cell values"""
+    if isinstance(obj, str | int | float):
+        return obj
+    return str(obj)
+
+
+def _unstructure_exception(exc: Exception) -> dict[str, Any]:
+    """Unstructure hook for exceptions - store type and args"""
+    result: dict[str, Any] = {
+        "type": f"{exc.__class__.__module__}.{exc.__class__.__name__}",
+        "args": exc.args,
+    }
+    # Special handling for SelectionMultilineError which has custom attributes
+    if hasattr(exc, "all_lines"):
+        result["all_lines"] = exc.all_lines
+    if hasattr(exc, "all_errors"):
+        result["all_errors"] = _converter.unstructure(exc.all_errors)
+    if hasattr(exc, "features"):
+        # Don't serialize features as it's complex and circular
+        result["has_features"] = True
+    return result
+
+
+def _structure_exception(obj: dict[str, Any], _: Any) -> Exception:
+    """Structure hook for exceptions - reconstruct from type and args"""
+    exc_type_name = obj["type"]
+
+    # Map type names to actual exception classes
+    if exc_type_name == "sortition_algorithms.errors.SelectionError":
+        return errors.SelectionError(*obj.get("args", ()))
+    elif exc_type_name == "sortition_algorithms.errors.SelectionMultilineError":
+        if "all_lines" in obj:
+            return errors.SelectionMultilineError(obj["all_lines"])
+        return errors.SelectionMultilineError(*obj.get("args", ()))
+    elif exc_type_name == "sortition_algorithms.errors.ParseTableMultiError":
+        all_errors = _converter.structure(
+            obj.get("all_errors", []),
+            list[errors.ParseTableErrorMsg | errors.ParseTableMultiValueErrorMsg],
+        )
+        return errors.ParseTableMultiError(all_errors)
+    elif exc_type_name == "sortition_algorithms.errors.InfeasibleQuotasError":
+        # We can't fully reconstruct this as it needs a FeatureCollection
+        # Just create a basic SelectionMultilineError with the lines if available
+        return errors.SelectionMultilineError(obj.get("all_lines", obj.get("args", ["Infeasible quotas error"])))
+    elif exc_type_name.startswith("sortition_algorithms.errors."):
+        # For other custom errors, try to find the class
+        class_name = exc_type_name.split(".")[-1]
+        exc_class = getattr(errors, class_name, errors.SortitionBaseError)
+        return exc_class(*obj.get("args", ()))
+    else:
+        # For built-in exceptions, reconstruct as generic Exception
+        return Exception(*obj.get("args", ()))
+
+
+_converter.register_structure_hook(str | int | float, _structure_table_cell)
+_converter.register_unstructure_hook(Exception, _unstructure_exception)
+_converter.register_structure_hook(Exception, _structure_exception)
+
+
+@define(eq=True)
 class RunReport:
     """A class to hold a report to show to the user at the end"""
 
@@ -118,6 +183,13 @@ class RunReport:
         ```
         """
         return self.has_content()
+
+    def serialize(self) -> dict[str, Any]:
+        return _converter.unstructure(self)  # type: ignore[no-any-return]
+
+    @classmethod
+    def deserialize(cls, serialized_data: dict[str, Any]) -> "RunReport":
+        return _converter.structure(serialized_data, cls)
 
     def has_content(self) -> bool:
         """
