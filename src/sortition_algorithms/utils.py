@@ -151,7 +151,7 @@ def _structure_exception(obj: dict[str, Any], _: Any) -> Exception:
         # avoid circular import
         from sortition_algorithms.features import FeatureCollection
 
-        features = _converter.structure(obj.get("features", {}), FeatureCollection)
+        features = _converter.structure(obj.get("features", {}), FeatureCollection)  # type: ignore[type-abstract]
         output = _converter.structure(obj.get("all_lines", ["dummy"]), list[str])[1:]
         # We can't fully reconstruct this as it needs a FeatureCollection
         # Just create a basic SelectionMultilineError with the lines if available
