@@ -44,7 +44,7 @@ ALL_FEATURE_FIELD_NAMES = frozenset([*FEATURE_FILE_FIELD_NAMES_FLEX, *FEATURE_FI
 MAX_FLEX_UNSET = -1
 
 
-@define(kw_only=True, slots=True)
+@define(kw_only=True, slots=True, eq=True)
 class FeatureValueMinMax:
     min: int
     max: int

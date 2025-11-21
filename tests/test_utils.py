@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from sortition_algorithms.errors import SelectionError, SelectionMultilineError
+from sortition_algorithms.errors import InfeasibleQuotasError, SelectionError, SelectionMultilineError
+from sortition_algorithms.features import FeatureValueMinMax
 from sortition_algorithms.utils import ReportLevel, RunReport, get_cell_name
 
 
@@ -505,6 +506,32 @@ class TestRunReportSerialisation:
         assert deserialised_report.last_error() is not None
         assert str(deserialised_report.last_error()) == "Error line 1\nError line 2\nError line 3"
         assert isinstance(deserialised_report.last_error(), SelectionMultilineError)
+
+    def test_run_report_with_infeasible_quotas_error_serialisation(self):
+        report = RunReport()
+        report.add_error(
+            InfeasibleQuotasError(
+                features={"feat1": {"value1": FeatureValueMinMax(min=2, max=4)}}, output=["line1", "line2"]
+            )
+        )
+        serialised_form = report.serialize()
+        assert "_data" in serialised_form
+        assert len(serialised_form["_data"]) == 1
+
+    def test_run_report_with_infeasible_quotas_error_deserialisation(self):
+        report = RunReport()
+        error = InfeasibleQuotasError(
+            features={"feat1": {"value1": FeatureValueMinMax(min=2, max=4)}}, output=["line1", "line2"]
+        )
+        report.add_error(error)
+        serialised_form = report.serialize()
+        deserialised_report = RunReport.deserialize(serialised_form)
+
+        # Check the error is preserved with all lines and features
+        deserialised_error = deserialised_report.last_error()
+        assert isinstance(deserialised_error, InfeasibleQuotasError)
+        assert str(deserialised_error) == "The quotas are infeasible:\nline1\nline2"
+        assert deserialised_error.features == {"feat1": {"value1": FeatureValueMinMax(min=2, max=4)}}
 
     def test_run_report_with_mixed_content_serialisation_deserialisation(self):
         """Test round-trip with lines, tables, and errors mixed together"""

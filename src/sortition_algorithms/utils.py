@@ -126,7 +126,7 @@ def _unstructure_exception(exc: Exception) -> dict[str, Any]:
         result["all_errors"] = _converter.unstructure(exc.all_errors)
     if hasattr(exc, "features"):
         # Don't serialize features as it's complex and circular
-        result["has_features"] = True
+        result["features"] = _converter.unstructure(exc.features)
     return result
 
 
@@ -148,9 +148,14 @@ def _structure_exception(obj: dict[str, Any], _: Any) -> Exception:
         )
         return errors.ParseTableMultiError(all_errors)
     elif exc_type_name == "sortition_algorithms.errors.InfeasibleQuotasError":
+        # avoid circular import
+        from sortition_algorithms.features import FeatureCollection
+
+        features = _converter.structure(obj.get("features", {}), FeatureCollection)
+        output = _converter.structure(obj.get("all_lines", ["dummy"]), list[str])[1:]
         # We can't fully reconstruct this as it needs a FeatureCollection
         # Just create a basic SelectionMultilineError with the lines if available
-        return errors.SelectionMultilineError(obj.get("all_lines", obj.get("args", ["Infeasible quotas error"])))
+        return errors.InfeasibleQuotasError(features=features, output=output)
     elif exc_type_name.startswith("sortition_algorithms.errors."):
         # For other custom errors, try to find the class
         class_name = exc_type_name.split(".")[-1]
