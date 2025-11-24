@@ -51,7 +51,7 @@ def find_random_sample_legacy(
             ratio_result = people_features.find_max_ratio_category()
         except errors.SelectionError as e:
             msg = f"Selection failed on iteration {count + 1}: {e}"
-            raise errors.SelectionError(msg) from e
+            raise errors.RetryableSelectionError(msg) from e
 
         # Find the randomly selected person within that category
         target_feature = ratio_result.feature_name
@@ -83,12 +83,12 @@ def find_random_sample_legacy(
             report.add_lines(category_messages)
         except errors.SelectionError as e:
             msg = f"Selection failed after selecting {selected_person_key}: {e}"
-            raise errors.SelectionError(msg) from e
+            raise errors.RetryableSelectionError(msg) from e
 
         # Check if we're about to run out of people (but not on the last iteration)
         if count < (number_people_wanted - 1) and people_features.people.count == 0:
             msg = "Selection failed: Ran out of people before completing selection"
-            raise errors.SelectionError(msg)
+            raise errors.RetryableSelectionError(msg)
 
     # Return in legacy format: list containing single frozenset
     return [frozenset(people_selected)], report

@@ -39,7 +39,7 @@ class SelectCounts:
         self.remaining -= 1
         if self.remaining == 0 and self.selected < self.min_max.min:
             msg = "SELECTION IMPOSSIBLE: FAIL - no one/not enough left after deletion."
-            raise errors.SelectionError(msg)
+            raise errors.RetryableSelectionError(msg)
 
     @property
     def hit_target(self) -> bool:
@@ -136,7 +136,7 @@ class PeopleFeatures:
                             f"as after previous deletion no one/not enough left in {feature} "
                             f"{person[feature]}. Tried to delete: {len(people_to_delete)}"
                         )
-                        raise errors.SelectionError(msg) from e
+                        raise errors.RetryableSelectionError(msg) from e
 
         self.people.remove_many(people_to_delete)
         # return the number of people deleted and the number of people left

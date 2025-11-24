@@ -129,6 +129,7 @@ class People:
                     return person_key
 
         # Should always find someone if position is valid
+        # If we hit this line it is a bug
         msg = f"Failed to find person at position {position} in {feature_name}/{feature_value}"
         raise SelectionError(msg)
 

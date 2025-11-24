@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 class SortitionBaseError(Exception):
     """A base class that allows all errors to be caught easily."""
 
+    is_retryable: bool = False
+
     def to_html(self) -> str:
         return html.escape(str(self))
 
@@ -23,11 +25,23 @@ class SelectionError(SortitionBaseError):
     """Generic error for things that happen in selection"""
 
 
+class RetryableSelectionError(SelectionError):
+    """
+    For errors where the selection should be retried.
+
+    The main case is when the legacy selection algorithm fails, it can be worth
+    retrying as it might find something the next time around.
+    """
+
+    is_retryable: bool = True
+
+
 class SelectionMultilineError(SelectionError):
     """Generic error for things that happen in selection - multiline"""
 
-    def __init__(self, lines: list[str]) -> None:
+    def __init__(self, lines: list[str], is_retryable: bool = False) -> None:
         self.all_lines = lines
+        self.is_retryable = is_retryable
 
     def __str__(self) -> str:
         return "\n".join(self.lines())

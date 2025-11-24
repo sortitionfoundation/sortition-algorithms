@@ -485,10 +485,13 @@ def _check_category_selected(
     if not feature_fails:
         return
 
-    raise errors.SelectionMultilineError([
-        "Failed to get minimum or got more than maximum in categories:",
-        *feature_fails,
-    ])
+    raise errors.SelectionMultilineError(
+        [
+            "Failed to get minimum or got more than maximum in categories:",
+            *feature_fails,
+        ],
+        is_retryable=True,
+    )
 
 
 def run_stratification(
@@ -566,14 +569,18 @@ def run_stratification(
             success = True
             break
 
+        except errors.SelectionError as serr:
+            if serr.is_retryable:
+                report.add_error(serr, is_fatal=False)
+                report.add_line(f"Failed one attempt. Selection Error raised - will retry. {serr}")
+                # we do not break here, we try again.
+            else:
+                report.add_error(serr)
+                break
         # these are all fatal errors
-        except (ValueError, RuntimeError, errors.InfeasibleQuotasError, errors.InfeasibleQuotasCantRelaxError) as err:
+        except (ValueError, RuntimeError, errors.InfeasibleQuotasCantRelaxError) as err:
             report.add_error(err)
             break
-        except errors.SelectionError as serr:
-            report.add_error(serr, is_fatal=False)
-            report.add_line(f"Failed one attempt. Selection Error raised - will retry. {serr}")
-            # we do not break here, we try again.
 
     if not success:
         report.add_line(f"Failed {tries + 1} times. Gave up.", level=ReportLevel.IMPORTANT)
