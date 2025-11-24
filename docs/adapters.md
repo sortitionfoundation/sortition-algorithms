@@ -71,15 +71,16 @@ def csv_selection_workflow():
     )
     select_data = SelectionData(data_source)
     settings = Settings()
+    number_wanted=100
 
     # Load data
-    features, report = select_data.load_features()
+    features, report = select_data.load_features(number_wanted)
     print(report.as_text())
     people, report = select_data.load_people(Settings(), features)
     print(report.as_text())
 
     # Run selection
-    success, panels, msgs = run_stratification(features, people, 100, settings)
+    success, panels, msgs = run_stratification(features, people, number_wanted, settings)
 
     if success:
         # Format results
@@ -129,6 +130,8 @@ print(report.as_text())
 people, report = select_data.load_people(settings, features)
 print(report.as_text())
 
+# Here, do selection
+
 # Configure output tabs
 data_source.selected_tab_name_stub = "Selected Panel"
 data_source.remaining_tab_name_stub = "Reserve Pool"
@@ -140,31 +143,36 @@ select_data.output_selected_remaining(selected_rows, remaining_rows, settings)
 #### Full Google Sheets Workflow
 
 ```python
-from sortition_algorithms import GSheetAdapter, run_stratification, selected_remaining_tables, Settings
+from sortition_algorithms import GSheetDataSource, SelectionData, run_stratification, selected_remaining_tables, Settings
 from pathlib import Path
 
 def gsheet_selection_workflow():
     # Initialize
-    adapter = GSheetAdapter(
-        auth_json_path=Path("credentials.json"),
-        gen_rem_tab=True,
+    data_source = GSheetDataSource(
+        feature_tab_name="Demographics",
+        people_tab_name="Candidates",
+        auth_json_path=Path("/secure/path/credentials.json"),
+        gen_rem_tab=True,  # Generate remaining tab
     )
+    data_source.set_g_sheet_name("My Spreadsheet")
+    select_data = SelectionData(data_source)
     settings = Settings()
+    number_wanted = 120
 
     # Load data
     adapter.set_g_sheet_name("Citizen Panel 2024")
-    features, report = adapter.load_features("Demographics")
+    features, report = adapter.load_features(number_wanted)
     if features is None:
         print("Failed to load features:", "\n".join(msgs))
         return
 
-    people, report = adapter.load_people("Candidates", settings, features)
+    people, report = adapter.load_people(settings, features)
     if people is None:
         print("Failed to load people:", "\n".join(msgs))
         return
 
     # Run selection
-    success, panels, report = run_stratification(features, people, 120, settings)
+    success, panels, report = run_stratification(features, people, number_wanted, settings)
 
     if success:
         # Format results

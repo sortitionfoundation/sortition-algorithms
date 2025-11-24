@@ -122,12 +122,43 @@ def report_min_max_error_details(fc: FeatureCollection, feature_column_name: str
     ]
 
 
-def check_min_max(fc: FeatureCollection, feature_column_name: str = "feature") -> None:
+def report_min_max_against_number_to_select(
+    fc: FeatureCollection, number_to_select: int, feature_column_name: str
+) -> list[str]:
+    """
+    If any combined minimum is > number_to_select we have a problem.
+    If any combined maximum is < number_to_select we have a problem.
+    """
+    if not fc:
+        return []
+    errors: list[str] = []
+    for key, fv in fc.items():
+        feature_minimum = _fv_minimum_selection(fv)
+        feature_maximum = _fv_maximum_selection(fv)
+        if feature_minimum > number_to_select:
+            errors.append(
+                f"Minimum for {feature_column_name} {key} ({feature_minimum}) "
+                f"is more than number to select ({number_to_select})"
+            )
+        if feature_maximum < number_to_select:
+            errors.append(
+                f"Maximum for {feature_column_name} {key} ({feature_maximum}) "
+                f"is less than number to select ({number_to_select})"
+            )
+    return errors
+
+
+def check_min_max(fc: FeatureCollection, number_to_select: int = 0, feature_column_name: str = "feature") -> None:
     """
     If the min is bigger than the max we're in trouble i.e. there's an input error
     """
+    errors: list[str] = []
     if minimum_selection(fc) > maximum_selection(fc):
-        raise SelectionMultilineError(report_min_max_error_details(fc, feature_column_name))
+        errors += report_min_max_error_details(fc, feature_column_name)
+    if number_to_select:
+        errors += report_min_max_against_number_to_select(fc, number_to_select, feature_column_name)
+    if errors:
+        raise SelectionMultilineError(errors)
 
 
 def check_desired(fc: FeatureCollection, desired_number: int) -> None:
@@ -307,7 +338,7 @@ def _clean_row(row: utils.StrippedDict, feature_flex: bool, row_number: int) -> 
 
 
 def read_in_features(
-    features_head: Iterable[str], features_body: Iterable[dict[str, str]]
+    features_head: Iterable[str], features_body: Iterable[dict[str, str]], number_to_select: int = 0
 ) -> tuple[FeatureCollection, str, str]:
     """
     Read in stratified selection features and values
@@ -344,7 +375,7 @@ def read_in_features(
     if combined_error:
         raise combined_error
 
-    check_min_max(features, feature_column_name)
+    check_min_max(features, number_to_select=number_to_select, feature_column_name=feature_column_name)
     # check feature_flex to see if we need to set the max here
     # this only changes the max_flex value if these (optional) flex values are NOT set already
     set_default_max_flex(features)

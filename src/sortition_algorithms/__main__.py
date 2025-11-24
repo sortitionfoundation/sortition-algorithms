@@ -91,7 +91,7 @@ def csv(
     select_data = adapters.SelectionData(data_source)
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
-    features, report = select_data.load_features()
+    features, report = select_data.load_features(number_wanted)
     echo_report(report)
     if features is None:
         raise click.ClickException("Could not load features, exiting.")
@@ -183,7 +183,7 @@ def gsheet(
     echo_report(report)
 
     data_source.set_g_sheet_name(gsheet_name)
-    features, report = select_data.load_features()
+    features, report = select_data.load_features(number_wanted)
     echo_report(report)
     if features is None:
         raise click.ClickException("Could not load features, exiting.")

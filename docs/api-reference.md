@@ -431,7 +431,7 @@ class SelectionData:
 **Methods:**
 
 ```python
-def load_features(self) -> tuple[FeatureCollection, RunReport]:
+def load_features(self, number_to_select: int = 0) -> tuple[FeatureCollection, RunReport]:
     # Load feature definitions from data source
 
 def load_people(
@@ -469,14 +469,15 @@ data_source = CSVFileDataSource(
 
 # Wrap in SelectionData
 selection_data = SelectionData(data_source)
+number_to_select = 100
 
 # Load data
-features, report = selection_data.load_features()
+features, report = selection_data.load_features(number_to_select)
 people, report = selection_data.load_people(settings, features)
 
 # Run stratification (using core.py functions)
 from sortition_algorithms.core import run_stratification, selected_remaining_tables
-success, panels, report = run_stratification(features, people, 100, settings)
+success, panels, report = run_stratification(features, people, number_to_select, settings)
 
 # Format and output results
 selected_rows, remaining_rows, _ = selected_remaining_tables(

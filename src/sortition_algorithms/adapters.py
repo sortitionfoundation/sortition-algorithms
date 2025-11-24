@@ -125,13 +125,15 @@ class SelectionData:
         self.feature_column_name = "feature"
         self.feature_value_column_name = "value"
 
-    def load_features(self) -> tuple[FeatureCollection, RunReport]:
+    def load_features(self, number_to_select: int = 0) -> tuple[FeatureCollection, RunReport]:
         report = RunReport()
         with self.data_source.read_feature_data(report) as headers_body:
             headers_iter, body = headers_body
             headers = list(headers_iter)
             try:
-                features, self.feature_column_name, self.feature_value_column_name = read_in_features(headers, body)
+                features, self.feature_column_name, self.feature_value_column_name = read_in_features(
+                    headers, body, number_to_select=number_to_select
+                )
             except ParseTableMultiError as error:
                 new_error = self.data_source.customise_features_parse_error(error, headers)
                 raise new_error from error

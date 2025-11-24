@@ -434,6 +434,66 @@ class TestReadInFeaturesErrorHandling:
         assert "smallest maximum is 4 for feature 'age'" in context.exconly()
         assert "largest minimum is 10 for feature 'gender'" in context.exconly()
 
+    def test_min_larger_than_number_to_select(self):
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {
+                "feature": "gender",
+                "value": "male",
+                "min": "5",
+                "max": "6",
+            },  # min total: 10
+            {
+                "feature": "gender",
+                "value": "female",
+                "min": "5",
+                "max": "6",
+            },  # max total: 12
+        ]
+        with pytest.raises(SelectionMultilineError) as context:
+            read_in_features(head, body, number_to_select=8)
+        assert "Minimum for feature gender (10) is more than number to select (8)" in context.exconly()
+
+    def test_max_smaller_than_number_to_select(self):
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {
+                "feature": "gender",
+                "value": "male",
+                "min": "5",
+                "max": "6",
+            },  # min total: 10
+            {
+                "feature": "gender",
+                "value": "female",
+                "min": "5",
+                "max": "6",
+            },  # max total: 12
+        ]
+        with pytest.raises(SelectionMultilineError) as context:
+            read_in_features(head, body, number_to_select=15)
+        assert "Maximum for feature gender (12) is less than number to select (15)" in context.exconly()
+
+    def test_no_error_when_number_to_select_is_zero(self):
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {
+                "feature": "gender",
+                "value": "male",
+                "min": "5",
+                "max": "6",
+            },  # min total: 10
+            {
+                "feature": "gender",
+                "value": "female",
+                "min": "5",
+                "max": "6",
+            },  # max total: 12
+        ]
+        _, feature_column_name, _ = read_in_features(head, body, number_to_select=0)
+        # really just check no error raised
+        assert feature_column_name == "feature"
+
 
 class TestReadInFeaturesDataTypes:
     """Test handling of different data types in input."""
