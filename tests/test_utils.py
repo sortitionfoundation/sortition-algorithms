@@ -4,6 +4,7 @@ from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
+from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms.errors import InfeasibleQuotasError, SelectionError, SelectionMultilineError
 from sortition_algorithms.features import FeatureValueMinMax
@@ -509,21 +510,20 @@ class TestRunReportSerialisation:
 
     def test_run_report_with_infeasible_quotas_error_serialisation(self):
         report = RunReport()
-        report.add_error(
-            InfeasibleQuotasError(
-                features={"feat1": {"value1": FeatureValueMinMax(min=2, max=4)}}, output=["line1", "line2"]
-            )
-        )
+        features = CaseInsensitiveDict()
+        features["feat1"] = CaseInsensitiveDict()
+        features["feat1"]["value1"] = FeatureValueMinMax(min=2, max=4)
+        report.add_error(InfeasibleQuotasError(features=features, output=["line1", "line2"]))
         serialised_form = report.serialize()
         assert "_data" in serialised_form
         assert len(serialised_form["_data"]) == 1
 
     def test_run_report_with_infeasible_quotas_error_deserialisation(self):
         report = RunReport()
-        error = InfeasibleQuotasError(
-            features={"feat1": {"value1": FeatureValueMinMax(min=2, max=4)}}, output=["line1", "line2"]
-        )
-        report.add_error(error)
+        features = CaseInsensitiveDict()
+        features["feat1"] = CaseInsensitiveDict()
+        features["feat1"]["value1"] = FeatureValueMinMax(min=2, max=4)
+        report.add_error(InfeasibleQuotasError(features=features, output=["line1", "line2"]))
         serialised_form = report.serialize()
         deserialised_report = RunReport.deserialize(serialised_form)
 
