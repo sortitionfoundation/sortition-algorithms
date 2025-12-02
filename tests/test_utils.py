@@ -520,7 +520,11 @@ class TestRunReportSerialisation:
         features = CaseInsensitiveDict()
         features["feat1"] = CaseInsensitiveDict()
         features["feat1"]["value1"] = FeatureValueMinMax(min=2, max=4)
-        report.add_error(InfeasibleQuotasError(features=features, output=["line1", "line2"]))
+        msgs = ["line1", "line2"]
+        iq_error = InfeasibleQuotasError(features=features, output=msgs)
+        # with round trips we can end up with the args being set to include features
+        iq_error.args = (features, ["intro", *msgs])
+        report.add_error(iq_error)
         serialised_form = report.serialize()
         assert "_data" in serialised_form
         assert len(serialised_form["_data"]) == 1
@@ -532,7 +536,11 @@ class TestRunReportSerialisation:
         features = CaseInsensitiveDict()
         features["feat1"] = CaseInsensitiveDict()
         features["feat1"]["value1"] = FeatureValueMinMax(min=2, max=4)
-        report.add_error(InfeasibleQuotasError(features=features, output=["line1", "line2"]))
+        msgs = ["line1", "line2"]
+        iq_error = InfeasibleQuotasError(features=features, output=msgs)
+        # with round trips we can end up with the args being set to include features
+        iq_error.args = (features, ["intro", *msgs])
+        report.add_error(iq_error)
         serialised_form = report.serialize()
         json_report = json.dumps(serialised_form)
         from_json = json.loads(json_report)

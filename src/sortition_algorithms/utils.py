@@ -117,15 +117,15 @@ def _unstructure_exception(exc: Exception) -> dict[str, Any]:
     """Unstructure hook for exceptions - store type and args"""
     result: dict[str, Any] = {
         "type": f"{exc.__class__.__module__}.{exc.__class__.__name__}",
-        "args": exc.args,
+        "args": _converter.unstructure(exc.args),
     }
     # Special handling for SelectionMultilineError which has custom attributes
     if hasattr(exc, "all_lines"):
         result["all_lines"] = exc.all_lines
     if hasattr(exc, "all_errors"):
         result["all_errors"] = _converter.unstructure(exc.all_errors)
+    # this is for InfeasibleQuotasError
     if hasattr(exc, "features"):
-        # Don't serialize features as it's complex and circular
         result["features"] = _converter.unstructure(exc.features)
     return result
 
@@ -153,8 +153,6 @@ def _structure_exception(obj: dict[str, Any], _: Any) -> Exception:
 
         features = _converter.structure(obj.get("features", {}), FeatureCollection)  # type: ignore[type-abstract]
         output = _converter.structure(obj.get("all_lines", ["dummy"]), list[str])[1:]
-        # We can't fully reconstruct this as it needs a FeatureCollection
-        # Just create a basic SelectionMultilineError with the lines if available
         return errors.InfeasibleQuotasError(features=features, output=output)
     elif exc_type_name.startswith("sortition_algorithms.errors."):
         # For other custom errors, try to find the class
