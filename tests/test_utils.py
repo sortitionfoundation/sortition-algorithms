@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from typing import ClassVar
@@ -467,7 +468,9 @@ class TestRunReportSerialisation:
         report = RunReport()
         report.add_error(SelectionError("Something went wrong"))
         serialised_form = report.serialize()
-        deserialised_report = RunReport.deserialize(serialised_form)
+        json_report = json.dumps(serialised_form)
+        from_json = json.loads(json_report)
+        deserialised_report = RunReport.deserialize(from_json)
 
         # Check the error is preserved
         assert deserialised_report.last_error() is not None
@@ -484,7 +487,9 @@ class TestRunReportSerialisation:
         report = RunReport()
         report.add_error(SelectionError("Minor issue"), is_fatal=False)
         serialised_form = report.serialize()
-        deserialised_report = RunReport.deserialize(serialised_form)
+        json_report = json.dumps(serialised_form)
+        from_json = json.loads(json_report)
+        deserialised_report = RunReport.deserialize(from_json)
 
         # Verify is_fatal is preserved
         assert str(deserialised_report.last_error()) == "Minor issue"
@@ -501,7 +506,9 @@ class TestRunReportSerialisation:
         error = SelectionMultilineError(["Error line 1", "Error line 2", "Error line 3"])
         report.add_error(error)
         serialised_form = report.serialize()
-        deserialised_report = RunReport.deserialize(serialised_form)
+        json_report = json.dumps(serialised_form)
+        from_json = json.loads(json_report)
+        deserialised_report = RunReport.deserialize(from_json)
 
         # Check the error is preserved with all lines
         assert deserialised_report.last_error() is not None
@@ -517,6 +524,8 @@ class TestRunReportSerialisation:
         serialised_form = report.serialize()
         assert "_data" in serialised_form
         assert len(serialised_form["_data"]) == 1
+        json_form = json.dumps(serialised_form)
+        assert '"_data"' in json_form
 
     def test_run_report_with_infeasible_quotas_error_deserialisation(self):
         report = RunReport()
@@ -525,7 +534,9 @@ class TestRunReportSerialisation:
         features["feat1"]["value1"] = FeatureValueMinMax(min=2, max=4)
         report.add_error(InfeasibleQuotasError(features=features, output=["line1", "line2"]))
         serialised_form = report.serialize()
-        deserialised_report = RunReport.deserialize(serialised_form)
+        json_report = json.dumps(serialised_form)
+        from_json = json.loads(json_report)
+        deserialised_report = RunReport.deserialize(from_json)
 
         # Check the error is preserved with all lines and features
         deserialised_error = deserialised_report.last_error()
@@ -544,7 +555,9 @@ class TestRunReportSerialisation:
 
         # Round trip
         serialised_form = report.serialize()
-        deserialised_report = RunReport.deserialize(serialised_form)
+        json_report = json.dumps(serialised_form)
+        from_json = json.loads(json_report)
+        deserialised_report = RunReport.deserialize(from_json)
 
         # Verify the text and HTML output is the same (we can't use == because Exception doesn't define equality)
         assert deserialised_report.as_text() == report.as_text()
