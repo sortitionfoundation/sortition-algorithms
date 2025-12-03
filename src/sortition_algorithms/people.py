@@ -1,6 +1,8 @@
 from collections import Counter, defaultdict
-from collections.abc import ItemsView, Iterable, Iterator
+from collections.abc import ItemsView, Iterable, Iterator, MutableMapping
 from typing import Any
+
+from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms.errors import (
     BadDataError,
@@ -77,8 +79,8 @@ class People:
         for key in person_keys:
             self.remove(key)
 
-    def get_person_dict(self, person_key: str) -> dict[str, str]:
-        return self._full_data[person_key]
+    def get_person_dict(self, person_key: str) -> MutableMapping[str, str]:
+        return CaseInsensitiveDict(self._full_data[person_key])
 
     def households(self, address_columns: list[str]) -> dict[tuple[str, ...], list[str]]:
         """
@@ -98,11 +100,11 @@ class People:
         the address of the person passed in.
         """
         person = self._full_data[person_key]
-        person_address = tuple(person[col] for col in address_columns)
+        person_address = tuple(person[col].lower() for col in address_columns)
         for loop_key, loop_person in self._full_data.items():
             if loop_key == person_key:
                 continue  # skip the person we've been given
-            if person_address == tuple(loop_person[col] for col in address_columns):
+            if person_address == tuple(loop_person[col].lower() for col in address_columns):
                 yield loop_key
 
     def find_person_by_position_in_category(self, feature_name: str, feature_value: str, position: int) -> str:

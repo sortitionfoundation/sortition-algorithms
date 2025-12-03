@@ -845,7 +845,7 @@ class TestPeopleMatchingAddress:
 
         # Should NOT match due to case difference (StrippedDict only strips, doesn't normalize case)
         matches = list(people.matching_address("1", ["address1", "postcode"]))
-        assert matches == []
+        assert matches == ["2"]
 
     def test_matching_address_nonexistent_person(self):
         """Test matching_address raises KeyError for non-existent person."""
