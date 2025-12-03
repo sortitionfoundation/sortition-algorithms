@@ -126,7 +126,7 @@ class PeopleFeatures:
         # when a category is full we want to delete everyone in it
         people_to_delete: list[str] = []
         for pkey, person in self.people.items():
-            if person[feature_name] == feature_value:
+            if person[feature_name].lower() == feature_value.lower():
                 people_to_delete.append(pkey)
                 for feature in self.features:
                     current_feature_value = person[feature]
@@ -277,7 +277,7 @@ class PeopleFeatures:
 
         for feature_name, fvalue_name, select_counts in iterate_select_collection(self.select_collection):
             if (
-                fvalue_name == selected_person_data[feature_name]
+                fvalue_name.lower() == selected_person_data[feature_name].lower()
                 and select_counts.selected == select_counts.min_max.max
             ):
                 num_deleted, num_left = self.delete_all_with_feature_value(feature_name, fvalue_name)

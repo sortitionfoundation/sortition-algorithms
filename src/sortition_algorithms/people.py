@@ -80,7 +80,7 @@ class People:
             self.remove(key)
 
     def get_person_dict(self, person_key: str) -> MutableMapping[str, str]:
-        return CaseInsensitiveDict(self._full_data[person_key])
+        return self._full_data[person_key]
 
     def households(self, address_columns: list[str]) -> dict[tuple[str, ...], list[str]]:
         """
@@ -125,7 +125,7 @@ class People:
         current_position = 0
 
         for person_key, person_dict in self._full_data.items():
-            if person_dict[feature_name] == feature_value:
+            if person_dict[feature_name].lower() == feature_value.lower():
                 current_position += 1
                 if current_position == position:
                     return person_key

@@ -61,9 +61,10 @@ def test_csv_selection_happy_path_defaults(algorithm):
     print("load_people_message: ")
     print(people_report.as_text())
 
-    success, people_selected, _ = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
+    success, people_selected, report = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
 
-    # print(report.as_text())
+    if not success:
+        print(report.as_text())
     assert success
     assert len(people_selected) == 1
     assert len(people_selected[0]) == PEOPLE_TO_SELECT
@@ -71,22 +72,24 @@ def test_csv_selection_happy_path_defaults(algorithm):
 
 
 @pytest.mark.slow
-def test_csv_selection_with_case_mismatch():
+@pytest.mark.parametrize("algorithm", ALGORITHMS)
+def test_csv_selection_with_case_mismatch(algorithm):
     """
     Test maximin selection where the candidates values are lower case but
     the feature values are upper case.
     """
     data_source = CSVStringDataSource(features_content, candidates_lower_content)
     select_data = SelectionData(data_source)
-    settings = get_settings_for_fixtures("maximin")
+    settings = get_settings_for_fixtures(algorithm)
     features, _ = select_data.load_features()
     people, people_report = select_data.load_people(settings, features)
     print("load_people_message: ")
     print(people_report.as_text())
 
-    success, people_selected, _ = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
+    success, people_selected, report = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
 
-    # print(report.as_text())
+    if not success:
+        print(report.as_text())
     assert success
     assert len(people_selected) == 1
     assert len(people_selected[0]) == PEOPLE_TO_SELECT
