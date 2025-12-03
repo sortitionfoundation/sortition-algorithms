@@ -14,7 +14,7 @@ from sortition_algorithms.committee_generation import (
 )
 from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import StrippedDict
+from sortition_algorithms.utils import normalise_dict
 
 
 def convert_categories_to_features(
@@ -60,7 +60,7 @@ def convert_people_data(
         if person_id in columns_data:
             person_data.update(columns_data[person_id])
 
-        people.add(person_key=person_id, data=StrippedDict(person_data), features=features, row_number=0)
+        people.add(person_key=person_id, data=normalise_dict(person_data), features=features, row_number=0)
 
     return people
 

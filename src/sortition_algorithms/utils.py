@@ -6,11 +6,12 @@ import secrets
 import string
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from attrs import define, field
 from cattrs import Converter
+from requests.structures import CaseInsensitiveDict
 from tabulate import tabulate
 
 from sortition_algorithms import errors
@@ -303,28 +304,15 @@ def strip_str_int(value: str | int | float) -> str:
     return str(value).strip()
 
 
-class StrippedDict(Mapping):
+def normalise_dict(original: Mapping[str, str] | Mapping[str, str | int]) -> MutableMapping[str, str]:
     """
     Wraps a dict, and whenever we get a value from it, we convert to str and
     strip() whitespace
     """
-
-    def __init__(self, raw_dict: Mapping[str, str] | Mapping[str, str | int]) -> None:
-        self.raw_dict = raw_dict
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self.raw_dict == other.raw_dict
-
-    def __getitem__(self, key: str) -> str:
-        return strip_str_int(self.raw_dict[key])
-
-    def __iter__(self) -> Generator[str]:
-        yield from self.raw_dict
-
-    def __len__(self) -> int:
-        return len(self.raw_dict)
+    new_dict: MutableMapping[str, str] = CaseInsensitiveDict()
+    for key, original_value in original.items():
+        new_dict[key] = strip_str_int(original_value)
+    return new_dict
 
 
 class RandomProvider(ABC):

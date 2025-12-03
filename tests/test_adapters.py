@@ -21,7 +21,7 @@ from sortition_algorithms.errors import (
     SelectionMultilineError,
 )
 from sortition_algorithms.settings import Settings
-from tests.helpers import candidates_csv_path, features_csv_path, get_settings_for_fixtures
+from tests.helpers import candidates_csv_path, candidates_lower_csv_path, features_csv_path, get_settings_for_fixtures
 
 # only test leximin if gurobipy is available
 ALGORITHMS = ("legacy", "maximin", "leximin", "nash") if GUROBI_AVAILABLE else ("legacy", "maximin", "nash")
@@ -29,6 +29,7 @@ PEOPLE_TO_SELECT = 22
 
 features_content = features_csv_path.read_text("utf8")
 candidates_content = candidates_csv_path.read_text("utf8")
+candidates_lower_content = candidates_lower_csv_path.read_text("utf8")
 candidates_lines = [line.strip() for line in candidates_content.split("\n") if line.strip()]
 
 # do the string so we can split lines more nicely
@@ -55,6 +56,29 @@ def test_csv_selection_happy_path_defaults(algorithm):
     data_source = CSVStringDataSource(features_content, candidates_content)
     select_data = SelectionData(data_source)
     settings = get_settings_for_fixtures(algorithm)
+    features, _ = select_data.load_features()
+    people, people_report = select_data.load_people(settings, features)
+    print("load_people_message: ")
+    print(people_report.as_text())
+
+    success, people_selected, _ = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
+
+    # print(report.as_text())
+    assert success
+    assert len(people_selected) == 1
+    assert len(people_selected[0]) == PEOPLE_TO_SELECT
+    print(people_selected[0])
+
+
+@pytest.mark.slow
+def test_csv_selection_with_case_mismatch():
+    """
+    Test maximin selection where the candidates values are lower case but
+    the feature values are upper case.
+    """
+    data_source = CSVStringDataSource(features_content, candidates_lower_content)
+    select_data = SelectionData(data_source)
+    settings = get_settings_for_fixtures("maximin")
     features, _ = select_data.load_features()
     people, people_report = select_data.load_people(settings, features)
     print("load_people_message: ")

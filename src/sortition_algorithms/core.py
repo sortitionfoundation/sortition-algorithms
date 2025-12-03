@@ -32,8 +32,9 @@ def multi_selection_to_table(multi_selections: list[frozenset[str]]) -> list[lis
 
 def columns_for_table(features: FeatureCollection, settings: Settings, include_id_column: bool = True) -> list[str]:
     cols_to_use = settings.full_columns_to_keep[:]
+    cols_to_use_lower = [col.lower() for col in cols_to_use]
     # we want to avoid duplicate columns if they are in both features and columns_to_keep
-    extra_features = [name for name in features if name not in cols_to_use]
+    extra_features = [name for name in features if name.lower() not in cols_to_use_lower]
     cols_to_use += extra_features
     if include_id_column:
         return [settings.id_column, *cols_to_use]

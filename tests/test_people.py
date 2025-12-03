@@ -9,7 +9,7 @@ from sortition_algorithms.people import (
     read_in_people,
 )
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import StrippedDict
+from sortition_algorithms.utils import normalise_dict
 
 
 def create_simple_test_features() -> FeatureCollection:
@@ -56,7 +56,7 @@ class TestPeople:
         features = create_simple_test_features()
 
         # Create person data
-        person_data = StrippedDict({
+        person_data = normalise_dict({
             "id": "123",
             "name": "John Doe",
             "email": "john@example.com",
@@ -83,7 +83,7 @@ class TestPeople:
         features = create_simple_test_features()
 
         # Try to add person with invalid gender
-        person_data = StrippedDict({
+        person_data = normalise_dict({
             "id": "123",
             "name": "John Doe",
             "gender": "other",  # Not in allowed values
@@ -99,7 +99,7 @@ class TestPeople:
 
         features = create_simple_test_features()
 
-        person_data = StrippedDict({"id": "123", "name": "John", "gender": "male"})
+        person_data = normalise_dict({"id": "123", "name": "John", "gender": "male"})
         people.add("123", person_data, features, 1)
 
         assert people.count == 1
@@ -118,7 +118,7 @@ class TestPeople:
 
         # Add multiple people
         for i, name in enumerate(["John", "Jane", "Bob"]):
-            person_data = StrippedDict({"id": str(i), "name": name, "gender": "male"})
+            person_data = normalise_dict({"id": str(i), "name": name, "gender": "male"})
             people.add(str(i), person_data, features, i)
 
         # Test iteration
@@ -417,7 +417,7 @@ class TestPeopleHouseholds:
 
         features = create_simple_test_features()
 
-        person_data = StrippedDict({
+        person_data = normalise_dict({
             "id": "1",
             "name": "John Doe",
             "address1": "123 Main St",
@@ -446,7 +446,7 @@ class TestPeopleHouseholds:
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -475,7 +475,7 @@ class TestPeopleHouseholds:
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -510,7 +510,7 @@ class TestPeopleHouseholds:
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -542,7 +542,7 @@ class TestPeopleHouseholds:
         ]
 
         for person_id, name, address1, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -565,14 +565,14 @@ class TestPeopleHouseholds:
 
         features = create_simple_test_features()
 
-        # Note: StrippedDict will strip whitespace, so these should be considered the same
+        # Note: normalise_dict() will strip whitespace, so these should be considered the same
         people_data = [
             ("1", "John Doe", "  123 Main St  ", "  12345  ", "male"),
             ("2", "Jane Doe", "123 Main St", "12345", "male"),
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -594,7 +594,7 @@ class TestPeopleHouseholds:
 
         features = create_simple_test_features()
 
-        person_data = StrippedDict({
+        person_data = normalise_dict({
             "id": "1",
             "name": "John Doe",
             "gender": "male",
@@ -626,7 +626,7 @@ class TestPeopleMatchingAddress:
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -655,7 +655,7 @@ class TestPeopleMatchingAddress:
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -684,7 +684,7 @@ class TestPeopleMatchingAddress:
         features = create_simple_test_features()
 
         # Add person
-        person_data = StrippedDict({
+        person_data = normalise_dict({
             "id": "1",
             "name": "John Doe",
             "address1": "123 Main St",
@@ -711,7 +711,7 @@ class TestPeopleMatchingAddress:
         ]
 
         for person_id, name, address1, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -741,7 +741,7 @@ class TestPeopleMatchingAddress:
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -768,7 +768,7 @@ class TestPeopleMatchingAddress:
         ]
 
         for person_id, name, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "gender": gender,
@@ -808,7 +808,7 @@ class TestPeopleMatchingAddress:
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -822,7 +822,7 @@ class TestPeopleMatchingAddress:
         assert matches == []
 
     def test_matching_address_case_sensitivity(self):
-        """Test that matching_address is case sensitive (or handles case as per StrippedDict)."""
+        """Test that matching_address is case insensitive (or handles case as per normalise_dict)."""
         columns_to_keep = ["name", "address1", "postcode"]
         people = People(columns_to_keep)
 
@@ -834,7 +834,7 @@ class TestPeopleMatchingAddress:
         ]
 
         for person_id, name, address1, postcode, gender in people_data:
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": person_id,
                 "name": name,
                 "address1": address1,
@@ -843,7 +843,7 @@ class TestPeopleMatchingAddress:
             })
             people.add(person_id, person_data, features, 1)
 
-        # Should NOT match due to case difference (StrippedDict only strips, doesn't normalize case)
+        # Should match despite to case difference - normalise_dict() strips and is case-insensitive
         matches = list(people.matching_address("1", ["address1", "postcode"]))
         assert matches == ["2"]
 
@@ -864,7 +864,7 @@ class TestPeopleMatchingAddress:
 
         # Add 10 people at the same address
         for i in range(10):
-            person_data = StrippedDict({
+            person_data = normalise_dict({
                 "id": str(i),
                 "name": f"Person {i}",
                 "address1": "123 Main St",
@@ -912,7 +912,7 @@ class TestPeopleMatchingAddress:
                 "age": "old",
             },
         ]
-        stripped_people_body = [StrippedDict(row) for row in people_body]
+        stripped_people_body = [normalise_dict(row) for row in people_body]
         assert check_for_duplicate_people(stripped_people_body, settings) == []
 
     def test_check_for_duplicate_people_with_exact_dupes(self):
@@ -955,7 +955,7 @@ class TestPeopleMatchingAddress:
                 "age": "old",
             },
         ]
-        stripped_people_body = [StrippedDict(row) for row in people_body]
+        stripped_people_body = [normalise_dict(row) for row in people_body]
         combined_messages = " ".join(check_for_duplicate_people(stripped_people_body, settings)).lower()
         assert "found 1 ids that have more than one row" in combined_messages
         assert "duplicated ids are: 2" in combined_messages
@@ -1008,7 +1008,7 @@ class TestPeopleMatchingAddress:
                 "age": "old",
             },
         ]
-        stripped_people_body = [StrippedDict(row) for row in people_body]
+        stripped_people_body = [normalise_dict(row) for row in people_body]
         with pytest.raises(errors.SelectionMultilineError) as exc_context:
             check_for_duplicate_people(stripped_people_body, settings)
         combined_messages = str(exc_context.value).lower()

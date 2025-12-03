@@ -13,13 +13,13 @@ from sortition_algorithms.errors import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import RunReport, StrippedDict
+from sortition_algorithms.utils import RunReport, normalise_dict
 
 
 class People:
     def __init__(self, columns_to_keep: list[str]) -> None:
         self._columns_to_keep = columns_to_keep
-        self._full_data: dict[str, dict[str, str]] = {}
+        self._full_data: dict[str, MutableMapping[str, str]] = {}
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
@@ -33,18 +33,18 @@ class People:
     def __iter__(self) -> Iterator[str]:
         return iter(self._full_data)
 
-    def items(self) -> ItemsView[str, dict[str, str]]:
+    def items(self) -> ItemsView[str, MutableMapping[str, str]]:
         return self._full_data.items()
 
     def add(
         self,
         person_key: str,
-        data: StrippedDict,
+        data: MutableMapping[str, str],
         features: FeatureCollection,
         row_number: int,
         feature_column_name: str = "feature",
     ) -> None:
-        person_full_data: dict[str, str] = {}
+        person_full_data: MutableMapping[str, str] = CaseInsensitiveDict()
         errors = ParseErrorsCollector()
         # get the feature values: these are the most important and we must check them
         for feature_name, feature_values in features.items():
@@ -138,8 +138,10 @@ class People:
 
 # simple helper function to tidy the code below
 def _check_columns_exist_or_multiple(people_head: list[str], column_list: Iterable[str], error_label: str) -> None:
+    people_head_lower = [h.lower() for h in people_head]
     for column in column_list:
-        column_count = people_head.count(column)
+        column = column.lower()
+        column_count = people_head_lower.count(column)
         if column_count == 0:
             msg = f"No '{column}' column {error_label} found in people data!"
             raise BadDataError(msg)
@@ -166,7 +168,7 @@ def _all_in_list_equal(list_to_check: list[Any]) -> bool:
     return all(item == list_to_check[0] for item in list_to_check)
 
 
-def check_for_duplicate_people(people_body: Iterable[StrippedDict], settings: Settings) -> list[str]:
+def check_for_duplicate_people(people_body: Iterable[MutableMapping[str, str]], settings: Settings) -> list[str]:
     """
     If we have rows with duplicate IDs things are going to go bad.
     First check for any duplicate IDs. If we find any, check if the duplicates are identical.
@@ -179,7 +181,7 @@ def check_for_duplicate_people(people_body: Iterable[StrippedDict], settings: Se
 
     # find the duplicate rows
     output: list[str] = []
-    duplicate_rows: dict[str, list[StrippedDict]] = defaultdict(list)
+    duplicate_rows: dict[str, list[MutableMapping[str, str]]] = defaultdict(list)
     for row in people_body:
         pkey = row[settings.id_column]
         if pkey in duplicate_ids:
@@ -189,7 +191,7 @@ def check_for_duplicate_people(people_body: Iterable[StrippedDict], settings: Se
         f"Duplicated IDs are: {' '.join(duplicate_rows)}",
     ]
     # find rows where everything is not equal
-    duplicate_differing_rows: dict[str, list[StrippedDict]] = {}
+    duplicate_differing_rows: dict[str, list[MutableMapping[str, str]]] = {}
     for key, value in duplicate_rows.items():
         if not _all_in_list_equal(value):
             duplicate_differing_rows[key] = value
@@ -202,7 +204,7 @@ def check_for_duplicate_people(people_body: Iterable[StrippedDict], settings: Se
     output.append(f"Found {len(duplicate_differing_rows)} IDs that have more than one row with different data")
     for key, value in duplicate_differing_rows.items():
         for row in value:
-            output.append(f"For ID '{key}' one row of data is: {row.raw_dict}")
+            output.append(f"For ID '{key}' one row of data is: {row}")
     raise SelectionMultilineError(output)
 
 
@@ -216,7 +218,7 @@ def read_in_people(
     report = RunReport()
     _check_people_head(people_head, features, settings)
     # we need to iterate through more than once, so save as list here
-    stripped_people_body = [StrippedDict(row) for row in people_body]
+    stripped_people_body = [normalise_dict(row) for row in people_body]
     report.add_lines(check_for_duplicate_people(stripped_people_body, settings))
     people = People(settings.full_columns_to_keep)
     combined_error = ParseTableMultiError()

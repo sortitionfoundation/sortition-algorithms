@@ -69,10 +69,12 @@ SelectCollection: typing.TypeAlias = MutableMapping[str, MutableMapping[str, Sel
 
 
 def select_from_feature_collection(fc: FeatureCollection) -> SelectCollection:
-    select_collection: SelectCollection = defaultdict(CaseInsensitiveDict)
+    select_collection: SelectCollection = CaseInsensitiveDict()
     for fname, fvalue_name, fv_minmax in iterate_feature_collection(fc):
+        if fname not in select_collection:
+            select_collection[fname] = CaseInsensitiveDict()
         select_collection[fname][fvalue_name] = SelectCounts(min_max=fv_minmax)
-    return CaseInsensitiveDict(select_collection)
+    return select_collection
 
 
 def iterate_select_collection(select_collection: SelectCollection) -> Generator[tuple[str, str, SelectCounts]]:
@@ -255,7 +257,7 @@ class PeopleFeatures:
             random_person_index=random_person_index,
         )
 
-    def handle_category_full_deletions(self, selected_person_data: dict[str, str]) -> list[str]:
+    def handle_category_full_deletions(self, selected_person_data: MutableMapping[str, str]) -> list[str]:
         """
         Check if any categories are now full after a selection and delete remaining people.
 

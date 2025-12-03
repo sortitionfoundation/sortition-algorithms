@@ -13,6 +13,7 @@ from sortition_algorithms.settings import Settings
 test_path = Path(__file__).parent
 features_csv_path = test_path / "fixtures/features.csv"
 candidates_csv_path = test_path / "fixtures/candidates.csv"
+candidates_lower_csv_path = test_path / "fixtures/candidates_lower.csv"
 
 
 def create_test_settings(

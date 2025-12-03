@@ -1,4 +1,4 @@
-nationbuilder_id,first_name,last_name,email,mobile_number,primary_address1,primary_address2,primary_city,primary_zip,gender,age_bracket,geo_bucket,edu_level
+nationbuilder_id,first_name,last_name,email,mobile_number,primary_address1,primary_address2,primary_city,primary_zip,Gender,age_bracket,geo_bucket,edu_level
 p0,first_name0,last_name0,email0,mobile_number0,primary_address10,primary_address20,primary_city0,primary_zip0,Male,30-44,South Scotland,Level 4 and above
 p1,first_name1,last_name1,email1,mobile_number1,primary_address11,primary_address21,primary_city1,primary_zip1,Female,16-29,Lothian,Level 1
 p2,first_name2,last_name2,email2,mobile_number2,primary_address12,primary_address22,primary_city2,primary_zip2,Female,45-59,West Scotland,Level 2 or 3

@@ -245,7 +245,7 @@ def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
     raise ValueError(msg)
 
 
-def _row_val_to_int(row: utils.StrippedDict, key: str) -> tuple[int, str]:
+def _row_val_to_int(row: MutableMapping, key: str) -> tuple[int, str]:
     """
     Convert row value to integer, with detailed error messages if it fails
     """
@@ -258,7 +258,7 @@ def _row_val_to_int(row: utils.StrippedDict, key: str) -> tuple[int, str]:
     return int_value, ""
 
 
-def _clean_row(row: utils.StrippedDict, feature_flex: bool, row_number: int) -> tuple[str, str, FeatureValueMinMax]:
+def _clean_row(row: MutableMapping, feature_flex: bool, row_number: int) -> tuple[str, str, FeatureValueMinMax]:
     """
     allow for some dirty data - at least strip white space from feature name and value
     but only if they are strings! (sometimes people use ints as feature names or values
@@ -357,7 +357,7 @@ def read_in_features(
             _, feature_value_column_name = _get_feature_value_from_row(row)
         # check the set of keys in the row are the same as the headers
         assert set(filtered_headers) <= set(row.keys())
-        stripped_row = utils.StrippedDict(row)
+        stripped_row = utils.normalise_dict(row)
         fname, _ = _get_feature_from_row(row)
         if not fname:
             continue

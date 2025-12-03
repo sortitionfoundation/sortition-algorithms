@@ -1,7 +1,7 @@
 feature,value,min,max,min_flex,max_flex
-gender,Female,11,12,0,12
-gender,Male,10,11,0,12
-gender,Non-binary or other,0,1,0,1
+Gender,Female,11,12,0,12
+Gender,Male,10,11,0,12
+Gender,Non-binary or other,0,1,0,1
 age_bracket,0-15,0,0,0,0
 age_bracket,16-29,5,7,0,7
 age_bracket,30-44,5,7,0,7

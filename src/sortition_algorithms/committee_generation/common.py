@@ -48,7 +48,7 @@ def setup_committee_generation(
         number_feature_value_agents = mip.xsum(
             agent_vars[person_id]
             for person_id, person_data in people.items()
-            if person_data[feature_name] == fvalue_name
+            if person_data[feature_name].lower() == fvalue_name.lower()
         )
 
         # Add min/max constraints
@@ -224,7 +224,7 @@ def _add_committee_constraints_for_inclusion_set(
         number_feature_value_agents = mip.xsum(
             agent_vars[person_id]
             for person_id, person_data in people.items()
-            if person_data[feature_name] == fvalue_name
+            if person_data[feature_name].lower() == fvalue_name.lower()
         )
 
         # Apply relaxed min/max constraints
