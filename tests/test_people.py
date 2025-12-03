@@ -5,11 +5,13 @@ from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import (
     People,
     _check_columns_exist_or_multiple,
+    check_enough_people_for_every_feature_value,
     check_for_duplicate_people,
     read_in_people,
 )
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import normalise_dict
+from tests.helpers import create_test_scenario
 
 
 def create_simple_test_features() -> FeatureCollection:
@@ -1020,3 +1022,30 @@ class TestPeopleMatchingAddress:
         assert "bob42@example.com" in combined_messages
 
         assert "jane@example.com" not in combined_messages
+
+
+class TestCheckEnoughPeopleForEveryFeatureValue:
+    def test_check_enough_people_for_every_feature_value_with_enough(self):
+        features, people, _ = create_test_scenario(people_count=4)
+        # should not raise an error
+        check_enough_people_for_every_feature_value(features, people)
+
+    def test_check_enough_people_for_every_feature_value_with_zero_in_feature_value(self):
+        features, people, _ = create_test_scenario(people_count=4)
+        for _, person_dict in people.items():
+            person_dict["gender"] = "male"
+        # should raise an error now
+        with pytest.raises(errors.SelectionMultilineError, match="Not enough people") as excinfo:
+            check_enough_people_for_every_feature_value(features, people)
+        assert "value 'female' in category 'gender'" in str(excinfo.value)
+        assert "minimum is 1 but we only have 0" in str(excinfo.value)
+
+    def test_check_enough_people_for_every_feature_value_with_high_minimum(self):
+        features, people, _ = create_test_scenario(people_count=8)
+        features["gender"]["female"].min = 10
+        features["gender"]["female"].max = 10
+        # should raise an error now
+        with pytest.raises(errors.SelectionMultilineError, match="Not enough people") as excinfo:
+            check_enough_people_for_every_feature_value(features, people)
+        assert "value 'female' in category 'gender'" in str(excinfo.value)
+        assert "minimum is 10 but we only have 4" in str(excinfo.value)

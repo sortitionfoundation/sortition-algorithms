@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from collections.abc import ItemsView, Iterable, Iterator, MutableMapping
+from collections.abc import Generator, ItemsView, Iterable, Iterator, MutableMapping
 from typing import Any
 
 from requests.structures import CaseInsensitiveDict
@@ -11,7 +11,7 @@ from sortition_algorithms.errors import (
     SelectionError,
     SelectionMultilineError,
 )
-from sortition_algorithms.features import FeatureCollection
+from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport, normalise_dict
 
@@ -107,6 +107,14 @@ class People:
             if person_address == tuple(loop_person[col].lower() for col in address_columns):
                 yield loop_key
 
+    def _iter_matching(self, feature_name: str, feature_value: str) -> Generator[str]:
+        for person_key, person_dict in self._full_data.items():
+            if person_dict[feature_name].lower() == feature_value.lower():
+                yield person_key
+
+    def count_feature_value(self, feature_name: str, feature_value: str) -> int:
+        return len(list(self._iter_matching(feature_name, feature_value)))
+
     def find_person_by_position_in_category(self, feature_name: str, feature_value: str, position: int) -> str:
         """
         Find the nth person (1-indexed) in a specific feature category.
@@ -122,18 +130,14 @@ class People:
         Raises:
             SelectionError: If no person is found at the specified position
         """
-        current_position = 0
-
-        for person_key, person_dict in self._full_data.items():
-            if person_dict[feature_name].lower() == feature_value.lower():
-                current_position += 1
-                if current_position == position:
-                    return person_key
-
-        # Should always find someone if position is valid
-        # If we hit this line it is a bug
-        msg = f"Failed to find person at position {position} in {feature_name}/{feature_value}"
-        raise SelectionError(msg)
+        people_in_category = list(self._iter_matching(feature_name, feature_value))
+        try:
+            return people_in_category[position - 1]
+        except IndexError:
+            # Should always find someone if position is valid
+            # If we hit this line it is a bug
+            msg = f"Failed to find person at position {position} in {feature_name}/{feature_value}"
+            raise SelectionError(msg) from None
 
 
 # simple helper function to tidy the code below
@@ -206,6 +210,20 @@ def check_for_duplicate_people(people_body: Iterable[MutableMapping[str, str]], 
         for row in value:
             output.append(f"For ID '{key}' one row of data is: {row}")
     raise SelectionMultilineError(output)
+
+
+def check_enough_people_for_every_feature_value(features: FeatureCollection, people: People) -> None:
+    """For each feature/value, if the min>0, check there are enough people who have that feature/value"""
+    error_list: list[str] = []
+    for fname, fvalue, fv_minmax in iterate_feature_collection(features):
+        matching_count = people.count_feature_value(fname, fvalue)
+        if matching_count < fv_minmax.min:
+            error_list.append(
+                f"Not enough people with the value '{fvalue}' in category '{fname}' - "
+                f"the minimum is {fv_minmax.min} but we only have {matching_count}"
+            )
+    if error_list:
+        raise SelectionMultilineError(error_list)
 
 
 def read_in_people(

@@ -165,14 +165,16 @@ def check_desired(fc: FeatureCollection, desired_number: int) -> None:
     """
     Check if the desired number of people is within the min/max of every feature.
     """
+    errors: list[str] = []
     for feature_name, fvalues in fc.items():
         if desired_number < _fv_minimum_selection(fvalues) or desired_number > _fv_maximum_selection(fvalues):
-            msg = (
+            errors.append(
                 f"The number of people to select ({desired_number}) is out of the range of "
                 f"the numbers of people in the {feature_name} feature. It should be within "
                 f"[{_fv_minimum_selection(fvalues)}, {_fv_maximum_selection(fvalues)}]."
             )
-            raise Exception(msg)
+    if errors:
+        raise SelectionMultilineError(errors)
 
 
 def _safe_max_flex_val(fc: FeatureCollection) -> int:

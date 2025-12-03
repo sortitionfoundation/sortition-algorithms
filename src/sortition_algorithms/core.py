@@ -14,7 +14,7 @@ from sortition_algorithms.committee_generation import (
     standardize_distribution,
 )
 from sortition_algorithms.features import FeatureCollection, check_desired
-from sortition_algorithms.people import People
+from sortition_algorithms.people import People, check_enough_people_for_every_feature_value
 from sortition_algorithms.people_features import (
     iterate_select_collection,
     select_from_feature_collection,
@@ -525,23 +525,28 @@ def run_stratification(
         RuntimeError: If required solver is not available
         InfeasibleQuotasError: If quotas cannot be satisfied
     """
-    # Check if desired number is within feature constraints
-    check_desired(features, number_people_wanted)
+    success = False
+    report = RunReport()
+    people_selected: list[frozenset[str]] = []
+
+    try:
+        # Check if desired number is within feature constraints
+        check_desired(features, number_people_wanted)
+        check_enough_people_for_every_feature_value(features, people)
+    except errors.SelectionError as error:
+        report.add_error(error)
+        return False, people_selected, report
 
     # Set random seed if specified
     # If the seed is zero or None, we use the secrets module, as it is better
     # from a security point of view
     set_random_provider(settings.random_number_seed)
 
-    success = False
-    report = RunReport()
-
     if test_selection:
         report.add_line("WARNING: Panel is not selected at random! Only use for testing!", ReportLevel.CRITICAL)
 
     report.add_line("Initial: (selected = 0)", ReportLevel.IMPORTANT)
     report.add_report(_initial_category_info_table(features, people))
-    people_selected: list[frozenset[str]] = []
 
     tries = 0
     for tries in range(settings.max_attempts):

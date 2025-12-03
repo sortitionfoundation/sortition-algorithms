@@ -40,13 +40,15 @@ def test_run_stratification_infeasible_quotas():
     people = create_simple_people(features, settings, count=2)
 
     # Should raise exception for invalid desired number (can't select 4 from 2 total)
-    with pytest.raises(Exception, match="out of the range"):
-        run_stratification(
-            features=features,
-            people=people,
-            number_people_wanted=4,  # Impossible: need 1 male + 1 female = 2 max
-            settings=settings,
-        )
+    success, _, report = run_stratification(
+        features=features,
+        people=people,
+        number_people_wanted=4,  # Impossible: need 1 male + 1 female = 2 max
+        settings=settings,
+    )
+
+    assert not success
+    assert "out of the range" in str(report.last_error())
 
 
 @pytest.mark.slow
