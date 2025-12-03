@@ -196,7 +196,7 @@ def gsheet(
     success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
     echo_report(report)
     if not success:
-        raise click.ClickException("Selection not successful, no files written.")
+        raise click.ClickException("Selection not successful, nothing written to spreadsheet.")
 
     selected_rows, remaining_rows, _ = core.selected_remaining_tables(
         people, people_selected[0], features, settings_obj
