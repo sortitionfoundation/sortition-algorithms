@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from collections.abc import Generator, ItemsView, Iterable, Iterator, MutableMapping
+from copy import deepcopy
 from typing import Any
 
 from requests.structures import CaseInsensitiveDict
@@ -82,6 +83,13 @@ class People:
     def get_person_dict(self, person_key: str) -> MutableMapping[str, str]:
         return self._full_data[person_key]
 
+    @staticmethod
+    def _address_tuple(person_dict: MutableMapping[str, str], address_columns: Iterable[str]) -> tuple[str, ...]:
+        return tuple(person_dict[col].lower() for col in address_columns)
+
+    def get_address(self, person_key: str, address_columns: Iterable[str]) -> tuple[str, ...]:
+        return self._address_tuple(self._full_data[person_key], address_columns)
+
     def households(self, address_columns: list[str]) -> dict[tuple[str, ...], list[str]]:
         """
         Generates a dict with:
@@ -90,8 +98,7 @@ class People:
         """
         households = defaultdict(list)
         for person_key, person in self._full_data.items():
-            address = tuple(person[col] for col in address_columns)
-            households[address].append(person_key)
+            households[self._address_tuple(person, address_columns)].append(person_key)
         return households
 
     def matching_address(self, person_key: str, address_columns: list[str]) -> Iterable[str]:
@@ -100,11 +107,11 @@ class People:
         the address of the person passed in.
         """
         person = self._full_data[person_key]
-        person_address = tuple(person[col].lower() for col in address_columns)
+        person_address = self._address_tuple(person, address_columns)
         for loop_key, loop_person in self._full_data.items():
             if loop_key == person_key:
                 continue  # skip the person we've been given
-            if person_address == tuple(loop_person[col].lower() for col in address_columns):
+            if person_address == self._address_tuple(loop_person, address_columns):
                 yield loop_key
 
     def _iter_matching(self, feature_name: str, feature_value: str) -> Generator[str]:
@@ -224,6 +231,23 @@ def check_enough_people_for_every_feature_value(features: FeatureCollection, peo
             )
     if error_list:
         raise SelectionMultilineError(error_list)
+
+
+def exclude_matching_selected_addresses(people: People, already_selected: People | None, settings: Settings) -> People:
+    """
+    If we are checking the same addresses, then we should start by excluding people
+    who have the same address as someone who is already selected.
+    """
+    if already_selected is None or not settings.check_same_address:
+        return people
+    selected_addresses = {
+        already_selected.get_address(pkey, settings.check_same_address_columns) for pkey in already_selected
+    }
+    new_people = deepcopy(people)
+    for person_key in people:
+        if people.get_address(person_key, settings.check_same_address_columns) in selected_addresses:
+            new_people.remove(person_key)
+    return new_people
 
 
 def read_in_people(

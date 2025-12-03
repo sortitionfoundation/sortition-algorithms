@@ -7,11 +7,17 @@ from sortition_algorithms.people import (
     _check_columns_exist_or_multiple,
     check_enough_people_for_every_feature_value,
     check_for_duplicate_people,
+    exclude_matching_selected_addresses,
     read_in_people,
 )
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import normalise_dict
-from tests.helpers import create_test_scenario
+from tests.helpers import (
+    create_people_with_addresses,
+    create_simple_features,
+    create_test_scenario,
+    create_test_settings,
+)
 
 
 def create_simple_test_features() -> FeatureCollection:
@@ -430,7 +436,7 @@ class TestPeopleHouseholds:
 
         households = people.households(["address1", "postcode"])
 
-        expected = {("123 Main St", "12345"): ["1"]}
+        expected = {("123 main st", "12345"): ["1"]}
         assert households == expected
 
     def test_households_multiple_people_same_address(self):
@@ -459,7 +465,7 @@ class TestPeopleHouseholds:
 
         households = people.households(["address1", "postcode"])
 
-        expected = {("123 Main St", "12345"): ["1", "2", "3"]}
+        expected = {("123 main st", "12345"): ["1", "2", "3"]}
         assert households == expected
 
     def test_households_multiple_people_different_addresses(self):
@@ -489,9 +495,9 @@ class TestPeopleHouseholds:
         households = people.households(["address1", "postcode"])
 
         expected = {
-            ("123 Main St", "12345"): ["1"],
-            ("456 Oak Ave", "67890"): ["2"],
-            ("789 Pine Rd", "54321"): ["3"],
+            ("123 main st", "12345"): ["1"],
+            ("456 oak ave", "67890"): ["2"],
+            ("789 pine rd", "54321"): ["3"],
         }
         assert households == expected
 
@@ -524,9 +530,9 @@ class TestPeopleHouseholds:
         households = people.households(["address1", "postcode"])
 
         expected = {
-            ("123 Main St", "12345"): ["1", "2"],
-            ("456 Oak Ave", "67890"): ["3", "4"],
-            ("789 Pine Rd", "54321"): ["5"],
+            ("123 main st", "12345"): ["1", "2"],
+            ("456 oak ave", "67890"): ["3", "4"],
+            ("789 pine rd", "54321"): ["5"],
         }
         assert households == expected
 
@@ -555,8 +561,8 @@ class TestPeopleHouseholds:
         households = people.households(["address1"])
 
         expected = {
-            ("123 Main St",): ["1", "2"],
-            ("456 Oak Ave",): ["3"],
+            ("123 main st",): ["1", "2"],
+            ("456 oak ave",): ["3"],
         }
         assert households == expected
 
@@ -586,7 +592,7 @@ class TestPeopleHouseholds:
         households = people.households(["address1", "postcode"])
 
         # Both should end up in the same household due to whitespace stripping
-        expected = {("123 Main St", "12345"): ["1", "2"]}
+        expected = {("123 main st", "12345"): ["1", "2"]}
         assert households == expected
 
     def test_households_empty_address_columns_list(self):
@@ -1022,6 +1028,251 @@ class TestPeopleMatchingAddress:
         assert "bob42@example.com" in combined_messages
 
         assert "jane@example.com" not in combined_messages
+
+
+class TestExcludeMatchingSelectedAddresses:
+    """Test the exclude_matching_selected_addresses function."""
+
+    def test_returns_original_when_already_selected_is_none(self):
+        """Test that original people is returned when already_selected is None."""
+        features, people, settings = create_test_scenario(
+            include_addresses=True,
+            check_same_address=True,
+        )
+
+        result = exclude_matching_selected_addresses(people, None, settings)
+
+        # Should return the same object
+        assert result is people
+        assert result.count == 4
+
+    def test_returns_original_when_check_same_address_is_false(self):
+        """Test that original people is returned when check_same_address is False."""
+        features, people, settings = create_test_scenario(
+            include_addresses=True,
+            check_same_address=False,
+        )
+
+        # Create some already_selected people
+        already_selected = create_people_with_addresses(features, settings)
+
+        result = exclude_matching_selected_addresses(people, already_selected, settings)
+
+        # Should return the same object since check_same_address is False
+        assert result is people
+        assert result.count == 4
+
+    def test_excludes_people_with_matching_addresses(self):
+        """Test that people with addresses matching already_selected are excluded."""
+        features = create_simple_features()
+        settings = create_test_settings(
+            columns_to_keep=["name", "address1", "postcode"],
+            check_same_address=True,
+            check_same_address_columns=["address1", "postcode"],
+        )
+
+        # Create people pool with various addresses
+        people = create_people_with_addresses(features, settings, include_households=True)
+        # people has: John and Jane at 123 Main St/12345, Bob at 456 Oak Ave/67890, Alice at 789 Pine Rd/11111
+
+        # Create already_selected with one person at 123 Main St
+        already_selected_data = [
+            {
+                "id": "100",
+                "name": "Selected Person",
+                "email": "selected@example.com",
+                "gender": "male",
+                "age": "young",
+                "address1": "123 Main St",
+                "postcode": "12345",
+            }
+        ]
+        head = ["id", "name", "email", "gender", "age", "address1", "postcode"]
+        already_selected, _ = read_in_people(head, already_selected_data, features, settings)
+
+        result = exclude_matching_selected_addresses(people, already_selected, settings)
+
+        # Should exclude John and Jane (both at 123 Main St)
+        assert result.count == 2
+        assert "2" in result  # Bob
+        assert "3" in result  # Alice
+        assert "0" not in result  # John excluded
+        assert "1" not in result  # Jane excluded
+
+    def test_excludes_all_when_all_addresses_match(self):
+        """Test when all people have addresses matching already_selected."""
+        features = create_simple_features()
+        settings = create_test_settings(
+            columns_to_keep=["name", "address1", "postcode"],
+            check_same_address=True,
+            check_same_address_columns=["address1", "postcode"],
+        )
+
+        # Create people all at the same address
+        people_data = [
+            {
+                "id": "0",
+                "name": "Person0",
+                "email": "p0@example.com",
+                "gender": "male",
+                "age": "young",
+                "address1": "123 Main St",
+                "postcode": "12345",
+            },
+            {
+                "id": "1",
+                "name": "Person1",
+                "email": "p1@example.com",
+                "gender": "female",
+                "age": "young",
+                "address1": "123 Main St",
+                "postcode": "12345",
+            },
+        ]
+        head = ["id", "name", "email", "gender", "age", "address1", "postcode"]
+        people, _ = read_in_people(head, people_data, features, settings)
+
+        # Create already_selected at the same address
+        already_selected_data = [
+            {
+                "id": "100",
+                "name": "Selected",
+                "email": "sel@example.com",
+                "gender": "male",
+                "age": "old",
+                "address1": "123 Main St",
+                "postcode": "12345",
+            }
+        ]
+        already_selected, _ = read_in_people(head, already_selected_data, features, settings)
+
+        result = exclude_matching_selected_addresses(people, already_selected, settings)
+
+        # All people should be excluded
+        assert result.count == 0
+
+    def test_excludes_none_when_no_addresses_match(self):
+        """Test when no people have addresses matching already_selected."""
+        features = create_simple_features()
+        settings = create_test_settings(
+            columns_to_keep=["name", "address1", "postcode"],
+            check_same_address=True,
+            check_same_address_columns=["address1", "postcode"],
+        )
+
+        # Create people with various addresses
+        people = create_people_with_addresses(features, settings, include_households=False)
+        # All people have different addresses
+
+        # Create already_selected with completely different address
+        already_selected_data = [
+            {
+                "id": "100",
+                "name": "Selected",
+                "email": "sel@example.com",
+                "gender": "male",
+                "age": "old",
+                "address1": "999 Different St",
+                "postcode": "99999",
+            }
+        ]
+        head = ["id", "name", "email", "gender", "age", "address1", "postcode"]
+        already_selected, _ = read_in_people(head, already_selected_data, features, settings)
+
+        result = exclude_matching_selected_addresses(people, already_selected, settings)
+
+        # No one should be excluded
+        assert result.count == 4
+        assert "0" in result
+        assert "1" in result
+        assert "2" in result
+        assert "3" in result
+
+    def test_multiple_selected_addresses(self):
+        """Test excluding people matching multiple already_selected addresses."""
+        features = create_simple_features()
+        settings = create_test_settings(
+            columns_to_keep=["name", "address1", "postcode"],
+            check_same_address=True,
+            check_same_address_columns=["address1", "postcode"],
+        )
+
+        # Create people with various addresses
+        people = create_people_with_addresses(features, settings, include_households=True)
+        # John and Jane at 123 Main St, Bob at 456 Oak Ave, Alice at 789 Pine Rd
+
+        # Create already_selected with two different addresses
+        already_selected_data = [
+            {
+                "id": "100",
+                "name": "Selected1",
+                "email": "sel1@example.com",
+                "gender": "male",
+                "age": "old",
+                "address1": "123 Main St",
+                "postcode": "12345",
+            },
+            {
+                "id": "101",
+                "name": "Selected2",
+                "email": "sel2@example.com",
+                "gender": "female",
+                "age": "old",
+                "address1": "456 Oak Ave",
+                "postcode": "67890",
+            },
+        ]
+        head = ["id", "name", "email", "gender", "age", "address1", "postcode"]
+        already_selected, _ = read_in_people(head, already_selected_data, features, settings)
+
+        result = exclude_matching_selected_addresses(people, already_selected, settings)
+
+        # Should exclude John, Jane (123 Main St) and Bob (456 Oak Ave)
+        assert result.count == 1
+        assert "3" in result  # Only Alice remains
+        assert "0" not in result  # John excluded
+        assert "1" not in result  # Jane excluded
+        assert "2" not in result  # Bob excluded
+
+    def test_does_not_modify_original_people(self):
+        """Test that the original people object is not modified."""
+        features = create_simple_features()
+        settings = create_test_settings(
+            columns_to_keep=["name", "address1", "postcode"],
+            check_same_address=True,
+            check_same_address_columns=["address1", "postcode"],
+        )
+
+        people = create_people_with_addresses(features, settings, include_households=True)
+        original_count = people.count
+
+        # Create already_selected at same address as some people
+        already_selected_data = [
+            {
+                "id": "100",
+                "name": "Selected",
+                "email": "sel@example.com",
+                "gender": "male",
+                "age": "old",
+                "address1": "123 Main St",
+                "postcode": "12345",
+            }
+        ]
+        head = ["id", "name", "email", "gender", "age", "address1", "postcode"]
+        already_selected, _ = read_in_people(head, already_selected_data, features, settings)
+
+        result = exclude_matching_selected_addresses(people, already_selected, settings)
+
+        # Original should be unchanged
+        assert people.count == original_count
+        assert "0" in people
+        assert "1" in people
+        assert "2" in people
+        assert "3" in people
+
+        # Result should be different
+        assert result is not people
+        assert result.count < original_count
 
 
 class TestCheckEnoughPeopleForEveryFeatureValue:
