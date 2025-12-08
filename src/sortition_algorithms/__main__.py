@@ -47,6 +47,12 @@ def cli() -> None:
     help="Path to CSV with people defined.",
 )
 @click.option(
+    "-a",
+    "--already-selected-csv",
+    type=click.Path(dir_okay=False, writable=True),
+    help="Path to CSV with people who have already been selected.",
+)
+@click.option(
     "-s",
     "--selected-csv",
     type=click.Path(dir_okay=False, writable=True),
@@ -77,6 +83,7 @@ def csv(
     settings: str,
     features_csv: str,
     people_csv: str,
+    already_selected_csv: str,
     selected_csv: str,
     remaining_csv: str,
     number_wanted: int,
@@ -86,7 +93,11 @@ def csv(
     if verbose:
         set_log_level(logging.DEBUG)
     data_source = adapters.CSVFileDataSource(
-        Path(features_csv), Path(people_csv), Path(selected_csv), Path(remaining_csv)
+        features_file=Path(features_csv),
+        people_file=Path(people_csv),
+        already_selected_file=Path(already_selected_csv) if already_selected_csv else None,
+        selected_file=Path(selected_csv),
+        remaining_file=Path(remaining_csv),
     )
     select_data = adapters.SelectionData(data_source)
     settings_obj, report = Settings.load_from_file(Path(settings))
@@ -100,13 +111,27 @@ def csv(
     if people is None:
         raise click.ClickException("Could not load people, exiting.")
 
-    success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
+    already_selected, report = select_data.load_already_selected(settings_obj, features)
+    echo_report(report)
+
+    success, people_selected, report = core.run_stratification(
+        features=features,
+        people=people,
+        number_people_wanted=number_wanted,
+        settings=settings_obj,
+        already_selected=already_selected,
+    )
     echo_report(report)
     if not success:
         raise click.ClickException("Selection not successful, no files written.")
 
     selected_rows, remaining_rows, _ = core.selected_remaining_tables(
-        people, people_selected[0], features, settings_obj
+        full_people=people,
+        people_selected=people_selected[0],
+        features=features,
+        settings=settings_obj,
+        already_selected=already_selected,
+        exclude_matching_addresses=False,
     )
     select_data.output_selected_remaining(
         people_selected_rows=selected_rows,
@@ -148,6 +173,12 @@ def csv(
     help="Name of tab containing people/respondents.",
 )
 @click.option(
+    "-a",
+    "--already-selected-tab-name",
+    required=False,
+    help="Name of tab containing already selected people/respondents.",
+)
+@click.option(
     "-n",
     "--number-wanted",
     type=click.IntRange(min=1),
@@ -167,6 +198,7 @@ def gsheet(
     gsheet_name: str,
     feature_tab_name: str,
     people_tab_name: str,
+    already_selected_tab_name: str,
     number_wanted: int,
     verbose: bool,
 ) -> None:
@@ -176,6 +208,7 @@ def gsheet(
     data_source = adapters.GSheetDataSource(
         feature_tab_name=feature_tab_name,
         people_tab_name=people_tab_name,
+        already_selected_tab_name=already_selected_tab_name,
         auth_json_path=Path(auth_json_file),
     )
     select_data = adapters.SelectionData(data_source, gen_rem_tab=gen_rem_tab)
@@ -193,13 +226,27 @@ def gsheet(
     if people is None:
         raise click.ClickException("Could not load people, exiting.")
 
-    success, people_selected, report = core.run_stratification(features, people, number_wanted, settings_obj)
+    already_selected, report = select_data.load_already_selected(settings_obj, features)
+    echo_report(report)
+
+    success, people_selected, report = core.run_stratification(
+        features=features,
+        people=people,
+        number_people_wanted=number_wanted,
+        settings=settings_obj,
+        already_selected=already_selected,
+    )
     echo_report(report)
     if not success:
         raise click.ClickException("Selection not successful, nothing written to spreadsheet.")
 
     selected_rows, remaining_rows, _ = core.selected_remaining_tables(
-        people, people_selected[0], features, settings_obj
+        full_people=people,
+        people_selected=people_selected[0],
+        features=features,
+        settings=settings_obj,
+        already_selected=already_selected,
+        exclude_matching_addresses=False,
     )
     select_data.output_selected_remaining(
         people_selected_rows=selected_rows,
@@ -275,7 +322,13 @@ def cleanup_gsheet(auth_json_file: str, gsheet_name: str, dry_run: bool) -> None
 )
 def gen_sample(settings: str, features_csv: str, people_csv: str, number_wanted: int) -> None:
     """Generate a sample CSV file of people compatible with features and settings."""
-    data_source = adapters.CSVFileDataSource(Path(features_csv), Path(people_csv), Path("/"), Path("/"))
+    data_source = adapters.CSVFileDataSource(
+        features_file=Path(features_csv),
+        people_file=Path(people_csv),
+        already_selected_file=None,
+        selected_file=Path("/"),
+        remaining_file=Path("/"),
+    )
     select_data = adapters.SelectionData(data_source)
     settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
