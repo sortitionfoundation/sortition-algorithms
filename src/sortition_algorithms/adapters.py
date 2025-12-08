@@ -165,6 +165,28 @@ class SelectionData:
                 raise new_error from error
         return people, report
 
+    def load_already_selected(self, settings: Settings, features: FeatureCollection) -> tuple[People, RunReport]:
+        report = RunReport()
+        with self.data_source.read_already_selected_data(report) as headers_body:
+            headers_iter, body = headers_body
+            headers = list(headers_iter)
+            # we can return empty if there is nothing to load, so return empty People
+            if not headers:
+                return People(columns_to_keep=settings.columns_to_keep), report
+
+            try:
+                people, report = read_in_people(
+                    people_head=headers,
+                    people_body=body,
+                    features=features,
+                    settings=settings,
+                    feature_column_name=self.feature_column_name,
+                )
+            except ParseTableMultiError as error:
+                new_error = self.data_source.customise_people_parse_error(error, headers)
+                raise new_error from error
+        return people, report
+
     # TODO: decide if we want this - it would just call the function in core.py
     # Is that worth it?
     # def run_stratification(self):
@@ -181,6 +203,7 @@ class SelectionData:
             report.add_line_and_log("Finished writing selected (only)", logging.INFO)
             return [], report
         self.data_source.write_remaining(people_remaining_rows, report)
+        # TODO: also highlight dupes of address in selected tab/set
         dupes = generate_dupes(people_remaining_rows, settings)
         self.data_source.highlight_dupes(dupes)
         report.add_line_and_log("Finished writing both selected and remaining", logging.INFO)
