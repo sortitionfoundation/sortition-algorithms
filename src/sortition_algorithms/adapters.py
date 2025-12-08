@@ -12,9 +12,10 @@ from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
-from typing import ClassVar, TextIO
+from typing import Any, ClassVar, TextIO
 
 import gspread
+from gspread.utils import ValueRenderOption
 from oauth2client.service_account import ServiceAccountCredentials
 
 from sortition_algorithms.errors import (
@@ -93,6 +94,12 @@ class AbstractDataSource(abc.ABC):
     @abc.abstractmethod
     @contextmanager
     def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
+
+    @abc.abstractmethod
+    @contextmanager
+    def read_already_selected_data(
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
 
@@ -198,9 +205,10 @@ def _write_csv_rows(out_file: TextIO, rows: list[list[str]]) -> None:
 
 
 class CSVStringDataSource(AbstractDataSource):
-    def __init__(self, features_data: str, people_data: str) -> None:
+    def __init__(self, features_data: str, people_data: str, already_selected_data: str = "") -> None:
         self.features_data = features_data
         self.people_data = people_data
+        self.already_selected_data = already_selected_data
         self.selected_file = StringIO()
         self.remaining_file = StringIO()
         self.selected_file_written = False
@@ -223,6 +231,19 @@ class CSVStringDataSource(AbstractDataSource):
         people_reader = csv.DictReader(StringIO(self.people_data), strict=True)
         assert people_reader.fieldnames is not None
         yield list(people_reader.fieldnames), people_reader
+
+    @contextmanager
+    def read_already_selected_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        if not self.already_selected_data or not self.already_selected_data.strip():
+            report.add_line("No already selected data provided, using empty data.")
+            yield [], []
+            return
+        report.add_line("Loading already selected people from string.")
+        already_selected_reader = csv.DictReader(StringIO(self.already_selected_data), strict=True)
+        assert already_selected_reader.fieldnames is not None
+        yield list(already_selected_reader.fieldnames), already_selected_reader
 
     def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
         _write_csv_rows(self.selected_file, selected)
@@ -249,9 +270,18 @@ class CSVStringDataSource(AbstractDataSource):
 
 
 class CSVFileDataSource(AbstractDataSource):
-    def __init__(self, features_file: Path, people_file: Path, selected_file: Path, remaining_file: Path) -> None:
+    def __init__(
+        self,
+        *,
+        features_file: Path,
+        people_file: Path,
+        already_selected_file: Path | None,
+        selected_file: Path,
+        remaining_file: Path,
+    ) -> None:
         self.features_file = features_file
         self.people_file = people_file
+        self.already_selected_file = already_selected_file
         self.selected_file = selected_file
         self.remaining_file = remaining_file
 
@@ -274,6 +304,20 @@ class CSVFileDataSource(AbstractDataSource):
             people_reader = csv.DictReader(csv_file, strict=True)
             assert people_reader.fieldnames is not None
             yield list(people_reader.fieldnames), people_reader
+
+    @contextmanager
+    def read_already_selected_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        if self.already_selected_file is None or not self.already_selected_file.exists():
+            report.add_line("No already selected file provided or file does not exist, using empty data.")
+            yield [], []
+            return
+        report.add_line(f"Loading already selected people from file {self.already_selected_file}.")
+        with open(self.already_selected_file, newline="") as csv_file:
+            already_selected_reader = csv.DictReader(csv_file, strict=True)
+            assert already_selected_reader.fieldnames is not None
+            yield list(already_selected_reader.fieldnames), already_selected_reader
 
     def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
         report.add_line_and_log(f"Writing selected rows to {self.selected_file}", logging.INFO)
@@ -354,9 +398,12 @@ class GSheetDataSource(AbstractDataSource):
     }
     hl_orange: ClassVar = {"backgroundColor": {"red": 5, "green": 2.5, "blue": 0}}
 
-    def __init__(self, feature_tab_name: str, people_tab_name: str, auth_json_path: Path) -> None:
+    def __init__(
+        self, *, feature_tab_name: str, people_tab_name: str, already_selected_tab_name: str = "", auth_json_path: Path
+    ) -> None:
         self.feature_tab_name = feature_tab_name
         self.people_tab_name = people_tab_name
+        self.already_selected_tab_name = already_selected_tab_name
         self.auth_json_path = auth_json_path
         self._client: gspread.client.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
@@ -475,6 +522,85 @@ class GSheetDataSource(AbstractDataSource):
         )
         self._report.add_line(f"Reading in '{self.people_tab_name}' tab in above Google sheet.")
         yield people_head, people_body
+
+    def _find_header_row(
+        self, all_values: gspread.ValueRange | list[list[Any]], min_headers: int = 3
+    ) -> tuple[int, list[str]]:
+        """
+        Find the first row that looks like a header row in the worksheet.
+
+        A row is considered a header row if it has at least min_headers non-empty cells.
+        This helps skip over title rows, empty rows, etc.
+
+        Args:
+            worksheet: The worksheet to search
+            min_headers: Minimum number of non-empty cells to consider a row as headers (default: 3)
+
+        Returns:
+            Tuple of (row_number, header_values) where row_number is 1-indexed
+        """
+        # Find the first row with enough non-empty cells to be a header row
+        for row_idx, row in enumerate(all_values, start=1):
+            # Count non-empty cells in this row
+            non_empty_cells = [cell.strip() for cell in row if cell and cell.strip()]
+            if len(non_empty_cells) >= min_headers:
+                return row_idx, list(row)
+
+        # If no suitable header row found, return empty
+        return 1, []
+
+    @contextmanager
+    def read_already_selected_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        self._report = report
+        if not self.already_selected_tab_name:
+            # If no tab name provided, return empty data
+            self._report.add_line("No already selected tab specified, using empty data.")
+            yield [], []
+            return
+
+        try:
+            if not self._tab_exists(self.already_selected_tab_name):
+                msg = (
+                    f"Error in Google sheet: no tab called '{self.already_selected_tab_name}' "
+                    f"found in spreadsheet '{self.spreadsheet.title}'."
+                )
+                raise SelectionError(msg)
+        except gspread.SpreadsheetNotFound as err:
+            msg = f"Google spreadsheet not found: {self._g_sheet_name}. "
+            raise SelectionError(msg) from err
+
+        tab_already_selected = self.spreadsheet.worksheet(self.already_selected_tab_name)
+
+        # Get all values from the sheet
+        all_values = tab_already_selected.get_all_values(value_render_option=ValueRenderOption.unformatted)
+
+        # Find which row contains the headers
+        header_row_num, already_selected_head = self._find_header_row(all_values)
+
+        # If no header row found or it's empty, return empty data
+        if not already_selected_head or not any(cell.strip() for cell in already_selected_head):
+            self._report.add_line(
+                f"Tab '{self.already_selected_tab_name}' is empty or has no valid header row, using empty data."
+            )
+            yield [], []
+            return
+
+        # the numericise_ignore doesn't convert the phone numbers to ints...
+        # 1 Oct 2024: the final argument with expected_headers is to deal with the fact that
+        # updated versions of gspread can't cope with duplicate headers
+        already_selected_body = _stringify_records(
+            tab_already_selected.get_all_records(
+                head=header_row_num,
+                numericise_ignore=["all"],
+                expected_headers=[],
+            )
+        )
+        self._report.add_line(
+            f"Reading in '{self.already_selected_tab_name}' tab (header at row {header_row_num}) in above Google sheet."
+        )
+        yield already_selected_head, already_selected_body
 
     def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
         self.tab_namer.find_unused_tab_suffix(self._get_tab_titles())

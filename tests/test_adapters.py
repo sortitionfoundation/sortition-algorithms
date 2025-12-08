@@ -99,7 +99,13 @@ def test_csv_selection_with_case_mismatch(algorithm):
 def test_csv_load_feature_from_file_or_str_give_same_output():
     string_data_source = CSVStringDataSource(features_content, candidates_content)
     string_select_data = SelectionData(string_data_source)
-    file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    file_data_source = CSVFileDataSource(
+        features_file=features_csv_path,
+        people_file=candidates_csv_path,
+        already_selected_file=None,
+        selected_file=Path("/"),
+        remaining_file=Path("/"),
+    )
     file_select_data = SelectionData(file_data_source)
     feature_from_str, _ = string_select_data.load_features()
     feature_from_file, _ = file_select_data.load_features()
@@ -109,7 +115,13 @@ def test_csv_load_feature_from_file_or_str_give_same_output():
 def test_csv_load_people_from_file_or_str_give_same_output():
     string_data_source = CSVStringDataSource(features_content, candidates_content)
     string_select_data = SelectionData(string_data_source)
-    file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    file_data_source = CSVFileDataSource(
+        features_file=features_csv_path,
+        people_file=candidates_csv_path,
+        already_selected_file=None,
+        selected_file=Path("/"),
+        remaining_file=Path("/"),
+    )
     file_select_data = SelectionData(file_data_source)
     settings = get_settings_for_fixtures()
     features, _ = string_select_data.load_features()
@@ -397,7 +409,13 @@ def test_tab_namer_matches_stubs(tab_name, match):
 
 
 def test_csv_files_customise_features_parse_error():
-    file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    file_data_source = CSVFileDataSource(
+        features_file=features_csv_path,
+        people_file=candidates_csv_path,
+        already_selected_file=None,
+        selected_file=Path("/"),
+        remaining_file=Path("/"),
+    )
     parse_features_error = ParseTableMultiError([
         ParseTableErrorMsg(4, row_name="gender", key="name", value="", msg="Some error")
     ])
@@ -407,7 +425,13 @@ def test_csv_files_customise_features_parse_error():
 
 
 def test_csv_files_customise_people_parse_error():
-    file_data_source = CSVFileDataSource(features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    file_data_source = CSVFileDataSource(
+        features_file=features_csv_path,
+        people_file=candidates_csv_path,
+        already_selected_file=None,
+        selected_file=Path("/"),
+        remaining_file=Path("/"),
+    )
     parse_features_error = ParseTableMultiError([
         ParseTableErrorMsg(4, row_name="nb_1234", key="gender", value="asdf", msg="Another error")
     ])
@@ -456,7 +480,13 @@ def test_csv_load_feature_from_file_failure(tmp_path: Path):
         new_file.write(features_csv_path.read_bytes())
         # this line has min > max
         new_file.write(b"\ngeo_bucket,PictsieLand,5,3,0,5\n")
-    file_data_source = CSVFileDataSource(new_features_csv_path, candidates_csv_path, Path("/"), Path("/"))
+    file_data_source = CSVFileDataSource(
+        features_file=new_features_csv_path,
+        people_file=candidates_csv_path,
+        already_selected_file=None,
+        selected_file=Path("/"),
+        remaining_file=Path("/"),
+    )
     file_select_data = SelectionData(file_data_source)
     with pytest.raises(SelectionMultilineError) as excinfo:
         file_select_data.load_features()
@@ -474,7 +504,13 @@ def test_csv_load_people_from_file_failure(tmp_path: Path):
             b"primary_address11,primary_address21,primary_city1,primary_zip1,Female,16-29,"
             b"PictsieLand,Level 1"
         )
-    file_data_source = CSVFileDataSource(features_csv_path, new_people_csv_path, Path("/"), Path("/"))
+    file_data_source = CSVFileDataSource(
+        features_file=features_csv_path,
+        people_file=new_people_csv_path,
+        already_selected_file=None,
+        selected_file=Path("/"),
+        remaining_file=Path("/"),
+    )
     file_select_data = SelectionData(file_data_source)
     settings = get_settings_for_fixtures("maximin")
     features, _ = file_select_data.load_features()
@@ -482,3 +518,81 @@ def test_csv_load_people_from_file_failure(tmp_path: Path):
         file_select_data.load_people(settings, features)
     assert "new_people.csv" in str(excinfo.value)
     assert "'PictsieLand' not in feature geo_bucket" in str(excinfo.value)
+
+
+def test_csv_string_read_already_selected_empty():
+    """
+    Test that reading already selected data from CSV string returns empty when string is empty.
+    """
+    data_source = CSVStringDataSource(features_content, candidates_content, already_selected_data="")
+    from sortition_algorithms.utils import RunReport
+
+    report = RunReport()
+    with data_source.read_already_selected_data(report) as headers_body:
+        headers, body = headers_body
+        assert list(headers) == []
+        assert list(body) == []
+    assert "No already selected data provided" in report.as_text()
+
+
+def test_csv_string_read_already_selected_with_data():
+    """
+    Test that reading already selected data from CSV string works correctly.
+    """
+    already_selected_csv = "nationbuilder_id,first_name,last_name\np1,John,Doe\np2,Jane,Smith\n"
+    data_source = CSVStringDataSource(features_content, candidates_content, already_selected_data=already_selected_csv)
+    from sortition_algorithms.utils import RunReport
+
+    report = RunReport()
+    with data_source.read_already_selected_data(report) as headers_body:
+        headers, body = headers_body
+        headers_list = list(headers)
+        body_list = list(body)
+        assert headers_list == ["nationbuilder_id", "first_name", "last_name"]
+        assert len(body_list) == 2
+        assert body_list[0]["nationbuilder_id"] == "p1"
+        assert body_list[1]["nationbuilder_id"] == "p2"
+
+
+def test_csv_file_read_already_selected(tmp_path: Path):
+    """
+    Test that reading already selected data from CSV file works correctly.
+    """
+    already_selected_csv_path = tmp_path / "already_selected.csv"
+    already_selected_csv_path.write_text("nationbuilder_id,first_name,last_name\np1,John,Doe\np2,Jane,Smith\n")
+    file_data_source = CSVFileDataSource(
+        features_file=features_csv_path,
+        people_file=candidates_csv_path,
+        already_selected_file=already_selected_csv_path,
+        selected_file=Path("/"),
+        remaining_file=Path("/"),
+    )
+    from sortition_algorithms.utils import RunReport
+
+    report = RunReport()
+    with file_data_source.read_already_selected_data(report) as headers_body:
+        headers, body = headers_body
+        headers_list = list(headers)
+        body_list = list(body)
+        assert headers_list == ["nationbuilder_id", "first_name", "last_name"]
+        assert len(body_list) == 2
+        assert body_list[0]["nationbuilder_id"] == "p1"
+        assert body_list[1]["nationbuilder_id"] == "p2"
+    assert "already_selected.csv" in report.as_text()
+
+
+def test_gsheet_read_already_selected_no_tab_name():
+    """
+    Test that GSheet returns empty data when no already_selected_tab_name is provided.
+    """
+    gsheet_data_source = GSheetDataSource(
+        feature_tab_name="Categories", people_tab_name="Respondents", auth_json_path=Path("/")
+    )
+    from sortition_algorithms.utils import RunReport
+
+    report = RunReport()
+    with gsheet_data_source.read_already_selected_data(report) as headers_body:
+        headers, body = headers_body
+        assert list(headers) == []
+        assert list(body) == []
+    assert "No already selected tab specified" in report.as_text()
