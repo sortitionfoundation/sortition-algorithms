@@ -70,7 +70,8 @@ def selected_remaining_tables(
     people_working = deepcopy(full_people)
     output_lines: list[str] = []
 
-    people_selected_rows = person_list_to_table(people_selected, people_working, features, settings)
+    # this function only reads from people, so pass in full_people
+    people_selected_rows = person_list_to_table(people_selected, full_people, features, settings)
 
     # now delete the selected people (and maybe also those at the same address)
     num_same_address_deleted = 0
@@ -86,11 +87,13 @@ def selected_remaining_tables(
 
     # add the columns to keep into remaining people
     # as above all these values are all in people_working but this is tidier...
-    people_remaining_rows = person_list_to_table(people_working, people_working, features, settings)
+    # this function only reads from people, so pass in full_people
+    people_remaining_rows = person_list_to_table(people_working, full_people, features, settings)
     return people_selected_rows, people_remaining_rows, output_lines
 
     # TODO: put this code somewhere more suitable
     # maybe in strat app only?
+    # Long term we want to stop deleting the rows, so we can delete this then
     """
     dupes = self._output_selected_remaining(
         settings,
