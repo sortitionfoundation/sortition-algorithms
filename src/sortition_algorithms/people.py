@@ -238,7 +238,7 @@ def exclude_matching_selected_addresses(people: People, already_selected: People
     If we are checking the same addresses, then we should start by excluding people
     who have the same address as someone who is already selected.
     """
-    if already_selected is None or not settings.check_same_address:
+    if already_selected is None or not already_selected.count or not settings.check_same_address:
         return people
     selected_addresses = {
         already_selected.get_address(pkey, settings.check_same_address_columns) for pkey in already_selected

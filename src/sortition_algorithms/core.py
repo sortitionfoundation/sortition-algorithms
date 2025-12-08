@@ -14,7 +14,11 @@ from sortition_algorithms.committee_generation import (
     standardize_distribution,
 )
 from sortition_algorithms.features import FeatureCollection, check_desired
-from sortition_algorithms.people import People, check_enough_people_for_every_feature_value
+from sortition_algorithms.people import (
+    People,
+    check_enough_people_for_every_feature_value,
+    exclude_matching_selected_addresses,
+)
 from sortition_algorithms.people_features import (
     iterate_select_collection,
     select_from_feature_collection,
@@ -60,6 +64,8 @@ def selected_remaining_tables(
     people_selected: frozenset[str],
     features: FeatureCollection,
     settings: Settings,
+    already_selected: People | None = None,
+    exclude_matching_addresses: bool = True,
 ) -> tuple[list[list[str]], list[list[str]], list[str]]:
     """
     write some text
@@ -73,17 +79,24 @@ def selected_remaining_tables(
     # this function only reads from people, so pass in full_people
     people_selected_rows = person_list_to_table(people_selected, full_people, features, settings)
 
-    # now delete the selected people (and maybe also those at the same address)
-    num_same_address_deleted = 0
+    # now delete the selected people
     for pkey in people_selected:
-        # if check address then delete all those at this address (will NOT delete the one we want as well)
-        if settings.check_same_address:
-            pkey_to_delete = list(people_working.matching_address(pkey, settings.check_same_address_columns))
-            num_same_address_deleted += len(pkey_to_delete) + 1
+        people_working.remove(pkey)
+
+    # now delete the people at the same address as a selected person
+    # TODO: consider retiring this code once we use already_selected everywhere
+    # and then also drop exclude_matching_addresses variable
+    num_same_address_deleted = 0
+    if (
+        exclude_matching_addresses
+        and settings.check_same_address
+        and (already_selected is None or not already_selected.count)
+    ):
+        for pkey in people_selected:
+            pkey_to_delete = list(full_people.matching_address(pkey, settings.check_same_address_columns))
+            num_same_address_deleted += len(pkey_to_delete)
             # then delete this/these people at the same address from the reserve/remaining pool
-            people_working.remove_many([pkey, *pkey_to_delete])
-        else:
-            people_working.remove(pkey)
+            people_working.remove_many(pkey_to_delete)
 
     # add the columns to keep into remaining people
     # as above all these values are all in people_working but this is tidier...
@@ -503,8 +516,10 @@ def run_stratification(
     people: People,
     number_people_wanted: int,
     settings: Settings,
+    *,
     test_selection: bool = False,
     number_selections: int = 1,
+    already_selected: People | None = None,
 ) -> tuple[bool, list[frozenset[str]], RunReport]:
     """Run stratified random selection with retry logic.
 
@@ -514,7 +529,8 @@ def run_stratification(
         number_people_wanted: Desired size of the panel
         settings: Settings object containing configuration
         test_selection: If True, don't randomize (for testing only)
-        number_selections: Number of panels to return
+        number_selections: Number of panels to return (default: 1)
+        already_selected: People who have already been selected (optional)
 
     Returns:
         Tuple of (success, selected_committees, report)
@@ -533,9 +549,15 @@ def run_stratification(
     people_selected: list[frozenset[str]] = []
 
     try:
+        working_people = exclude_matching_selected_addresses(people, already_selected, settings)
+        dropped_count = people.count - working_people.count
+        if dropped_count:
+            report.add_line_and_log(
+                f"Dropped {dropped_count} people who have an address matching a selected person.", logging.INFO
+            )
         # Check if desired number is within feature constraints
         check_desired(features, number_people_wanted)
-        check_enough_people_for_every_feature_value(features, people)
+        check_enough_people_for_every_feature_value(features, working_people)
     except errors.SelectionError as error:
         report.add_error(error)
         return False, people_selected, report
@@ -549,7 +571,7 @@ def run_stratification(
         report.add_line("WARNING: Panel is not selected at random! Only use for testing!", ReportLevel.CRITICAL)
 
     report.add_line("Initial: (selected = 0)", ReportLevel.IMPORTANT)
-    report.add_report(_initial_category_info_table(features, people))
+    report.add_report(_initial_category_info_table(features, working_people))
 
     tries = 0
     for tries in range(settings.max_attempts):
@@ -560,7 +582,7 @@ def run_stratification(
         try:
             people_selected, new_report = find_random_sample(
                 features,
-                people,
+                working_people,
                 number_people_wanted,
                 settings.normalised_address_columns,
                 settings.selection_algorithm,
@@ -571,10 +593,10 @@ def run_stratification(
 
             # Check if targets were met (only works for number_selections = 1)
             # This raises an error if we did not select properly
-            _check_category_selected(features, people, people_selected, number_selections)
+            _check_category_selected(features, working_people, people_selected, number_selections)
 
             report.add_line("SUCCESS!! Final:", ReportLevel.IMPORTANT)
-            report.add_report(_category_info_table(features, people, people_selected, number_people_wanted))
+            report.add_report(_category_info_table(features, working_people, people_selected, number_people_wanted))
             success = True
             break
 
