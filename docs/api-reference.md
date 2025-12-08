@@ -16,6 +16,7 @@ def run_stratification(
     settings: Settings,
     test_selection: bool = False,
     number_selections: int = 1,
+    already_selected: People | None = None,
 ) -> tuple[bool, list[frozenset[str]], list[str]]:
 ```
 
@@ -27,6 +28,7 @@ def run_stratification(
 - `settings`: Settings object containing configuration
 - `test_selection`: If True, don't randomize (for testing only)
 - `number_selections`: Number of panels to return (usually 1)
+- `already_selected`: People selected in a previous round of selection
 
 **Returns:**
 
@@ -95,6 +97,7 @@ def selected_remaining_tables(
     people_selected: frozenset[str],
     features: FeatureCollection,
     settings: Settings,
+    already_selected: People | None = None,
 ) -> tuple[list[list[str]], list[list[str]], list[str]]:
 ```
 
@@ -104,6 +107,7 @@ def selected_remaining_tables(
 - `people_selected`: Single frozenset of selected person IDs
 - `features`: FeatureCollection used for selection
 - `settings`: Settings object
+- `already_selected`: People selected in a previous round of selection
 
 **Returns:**
 

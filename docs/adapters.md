@@ -15,16 +15,17 @@ from sortition_algorithms import CSVFileDataSource, SelectionData, Settings
 from pathlib import Path
 
 data_source = CSVFileDataSource(
-    Path("demographics.csv"),
-    Path("candidates.csv"),
-    Path("selected.csv"),
-    Path("remaining.csv"),
+    features_file=Path("demographics.csv"),
+    people_file=Path("candidates.csv"),
+    selected_file=Path("selected.csv"),
+    remaining_file=Path("remaining.csv"),
 )
 select_data = SelectionData(data_source)
+settings = Settings()
 
 # Load data
 features, report = select_data.load_features()
-people, report = select_data.load_people(Settings(), features)
+people, report = select_data.load_people(settings, features)
 
 # Do Selection
 # ...
@@ -56,18 +57,23 @@ people, report = select_data.load_people(Settings(), features)
 
 #### Full CSV Workflow Example
 
+This time for replacements, so we refer to the already selected people.
+
 ```python
-from sortition_algorithms import CSVFileDataSource, run_stratification, selected_remaining_tables, SelectionData, Settings
+from sortition_algorithms import (
+    CSVFileDataSource, run_stratification, selected_remaining_tables, SelectionData, Settings
+)
 from pathlib import Path
 import csv
 
 def csv_selection_workflow():
     # Initialize
     data_source = CSVFileDataSource(
-        Path("demographics.csv"),
-        Path("candidates.csv"),
-        Path("selected.csv"),
-        Path("remaining.csv"),
+        features_file=Path("demographics.csv"),
+        people_file=Path("candidates.csv"),
+        already_selected_file=Path("selected.csv"),
+        selected_file=Path("replacements.csv"),
+        remaining_file=Path("remaining.csv"),
     )
     select_data = SelectionData(data_source)
     settings = Settings()
@@ -76,16 +82,20 @@ def csv_selection_workflow():
     # Load data
     features, report = select_data.load_features(number_wanted)
     print(report.as_text())
-    people, report = select_data.load_people(Settings(), features)
+    people, report = select_data.load_people(settings, features)
+    print(report.as_text())
+    already_selected, report = select_data.load_already_selected(settings, features)
     print(report.as_text())
 
     # Run selection
-    success, panels, msgs = run_stratification(features, people, number_wanted, settings)
+    success, panels, msgs = run_stratification(
+        features, people, number_wanted, settings, already_selected=already_selected
+    )
 
     if success:
         # Format results
         selected_table, remaining_table, _ = selected_remaining_tables(
-            people, panels[0], features, settings
+            people, panels[0], features, settings, already_selected=already_selected
         )
 
         # Export results
@@ -142,6 +152,8 @@ select_data.output_selected_remaining(selected_rows, remaining_rows, settings)
 
 #### Full Google Sheets Workflow
 
+This time for replacements, so we refer to the already selected people.
+
 ```python
 from sortition_algorithms import GSheetDataSource, SelectionData, run_stratification, selected_remaining_tables, Settings
 from pathlib import Path
@@ -151,6 +163,7 @@ def gsheet_selection_workflow():
     data_source = GSheetDataSource(
         feature_tab_name="Demographics",
         people_tab_name="Candidates",
+        already_selected_tab_name="Selected",
         auth_json_path=Path("/secure/path/credentials.json"),
         gen_rem_tab=True,  # Generate remaining tab
     )
@@ -171,13 +184,17 @@ def gsheet_selection_workflow():
         print("Failed to load people:", "\n".join(msgs))
         return
 
+    already_selected, report = adapter.load_already_selected(settings, features)
+
     # Run selection
-    success, panels, report = run_stratification(features, people, number_wanted, settings)
+    success, panels, report = run_stratification(
+        features, people, number_wanted, settings, already_selected=already_selected
+    )
 
     if success:
         # Format results
         selected_table, remaining_table, _ = selected_remaining_tables(
-            people, panels[0], features, settings
+            people, panels[0], features, settings, already_selected=already_selected
         )
 
         # Configure output
