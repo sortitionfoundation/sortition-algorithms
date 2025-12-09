@@ -39,7 +39,12 @@ def _stringify_records(
     return new_records
 
 
-def generate_dupes(people_remaining_rows: list[list[str]], settings: Settings) -> list[int]:
+def generate_dupes(
+    people_remaining_rows: list[list[str]],
+    people_selected_rows: list[list[str]],
+    settings: Settings,
+    already_selected: People | None = None,
+) -> list[int]:
     """
     Generate a list of indexes of people who share an address with someone else in this set of rows.
 
@@ -65,21 +70,37 @@ def generate_dupes(people_remaining_rows: list[list[str]], settings: Settings) -
     address_col_indexes: list[int] = [
         index for index, col in enumerate(table_col_names) if col in settings.check_same_address_columns
     ]
-    address_remaining_index: dict[tuple[str, ...], list[int]] = defaultdict(list)
 
     # first, we assemble a dict with the key being the address, the value being the list of
     # indexes of people at that address
-    for person_index, person in enumerate(people_remaining_rows):
-        if person_index == 0:
-            continue  # skip the header row
+    address_remaining_index: dict[tuple[str, ...], list[int]] = defaultdict(list)
+    for person_index, person in enumerate(people_remaining_rows[1:], start=1):  # skip the header row
         address_tuple = tuple(col for col_index, col in enumerate(person) if col_index in address_col_indexes)
         address_remaining_index[address_tuple].append(person_index)
 
     # now extract all those people where the number of people at their address is more than one
-    dupes: list[int] = []
+    dupes: set[int] = set()
     for persons_at_address in address_remaining_index.values():
         if len(persons_at_address) > 1:
-            dupes += persons_at_address
+            dupes.update(persons_at_address)
+
+    # now we assemble the list of all selected addresses
+    already_selected_addresses: set[tuple[str, ...]] = set()
+    for person in people_selected_rows[1:]:  # skip the header row
+        already_selected_addresses.add(
+            tuple(col for col_index, col in enumerate(person) if col_index in address_col_indexes)
+        )
+    """
+    if already_selected:
+        for selected in already_selected:
+            pass
+            # already_selected_addresses.add(x)
+    """
+    # and check if anyone is already present
+    for person_index, person in enumerate(people_remaining_rows[1:], start=1):  # skip the header row
+        person_address = tuple(col for col_index, col in enumerate(person) if col_index in address_col_indexes)
+        if person_address in already_selected_addresses:
+            dupes.add(person_index)
 
     return sorted(dupes)
 
@@ -204,7 +225,7 @@ class SelectionData:
             return [], report
         self.data_source.write_remaining(people_remaining_rows, report)
         # TODO: also highlight dupes of address in selected tab/set
-        dupes = generate_dupes(people_remaining_rows, settings)
+        dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings)
         self.data_source.highlight_dupes(dupes)
         report.add_line_and_log("Finished writing both selected and remaining", logging.INFO)
         return dupes, report
