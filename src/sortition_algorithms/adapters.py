@@ -39,7 +39,7 @@ def _stringify_records(
     return new_records
 
 
-def generate_dupes(
+def generate_dupes(  # noqa: C901
     people_remaining_rows: list[list[str]],
     people_selected_rows: list[list[str]],
     settings: Settings,
@@ -71,12 +71,14 @@ def generate_dupes(
         index for index, col in enumerate(table_col_names) if col in settings.check_same_address_columns
     ]
 
+    def _address_from_row(person: list[str]) -> tuple[str, ...]:
+        return tuple(col.lower() for col_index, col in enumerate(person) if col_index in address_col_indexes)
+
     # first, we assemble a dict with the key being the address, the value being the list of
     # indexes of people at that address
     address_remaining_index: dict[tuple[str, ...], list[int]] = defaultdict(list)
     for person_index, person in enumerate(people_remaining_rows[1:], start=1):  # skip the header row
-        address_tuple = tuple(col for col_index, col in enumerate(person) if col_index in address_col_indexes)
-        address_remaining_index[address_tuple].append(person_index)
+        address_remaining_index[_address_from_row(person)].append(person_index)
 
     # now extract all those people where the number of people at their address is more than one
     dupes: set[int] = set()
@@ -84,22 +86,22 @@ def generate_dupes(
         if len(persons_at_address) > 1:
             dupes.update(persons_at_address)
 
-    # now we assemble the list of all selected addresses
+    # Now we assemble the list of all selected addresses.
     already_selected_addresses: set[tuple[str, ...]] = set()
+    # First those selected in this round of selection
     for person in people_selected_rows[1:]:  # skip the header row
-        already_selected_addresses.add(
-            tuple(col for col_index, col in enumerate(person) if col_index in address_col_indexes)
-        )
-    """
+        already_selected_addresses.add(_address_from_row(person))
+    # Then those previously selected (if supplied)
     if already_selected:
-        for selected in already_selected:
-            pass
-            # already_selected_addresses.add(x)
-    """
-    # and check if anyone is already present
+        for selected_key in already_selected:
+            already_selected_addresses.add(
+                already_selected.get_address(selected_key, settings.check_same_address_columns)
+            )
+
+    # and check if any of the remaining people has an address matching
+    # those selected in this round or previous rounds
     for person_index, person in enumerate(people_remaining_rows[1:], start=1):  # skip the header row
-        person_address = tuple(col for col_index, col in enumerate(person) if col_index in address_col_indexes)
-        if person_address in already_selected_addresses:
+        if _address_from_row(person) in already_selected_addresses:
             dupes.add(person_index)
 
     return sorted(dupes)

@@ -20,8 +20,16 @@ from sortition_algorithms.errors import (
     SelectionError,
     SelectionMultilineError,
 )
+from sortition_algorithms.people import People
 from sortition_algorithms.settings import Settings
-from tests.helpers import candidates_csv_path, candidates_lower_csv_path, features_csv_path, get_settings_for_fixtures
+from sortition_algorithms.utils import RunReport, normalise_dict
+from tests.helpers import (
+    candidates_csv_path,
+    candidates_lower_csv_path,
+    create_simple_features,
+    features_csv_path,
+    get_settings_for_fixtures,
+)
 
 # only test leximin if gurobipy is available
 ALGORITHMS = ("legacy", "maximin", "leximin", "nash") if GUROBI_AVAILABLE else ("legacy", "maximin", "nash")
@@ -179,6 +187,185 @@ def test_generate_dupes_with_duplicates():
     )
     dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings)
     assert dupes == [1, 3, 5]
+
+
+def test_generate_dupes_with_duplicates_from_already_selected():
+    """
+    Test that generate_dupes() finds duplicates from the already_selected group
+    """
+    # Create features for the People object
+    features = create_simple_features()
+
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+
+    # Create an already_selected People object with address columns
+    already_selected = People(columns_to_keep=["name", "address_line_1", "postcode"])
+
+    # Add some already selected people with specific addresses
+    already_selected.add(
+        "prev1",
+        normalise_dict({
+            "id": "prev1",
+            "name": "Previously Selected 1",
+            "address_line_1": "33 Acacia Avenue",
+            "postcode": "W1A 1AA",
+            "gender": "male",
+            "age": "young",
+        }),
+        features,
+        1,
+    )
+    already_selected.add(
+        "prev2",
+        normalise_dict({
+            "id": "prev2",
+            "name": "Previously Selected 2",
+            "address_line_1": "99 Boulevard Drive",
+            "postcode": "B9B 9BB",
+            "gender": "female",
+            "age": "old",
+        }),
+        features,
+        2,
+    )
+
+    # Create remaining people - some match already_selected addresses, some don't
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],  # matches prev1
+        ["2", "Bob", "31 Acacia Avenue", "W1A 1AA"],  # unique
+        ["3", "Charlotte", "99 Boulevard Drive", "B9B 9BB"],  # matches prev2
+        ["4", "David", "33 Acacia Avenue", "W1B 1BB"],  # unique
+    ]
+
+    # Create selected people from this round (none)
+    people_selected_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+    ]
+
+    dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings, already_selected)
+    # Alice (index 1) and Charlotte (index 3) should be flagged as dupes
+    assert dupes == [1, 3]
+
+
+def test_generate_dupes_with_both_current_and_already_selected():
+    """
+    Test that generate_dupes() finds duplicates from both current selected AND already_selected
+    """
+    features = create_simple_features()
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+
+    already_selected = People(["name", "address_line_1", "postcode"])
+
+    # Previously selected person at address A
+    already_selected.add(
+        "prev1",
+        normalise_dict({
+            "id": "prev1",
+            "name": "Previously Selected",
+            "address_line_1": "10 First Street",
+            "postcode": "F1F 1FF",
+            "gender": "male",
+            "age": "young",
+        }),
+        features,
+        1,
+    )
+
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "10 First Street", "F1F 1FF"],  # matches already_selected
+        ["2", "Bob", "20 Second Street", "S2S 2SS"],  # matches current selected
+        ["3", "Charlotte", "30 Third Street", "T3T 3TT"],  # unique
+    ]
+
+    # Currently selected person at address B
+    people_selected_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["11", "Zoe", "20 Second Street", "S2S 2SS"],
+    ]
+
+    dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings, already_selected)
+    # Alice (1) matches already_selected, Bob (2) matches current selected
+    assert dupes == [1, 2]
+
+
+def test_generate_dupes_with_already_selected_none():
+    """
+    Test that generate_dupes() works correctly when already_selected is None
+    """
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "33 Acacia Avenue", "W1A 1AA"],
+        ["2", "Bob", "31 Acacia Avenue", "W1A 1AA"],
+    ]
+    people_selected_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+    ]
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+
+    # Should work fine with already_selected=None (the default)
+    dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings, already_selected=None)
+    assert dupes == []
+
+
+def test_generate_dupes_case_insensitive_matching():
+    """
+    Test that address matching is case-insensitive when comparing with already_selected
+    """
+    features = create_simple_features()
+    settings = Settings(
+        id_column="id",
+        columns_to_keep=["name"],
+        check_same_address=True,
+        check_same_address_columns=["address_line_1", "postcode"],
+    )
+
+    already_selected = People(["name", "address_line_1", "postcode"])
+
+    # Add person with UPPERCASE address
+    already_selected.add(
+        "prev1",
+        normalise_dict({
+            "id": "prev1",
+            "name": "Previously Selected",
+            "address_line_1": "MAIN STREET",
+            "postcode": "M1M 1MM",
+            "gender": "male",
+            "age": "young",
+        }),
+        features,
+        1,
+    )
+
+    # Remaining person with lowercase address (should still match)
+    people_remaining_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+        ["1", "Alice", "main street", "m1m 1mm"],  # Different case but same address
+    ]
+
+    people_selected_rows = [
+        ["id", "name", "address_line_1", "postcode"],
+    ]
+
+    dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings, already_selected)
+    # Should match despite case differences
+    assert dupes == [1]
 
 
 def test_generate_dupes_no_duplicates():
@@ -562,8 +749,6 @@ def test_csv_string_read_already_selected_empty():
     Test that reading already selected data from CSV string returns empty when string is empty.
     """
     data_source = CSVStringDataSource(features_content, candidates_content, already_selected_data="")
-    from sortition_algorithms.utils import RunReport
-
     report = RunReport()
     with data_source.read_already_selected_data(report) as headers_body:
         headers, body = headers_body
@@ -578,8 +763,6 @@ def test_csv_string_read_already_selected_with_data():
     """
     already_selected_csv = "nationbuilder_id,first_name,last_name\np1,John,Doe\np2,Jane,Smith\n"
     data_source = CSVStringDataSource(features_content, candidates_content, already_selected_data=already_selected_csv)
-    from sortition_algorithms.utils import RunReport
-
     report = RunReport()
     with data_source.read_already_selected_data(report) as headers_body:
         headers, body = headers_body
@@ -604,8 +787,6 @@ def test_csv_file_read_already_selected(tmp_path: Path):
         selected_file=Path("/"),
         remaining_file=Path("/"),
     )
-    from sortition_algorithms.utils import RunReport
-
     report = RunReport()
     with file_data_source.read_already_selected_data(report) as headers_body:
         headers, body = headers_body
@@ -625,8 +806,6 @@ def test_gsheet_read_already_selected_no_tab_name():
     gsheet_data_source = GSheetDataSource(
         feature_tab_name="Categories", people_tab_name="Respondents", auth_json_path=Path("/")
     )
-    from sortition_algorithms.utils import RunReport
-
     report = RunReport()
     with gsheet_data_source.read_already_selected_data(report) as headers_body:
         headers, body = headers_body
