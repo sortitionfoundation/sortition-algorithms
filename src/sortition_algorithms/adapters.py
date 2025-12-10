@@ -219,6 +219,7 @@ class SelectionData:
         people_selected_rows: list[list[str]],
         people_remaining_rows: list[list[str]],
         settings: Settings,
+        already_selected: People | None = None,
     ) -> tuple[list[int], RunReport]:
         report = RunReport()
         self.data_source.write_selected(people_selected_rows, report)
@@ -227,7 +228,7 @@ class SelectionData:
             return [], report
         self.data_source.write_remaining(people_remaining_rows, report)
         # TODO: also highlight dupes of address in selected tab/set
-        dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings)
+        dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings, already_selected=already_selected)
         self.data_source.highlight_dupes(dupes)
         report.add_line_and_log("Finished writing both selected and remaining", logging.INFO)
         return dupes, report

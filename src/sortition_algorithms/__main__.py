@@ -137,6 +137,7 @@ def csv(
         people_selected_rows=selected_rows,
         people_remaining_rows=remaining_rows,
         settings=settings_obj,
+        already_selected=already_selected,
     )
 
 
@@ -252,6 +253,7 @@ def gsheet(
         people_selected_rows=selected_rows,
         people_remaining_rows=remaining_rows,
         settings=settings_obj,
+        already_selected=already_selected,
     )
 
 
