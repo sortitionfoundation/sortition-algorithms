@@ -67,6 +67,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/sortition_algorithms"]
 
+[tool.uv]
+exclude-newer = "1 week"
+
 [tool.mypy]
 files = ["src"]
 disallow_untyped_defs = true
