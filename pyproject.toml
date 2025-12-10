@@ -169,3 +169,9 @@ skip_empty = true
 [tool.coverage.run]
 branch = true
 source = ["src"]
+
+[tool.typos.default.extend-words]
+# used for 'strat select' - short for stratification
+strat = "strat"
+# string in a test is BA10
+BA = "BA"
