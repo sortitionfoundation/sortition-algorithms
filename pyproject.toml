@@ -68,7 +68,10 @@ build-backend = "hatchling.build"
 packages = ["src/sortition_algorithms"]
 
 [tool.uv]
+# this provides a "cooldown" to avoid supply chain issues - requires uv>=0.9.17
+# background: https://blog.yossarian.net/2025/11/21/We-should-all-be-using-dependency-cooldowns
 exclude-newer = "1 week"
+exclude-newer-package = { uv = "0 days" }
 
 [tool.mypy]
 files = ["src"]
