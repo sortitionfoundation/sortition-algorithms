@@ -7,7 +7,7 @@ from cattrs import structure, unstructure
 
 from sortition_algorithms.utils import ReportLevel, RunReport
 
-SELECTION_ALGORITHMS = ("legacy", "maximin", "nash", "leximin")
+SELECTION_ALGORITHMS = ("legacy", "maximin", "nash", "leximin", "diversimax")
 
 DEFAULT_SETTINGS = """
 # #####################################################################
