@@ -20,7 +20,7 @@ InteractionNamesTuple = tuple[str, ...]
 @dataclass
 class IntersectionData:
     intersections_names: list[str]
-    intersection_member_values: np.array
+    intersection_member_values: np.ndarray
 
 
 @dataclass
@@ -117,7 +117,7 @@ class DiversityOptimizer:
                 raise Exception(f"Error with {features_intersections}") from e
         return AllIntersectionsData(data=data, all_dims_combs=all_dims_combs)
 
-    def create_all_one_hot_encodings(self) -> list[np.array]:
+    def create_all_one_hot_encodings(self) -> list[np.ndarray]:
         """
         For every intersection of features - one hot encode who is in which intersection.
         Rows are the different people. Columns are the different possible intersections.
@@ -133,8 +133,8 @@ class DiversityOptimizer:
                 continue
 
             ohe = OneHotEncoder(categories=[possible_profiles], sparse_output=False)
-            ohe = ohe.fit_transform(intersection_data.intersection_member_values.reshape(-1, 1))
-            all_ohe.append(ohe)
+            ohe_values = ohe.fit_transform(intersection_data.intersection_member_values.reshape(-1, 1))
+            all_ohe.append(ohe_values)
         return all_ohe
 
     def optimize(self) -> tuple[mip.Model, frozenset]:
@@ -155,28 +155,27 @@ class DiversityOptimizer:
         for person_id in df.index:
             var = m.add_var(var_type="B", name=str(person_id))
             model_variables.append(var)
-        model_variables = pd.Series(model_variables, index=df.index)
+        model_variables_series = pd.Series(model_variables, index=df.index)
 
         # Household constraints: at most 1 person per household
         if self.check_same_address_columns:
             for housemates in self.people.households(self.check_same_address_columns).values():
                 if len(housemates) > 1:
-                    m.add_constr(mip.xsum(model_variables[member_id] for member_id in housemates) <= 1)
+                    m.add_constr(mip.xsum(model_variables_series[member_id] for member_id in housemates) <= 1)
 
         # the sum of all people in each category must be between the min and max specified
         for feature_name, value_name, fv_minmax in iterate_feature_collection(self.features):
-            relevant_members = model_variables[df[feature_name] == value_name]
+            relevant_members = model_variables_series[df[feature_name] == value_name]
             rel_sum = xsum(relevant_members)
             m.add_constr(rel_sum >= fv_minmax.min)
             m.add_constr(rel_sum <= fv_minmax.max)
-        m.add_constr(xsum(model_variables) == self.panel_size)  # cannot exceed panel size
+        m.add_constr(xsum(model_variables_series) == self.panel_size)  # cannot exceed panel size
 
         # define the optimization goal
         all_objectives = []
         for ohe in self.all_ohe:  # for every set of intersections (one hot encoded) of features
-            intersection_sizes = (model_variables.values.reshape(-1, 1) * ohe).sum(
-                axis=0
-            )  # how many selected to each intersection
+            # how many selected to each intersection
+            intersection_sizes = (model_variables_series.values.reshape(-1, 1) * ohe).sum(axis=0)
             # the best value is if all intersections were equal size
             best_val = self.panel_size / ohe.shape[1]
 
@@ -198,6 +197,6 @@ class DiversityOptimizer:
             var = m.var_by_name(str(person_id))
             if var.x == 1:
                 selected_ids.append(person_id)
-        selected_ids = frozenset(selected_ids)
+        selected_ids_set = frozenset(selected_ids)
 
-        return m, selected_ids
+        return m, selected_ids_set
