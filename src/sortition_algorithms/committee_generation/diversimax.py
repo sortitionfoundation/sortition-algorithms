@@ -92,7 +92,7 @@ class DiversityOptimizer:
         each_member_value = (
             self.pool_members_df.loc[:, features_names]
             .apply(lambda row: self._intersection_name([row[d] for d in features_names]), axis=1)
-            .values
+            .to_numpy()
         )
         return IntersectionData(intersections_names=intersections_names, intersection_member_values=each_member_value)
 
@@ -174,8 +174,9 @@ class DiversityOptimizer:
         # define the optimization goal
         all_objectives = []
         for ohe in self.all_ohe:  # for every set of intersections (one hot encoded) of features
+            vals = np.asarray(model_variables_series.values)  # ensures it's ndarray
             # how many selected to each intersection
-            intersection_sizes = (model_variables_series.values.reshape(-1, 1) * ohe).sum(axis=0)
+            intersection_sizes = (vals.reshape(-1, 1) * ohe).sum(axis=0)
             # the best value is if all intersections were equal size
             best_val = self.panel_size / ohe.shape[1]
 
