@@ -6,7 +6,7 @@ import mip
 import numpy as np
 import pandas as pd
 from mip import minimize, xsum
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder  # type: ignore[import-untyped]
 
 from sortition_algorithms import errors
 from sortition_algorithms.committee_generation.common import _relax_infeasible_quotas
