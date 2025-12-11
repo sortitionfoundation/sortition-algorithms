@@ -140,7 +140,7 @@ random_number_seed = 0
 check_same_address = true
 check_same_address_columns = ["Address", "Postcode"]
 
-# Selection algorithm: "maximin", "leximin", "nash", or "legacy"
+# Selection algorithm: "maximin", "leximin", "nash", "diversimax" or "legacy"
 selection_algorithm = "maximin"
 
 # Maximum selection attempts
@@ -195,6 +195,9 @@ settings.selection_algorithm = "nash"
 
 # Leximin: Lexicographic maximin (requires Gurobi)
 settings.selection_algorithm = "leximin"
+
+# Diversimax: Maximize diversity of unique profiles
+settings.selection_algorithm = "diversimax"
 ```
 
 Read [more about the algorithms](concepts.md#selection-algorithms).
