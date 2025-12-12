@@ -104,28 +104,6 @@ def selected_remaining_tables(
     people_remaining_rows = person_list_to_table(people_working, full_people, features, settings)
     return people_selected_rows, people_remaining_rows, output_lines
 
-    # TODO: put this code somewhere more suitable
-    # maybe in strat app only?
-    # Long term we want to stop deleting the rows, so we can delete this then
-    """
-    dupes = self._output_selected_remaining(
-        settings,
-        people_selected_rows,
-        people_remaining_rows,
-    )
-    if settings.check_same_address and self.gen_rem_tab:
-        output_lines.append(
-            f"Deleted {num_same_address_deleted} people from remaining file who had the same "
-            f"address as selected people.",
-        )
-        m = min(30, len(dupes))
-        output_lines.append(
-            f"In the remaining tab there are {len(dupes)} people who share the same address as "
-            f"someone else in the tab. We highlighted the first {m} of these. "
-            f"The full list of lines is {dupes}",
-        )
-    """
-
 
 def pipage_rounding(marginals: list[tuple[int, float]]) -> list[int]:
     """Pipage rounding algorithm for converting fractional solutions to integer solutions.
