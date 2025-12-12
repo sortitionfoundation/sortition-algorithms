@@ -148,30 +148,35 @@ class People:
 
 
 # simple helper function to tidy the code below
-def _check_columns_exist_or_multiple(people_head: list[str], column_list: Iterable[str], error_label: str) -> None:
+def _check_columns_exist_or_multiple(
+    people_head: list[str], column_list: Iterable[str], error_label: str, data_container: str = "people data"
+) -> None:
     people_head_lower = [h.lower() for h in people_head]
     for column in column_list:
         column = column.lower()
         column_count = people_head_lower.count(column)
         if column_count == 0:
-            msg = f"No '{column}' column {error_label} found in people data!"
+            msg = f"No '{column}' column {error_label} found in {data_container}!"
             raise BadDataError(msg)
         elif column_count > 1:
-            msg = f"MORE THAN 1 '{column}' column {error_label} found in people data!"
+            msg = f"MORE THAN 1 '{column}' column {error_label} found in {data_container}!"
             raise BadDataError(msg)
 
 
-def _check_people_head(people_head: list[str], features: FeatureCollection, settings: Settings) -> None:
+def _check_people_head(
+    people_head: list[str], features: FeatureCollection, settings: Settings, data_container: str = "people data"
+) -> None:
     # check that id_column and all the features, columns_to_keep and
     # check_same_address_columns are in the people data fields...
     # check both for existence and duplicate column names
-    _check_columns_exist_or_multiple(people_head, [settings.id_column], "(unique id)")
-    _check_columns_exist_or_multiple(people_head, list(features.keys()), "(a feature)")
-    _check_columns_exist_or_multiple(people_head, settings.columns_to_keep, "(to keep)")
+    _check_columns_exist_or_multiple(people_head, [settings.id_column], "(unique id)", data_container)
+    _check_columns_exist_or_multiple(people_head, list(features.keys()), "(a feature)", data_container)
+    _check_columns_exist_or_multiple(people_head, settings.columns_to_keep, "(to keep)", data_container)
     _check_columns_exist_or_multiple(
         people_head,
         settings.check_same_address_columns,
         "(to check same address)",
+        data_container,
     )
 
 
@@ -256,9 +261,10 @@ def read_in_people(
     features: FeatureCollection,
     settings: Settings,
     feature_column_name: str = "feature",
+    data_container: str = "people data",
 ) -> tuple[People, RunReport]:
     report = RunReport()
-    _check_people_head(people_head, features, settings)
+    _check_people_head(people_head, features, settings, data_container)
     # we need to iterate through more than once, so save as list here
     stripped_people_body = [normalise_dict(row) for row in people_body]
     report.add_lines(check_for_duplicate_people(stripped_people_body, settings))

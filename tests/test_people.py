@@ -311,8 +311,18 @@ class TestReadInPeople:
         # Remove gender column from header
         people_head.remove("gender")
 
-        with pytest.raises(errors.BadDataError, match="No 'gender' column \\(a feature\\) found"):
+        with pytest.raises(errors.BadDataError, match="No 'gender' column \\(a feature\\) found in people data"):
             read_in_people(people_head, people_body, features, settings)
+
+    def test_read_in_people_missing_feature_column_custom_container(self):
+        """Test read_in_people with missing feature column."""
+        features, settings, people_head, people_body = self.create_test_data()
+
+        # Remove gender column from header
+        people_head.remove("gender")
+
+        with pytest.raises(errors.BadDataError, match="No 'gender' column \\(a feature\\) found in dusty corner"):
+            read_in_people(people_head, people_body, features, settings, data_container="dusty corner")
 
     def test_read_in_people_missing_columns_to_keep(self):
         """Test read_in_people with missing columns_to_keep."""

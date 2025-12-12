@@ -108,6 +108,14 @@ def generate_dupes(  # noqa: C901
 
 
 class AbstractDataSource(abc.ABC):
+    @property
+    @abc.abstractmethod
+    def people_data_container(self) -> str: ...
+
+    @property
+    @abc.abstractmethod
+    def already_selected_data_container(self) -> str: ...
+
     @abc.abstractmethod
     @contextmanager
     def read_feature_data(
@@ -142,6 +150,11 @@ class AbstractDataSource(abc.ABC):
 
     @abc.abstractmethod
     def customise_people_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError: ...
+
+    @abc.abstractmethod
+    def customise_already_selected_parse_error(
         self, error: ParseTableMultiError, headers: Sequence[str]
     ) -> SelectionMultilineError: ...
 
@@ -182,6 +195,7 @@ class SelectionData:
                     features=features,
                     settings=settings,
                     feature_column_name=self.feature_column_name,
+                    data_container=self.data_source.people_data_container,
                 )
             except ParseTableMultiError as error:
                 new_error = self.data_source.customise_people_parse_error(error, headers)
@@ -204,9 +218,10 @@ class SelectionData:
                     features=features,
                     settings=settings,
                     feature_column_name=self.feature_column_name,
+                    data_container=self.data_source.already_selected_data_container,
                 )
             except ParseTableMultiError as error:
-                new_error = self.data_source.customise_people_parse_error(error, headers)
+                new_error = self.data_source.customise_already_selected_parse_error(error, headers)
                 raise new_error from error
         return people, report
 
@@ -260,6 +275,14 @@ class CSVStringDataSource(AbstractDataSource):
         self.remaining_file = StringIO()
         self.selected_file_written = False
         self.remaining_file_written = False
+
+    @property
+    def people_data_container(self) -> str:
+        return "people CSV data"
+
+    @property
+    def already_selected_data_container(self) -> str:
+        return "already selected CSV data"
 
     @contextmanager
     def read_feature_data(
@@ -315,6 +338,12 @@ class CSVStringDataSource(AbstractDataSource):
         # given the info is in strings, we can't usefully add anything
         return error
 
+    def customise_already_selected_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        # given the info is in strings, we can't usefully add anything
+        return error
+
 
 class CSVFileDataSource(AbstractDataSource):
     def __init__(
@@ -331,6 +360,14 @@ class CSVFileDataSource(AbstractDataSource):
         self.already_selected_file = already_selected_file
         self.selected_file = selected_file
         self.remaining_file = remaining_file
+
+    @property
+    def people_data_container(self) -> str:
+        return f" CSV file '{self.people_file}'"
+
+    @property
+    def already_selected_data_container(self) -> str:
+        return f" CSV file '{self.already_selected_file}'"
 
     @contextmanager
     def read_feature_data(
@@ -392,6 +429,14 @@ class CSVFileDataSource(AbstractDataSource):
     ) -> SelectionMultilineError:
         return SelectionMultilineError([
             f"Parser error(s) while reading people from {self.people_file}",
+            *[str(e) for e in error.all_errors],
+        ])
+
+    def customise_already_selected_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        return SelectionMultilineError([
+            f"Parser error(s) while reading already selected people from {self.already_selected_file}",
             *[str(e) for e in error.all_errors],
         ])
 
@@ -462,6 +507,14 @@ class GSheetDataSource(AbstractDataSource):
         self.remaining_tab_name = ""
         self.tab_namer = GSheetTabNamer()
         self._report = RunReport()
+
+    @property
+    def people_data_container(self) -> str:
+        return f"'{self.people_tab_name}' tab"
+
+    @property
+    def already_selected_data_container(self) -> str:
+        return f"'{self.already_selected_tab_name}' tab"
 
     @property
     def client(self) -> gspread.client.Client:
@@ -719,7 +772,7 @@ class GSheetDataSource(AbstractDataSource):
         self, error: ParseTableMultiError, headers: Sequence[str]
     ) -> SelectionMultilineError:
         return SelectionMultilineError([
-            f"Parser error(s) while reading features from {self.feature_tab_name} worksheet",
+            f"Parser error(s) while reading features from '{self.feature_tab_name}' worksheet",
             *self._annotate_parse_errors_with_cell_names(error, headers),
         ])
 
@@ -727,6 +780,14 @@ class GSheetDataSource(AbstractDataSource):
         self, error: ParseTableMultiError, headers: Sequence[str]
     ) -> SelectionMultilineError:
         return SelectionMultilineError([
-            f"Parser error(s) while reading people from {self.people_tab_name} worksheet",
+            f"Parser error(s) while reading people from '{self.people_tab_name}' worksheet",
+            *self._annotate_parse_errors_with_cell_names(error, headers),
+        ])
+
+    def customise_already_selected_parse_error(
+        self, error: ParseTableMultiError, headers: Sequence[str]
+    ) -> SelectionMultilineError:
+        return SelectionMultilineError([
+            f"Parser error(s) while reading people from '{self.already_selected_tab_name}' worksheet",
             *self._annotate_parse_errors_with_cell_names(error, headers),
         ])

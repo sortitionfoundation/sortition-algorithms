@@ -681,7 +681,7 @@ def test_gsheet_customise_features_parse_error():
     )
     assert "Some error - see cell B4" in str(new_error)
     assert "Min greater than max - see cells C6 D6" in str(new_error)
-    assert "Categories worksheet" in str(new_error)
+    assert "'Categories' worksheet" in str(new_error)
 
 
 def test_gsheet_customise_people_parse_error():
@@ -695,7 +695,7 @@ def test_gsheet_customise_people_parse_error():
         parse_features_error, headers=("nationbuilder_id", "name", "gender")
     )
     assert "Another error - see cell C4" in str(new_error)
-    assert "Respondents worksheet" in str(new_error)
+    assert "'Respondents' worksheet" in str(new_error)
 
 
 def test_csv_load_feature_from_file_failure(tmp_path: Path):
