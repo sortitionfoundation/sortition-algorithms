@@ -572,6 +572,13 @@ class GSheetDataSource(AbstractDataSource):
             self._g_sheet_name = g_sheet_name
             self.tab_namer.reset()
 
+    def get_title(self) -> str:
+        try:
+            return self.spreadsheet.title
+        except gspread.SpreadsheetNotFound as err:
+            msg = f"Google spreadsheet not found: {self._g_sheet_name}."
+            raise SelectionError(msg) from err
+
     @contextmanager
     def read_feature_data(
         self, report: RunReport
