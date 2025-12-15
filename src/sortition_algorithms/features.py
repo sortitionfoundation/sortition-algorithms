@@ -247,17 +247,20 @@ def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
     raise ValueError(msg)
 
 
-def _row_val_to_int(row: MutableMapping, key: str) -> tuple[int, str]:
+def _row_val_to_int(row: MutableMapping, key: str) -> tuple[int, str, str, dict[str, str | int]]:
     """
-    Convert row value to integer, with detailed error messages if it fails
+    Convert row value to integer, with detailed error messages if it fails.
+
+    Returns:
+        Tuple of (int_value, error_msg, error_code, error_params)
     """
     if row[key] == "":
-        return 0, f"There is no {key} value set"
+        return 0, f"There is no {key} value set", "no_value_set", {"field": key}
     try:
         int_value = int(row[key])
     except ValueError:
-        return 0, f"'{row[key]}' is not a number"
-    return int_value, ""
+        return 0, f"'{row[key]}' is not a number", "not_a_number", {"value": row[key]}
+    return int_value, "", "", {}
 
 
 def _clean_row(row: MutableMapping, feature_flex: bool, row_number: int) -> tuple[str, str, FeatureValueMinMax]:
@@ -278,14 +281,36 @@ def _clean_row(row: MutableMapping, feature_flex: bool, row_number: int) -> tupl
             key=value_column_name,
             value="",
             msg=f"Empty {value_column_name} in {feature_column_name} {feature_name}",
+            error_code="empty_feature_value",
+            error_params={
+                "value_column_name": value_column_name,
+                "feature_column_name": feature_column_name,
+                "feature_name": feature_name,
+            },
         )
         raise errors.to_error()
 
     row_name = f"{feature_name}/{feature_value}"
-    value_min, error_min = _row_val_to_int(row, "min")
-    errors.add(row=row_number, row_name=row_name, key="min", value=row["min"], msg=error_min)
-    value_max, error_max = _row_val_to_int(row, "max")
-    errors.add(row=row_number, row_name=row_name, key="max", value=row["max"], msg=error_max)
+    value_min, error_min, code_min, params_min = _row_val_to_int(row, "min")
+    errors.add(
+        row=row_number,
+        row_name=row_name,
+        key="min",
+        value=row["min"],
+        msg=error_min,
+        error_code=code_min,
+        error_params=params_min,
+    )
+    value_max, error_max, code_max, params_max = _row_val_to_int(row, "max")
+    errors.add(
+        row=row_number,
+        row_name=row_name,
+        key="max",
+        value=row["max"],
+        msg=error_max,
+        error_code=code_max,
+        error_params=params_max,
+    )
     if errors:
         # if we don't have valid min/max values, exit here
         raise errors.to_error()
@@ -297,13 +322,31 @@ def _clean_row(row: MutableMapping, feature_flex: bool, row_number: int) -> tupl
             keys=["min", "max"],
             values=[row["min"], row["max"]],
             msg=f"Minimum ({value_min}) should not be greater than maximum ({value_max})",
+            error_code="min_greater_than_max",
+            error_params={"min": value_min, "max": value_max},
         )
 
     if feature_flex:
-        value_min_flex, error_min_flex = _row_val_to_int(row, "min_flex")
-        errors.add(row=row_number, row_name=row_name, key="min_flex", value=row["min_flex"], msg=error_min_flex)
-        value_max_flex, error_max_flex = _row_val_to_int(row, "max_flex")
-        errors.add(row=row_number, row_name=row_name, key="max_flex", value=row["max_flex"], msg=error_max_flex)
+        value_min_flex, error_min_flex, code_min_flex, params_min_flex = _row_val_to_int(row, "min_flex")
+        errors.add(
+            row=row_number,
+            row_name=row_name,
+            key="min_flex",
+            value=row["min_flex"],
+            msg=error_min_flex,
+            error_code=code_min_flex,
+            error_params=params_min_flex,
+        )
+        value_max_flex, error_max_flex, code_max_flex, params_max_flex = _row_val_to_int(row, "max_flex")
+        errors.add(
+            row=row_number,
+            row_name=row_name,
+            key="max_flex",
+            value=row["max_flex"],
+            msg=error_max_flex,
+            error_code=code_max_flex,
+            error_params=params_max_flex,
+        )
         # if these values exist they must be at least this...
         if not errors:
             if value_min_flex > value_min:
@@ -313,6 +356,8 @@ def _clean_row(row: MutableMapping, feature_flex: bool, row_number: int) -> tupl
                     keys=["min", "min_flex"],
                     values=[row["min"], row["min_flex"]],
                     msg=f"min_flex ({value_min_flex}) should not be greater than min ({value_min})",
+                    error_code="min_flex_greater_than_min",
+                    error_params={"min_flex": value_min_flex, "min": value_min},
                 )
             if value_max_flex < value_max:
                 errors.add_multi_value(
@@ -321,6 +366,8 @@ def _clean_row(row: MutableMapping, feature_flex: bool, row_number: int) -> tupl
                     keys=["max", "max_flex"],
                     values=[row["max"], row["max_flex"]],
                     msg=f"max_flex ({value_max_flex}) should not be less than max ({value_max})",
+                    error_code="max_flex_less_than_max",
+                    error_params={"max_flex": value_max_flex, "max": value_max},
                 )
     else:
         value_min_flex = 0

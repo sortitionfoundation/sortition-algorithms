@@ -1,7 +1,7 @@
 import html
 from typing import TYPE_CHECKING
 
-from attrs import define
+from attrs import define, field
 
 if TYPE_CHECKING:
     # this is done to avoid circular imports
@@ -64,6 +64,8 @@ class ParseTableErrorMsg:
     key: str
     value: str
     msg: str
+    error_code: str = ""  # Error code for i18n lookup
+    error_params: dict[str, str] | dict[str, str | int] = field(factory=dict)  # Parameters for message formatting
 
     def __str__(self) -> str:
         return f"{self.msg}: for row {self.row}, column header {self.key}"
@@ -76,6 +78,8 @@ class ParseTableMultiValueErrorMsg:
     keys: list[str]
     values: list[str]
     msg: str
+    error_code: str = ""  # Error code for i18n lookup
+    error_params: dict[str, str | int] = field(factory=dict)  # Parameters for message formatting
 
     def __str__(self) -> str:
         return f"{self.msg}: for row {self.row}, column headers {', '.join(self.keys)}"
@@ -116,14 +120,50 @@ class ParseErrorsCollector:
         """This means that we will be falsy if len is 0, so is effectively a __bool__ as well"""
         return len(self.errors)
 
-    def add(self, msg: str, key: str, value: str, row: int, row_name: str) -> None:
-        if msg:
-            self.errors.append(ParseTableErrorMsg(row=row, row_name=row_name, key=key, value=value, msg=msg))
-
-    def add_multi_value(self, msg: str, keys: list[str], values: list[str], row: int, row_name: str) -> None:
+    def add(
+        self,
+        msg: str,
+        key: str,
+        value: str,
+        row: int,
+        row_name: str,
+        error_code: str = "",
+        error_params: dict[str, str] | dict[str, str | int] | None = None,
+    ) -> None:
         if msg:
             self.errors.append(
-                ParseTableMultiValueErrorMsg(row=row, row_name=row_name, keys=keys, values=values, msg=msg)
+                ParseTableErrorMsg(
+                    row=row,
+                    row_name=row_name,
+                    key=key,
+                    value=value,
+                    msg=msg,
+                    error_code=error_code,
+                    error_params=error_params or {},
+                )
+            )
+
+    def add_multi_value(
+        self,
+        msg: str,
+        keys: list[str],
+        values: list[str],
+        row: int,
+        row_name: str,
+        error_code: str = "",
+        error_params: dict[str, str | int] | None = None,
+    ) -> None:
+        if msg:
+            self.errors.append(
+                ParseTableMultiValueErrorMsg(
+                    row=row,
+                    row_name=row_name,
+                    keys=keys,
+                    values=values,
+                    msg=msg,
+                    error_code=error_code,
+                    error_params=error_params or {},
+                )
             )
 
     def to_error(self) -> ParseTableMultiError:

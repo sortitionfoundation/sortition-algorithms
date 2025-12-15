@@ -56,12 +56,27 @@ class People:
             if p_value in feature_values:
                 person_full_data[feature_name] = p_value
             else:
-                msg = (
-                    f"Value '{p_value}' not in {feature_column_name} {feature_name}"
-                    if p_value
-                    else f"Empty value in {feature_column_name} {feature_name}"
+                if p_value:
+                    msg = f"Value '{p_value}' not in {feature_column_name} {feature_name}"
+                    error_code = "value_not_in_feature"
+                    error_params = {
+                        "value": p_value,
+                        "feature_column_name": feature_column_name,
+                        "feature_name": feature_name,
+                    }
+                else:
+                    msg = f"Empty value in {feature_column_name} {feature_name}"
+                    error_code = "empty_value_in_feature"
+                    error_params = {"feature_column_name": feature_column_name, "feature_name": feature_name}
+                errors.add(
+                    msg=msg,
+                    key=feature_name,
+                    value=p_value,
+                    row=row_number,
+                    row_name=person_key,
+                    error_code=error_code,
+                    error_params=error_params,
                 )
-                errors.add(msg=msg, key=feature_name, value=p_value, row=row_number, row_name=person_key)
         if errors:
             raise errors.to_error()
         # then get the other column values we need
