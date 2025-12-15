@@ -13,6 +13,7 @@ nav:
   - Concepts: concepts.md
   - CLI: cli.md
   - Adapters: adapters.md
+  - Internationalisation: i18n.md
   - Advanced: advanced.md
   - API Reference: api-reference.md
   - Modules: modules.md
