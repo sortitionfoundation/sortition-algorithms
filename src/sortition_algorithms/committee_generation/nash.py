@@ -111,10 +111,11 @@ def _solve_nash_welfare_optimization(
     except cp.SolverError:
         # At least the ECOS solver in cvxpy crashes sometimes (numerical instabilities?).
         # In this case, try another solver. But hope that SCS is more stable.
-        report.add_line_and_log("Had to switch to ECOS solver.", log_level=logging.INFO)
+        report.add_message_and_log("switched_to_ecos_solver", logging.INFO)
         nash_welfare = problem.solve(solver=cp.ECOS, warm_start=True)
 
     scaled_welfare = nash_welfare - len(entitlements) * log(number_people_wanted / len(entitlements))
+    # TODO: i18n - Add to report_messages.py as "scaled_nash_welfare" with welfare parameter
     report.add_line_and_log(f"Scaled Nash welfare is now: {scaled_welfare}.", log_level=logging.INFO)
 
     assert lambdas.value.shape == (len(committees),)
@@ -250,7 +251,7 @@ def find_distribution_nash(
     this sum is -∞. We maximize Σᵢ log(pᵢ) where i is restricted to range over persons that can possibly be included.
     """
     report = RunReport()
-    report.add_line_and_log("Using Nash algorithm.", log_level=logging.INFO)
+    report.add_message_and_log("using_nash_algorithm", logging.INFO)
 
     # Set up an ILP used for discovering new feasible committees
     new_committee_model, agent_vars = setup_committee_generation(

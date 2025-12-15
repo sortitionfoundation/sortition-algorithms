@@ -147,6 +147,8 @@ def _run_leximin_column_generation_loop(
         upper = dual_cap_var.x  # ŷ
         dual_obj = dual_model.objVal  # ŷ - Σ_{i in fixed_probabilities} fixed_probabilities[i] * yᵢ
 
+        # TODO: i18n - Complex message with percentage formatting
+        # Consider adding to report_messages.py with appropriate parameters
         report.add_line_and_log(
             f"Maximin is at most {dual_obj - upper + value:.2%}, can do {dual_obj:.2%} with "
             f"{len(committees)} committees. Gap {value - upper:.2%}.",
@@ -291,7 +293,7 @@ def find_distribution_leximin(
         raise RuntimeError(msg, "gurobi_not_available", {})
 
     report = RunReport()
-    report.add_line_and_log("Using leximin algorithm.", log_level=logging.INFO)
+    report.add_message_and_log("using_leximin_algorithm", logging.INFO)
     grb.setParam("OutputFlag", 0)
 
     # Set up an ILP that can be used for discovering new feasible committees

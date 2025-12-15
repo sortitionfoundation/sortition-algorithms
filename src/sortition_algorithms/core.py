@@ -24,7 +24,6 @@ from sortition_algorithms.people_features import (
     select_from_feature_collection,
     simple_add_selected,
 )
-from sortition_algorithms.report_messages import get_message
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import ReportLevel, RunReport, logger, random_provider, set_random_provider
 
@@ -218,17 +217,10 @@ def _distribution_stats(
 
     assert len(committees) == len(probabilities)
     num_non_zero = sum(1 for prob in probabilities if prob > 0)
-    report.add_line(
-        get_message(
-            "distribution_stats",
-            total_committees=len(committees),
-            non_zero_committees=num_non_zero,
-        ),
-        message_code="distribution_stats",
-        message_params={
-            "total_committees": len(committees),
-            "non_zero_committees": num_non_zero,
-        },
+    report.add_message(
+        "distribution_stats",
+        total_committees=len(committees),
+        non_zero_committees=num_non_zero,
     )
 
     individual_probabilities = dict.fromkeys(people, 0.0)
@@ -418,10 +410,7 @@ def _category_info_table(
     """
     report = RunReport()
     if len(people_selected) != 1:
-        report.add_line(
-            get_message("no_category_info_multiple"),
-            message_code="no_category_info_multiple",
-        )
+        report.add_message("no_category_info_multiple")
         return report
 
     # Build HTML table header
@@ -465,10 +454,7 @@ def _check_category_selected(
     """
     report = RunReport()
     if number_selections > 1:
-        report.add_line(
-            get_message("no_target_checks_multiple"),
-            message_code="no_target_checks_multiple",
-        )
+        report.add_message("no_target_checks_multiple")
         return
 
     if len(people_selected) != 1:

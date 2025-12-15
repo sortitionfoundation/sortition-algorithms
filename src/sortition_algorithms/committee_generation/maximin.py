@@ -208,6 +208,8 @@ def _run_maximin_optimization_loop(
         new_set = ilp_results_to_committee(agent_vars)
         value = sum(entitlement_weights[agent_id] for agent_id in new_set)
 
+        # TODO: i18n - Complex message with percentage formatting and mathematical symbols
+        # Consider adding to report_messages.py with appropriate parameters
         report.add_line_and_log(
             f"Maximin is at most {value:.2%}, can do {upper:.2%} with {len(committees)} "
             f"committees. Gap {value - upper:.2%}{'≤' if value - upper <= EPS else '>'}{EPS:%}.",
@@ -239,7 +241,7 @@ def _run_maximin_optimization_loop(
             value,
         )
         if counter > 0:
-            report.add_line_and_log(f"Heuristic successfully generated {counter} additional committees.", logging.INFO)
+            report.add_message_and_log("heuristic_generated_committees", logging.INFO, count=counter)
 
 
 def find_distribution_maximin(
@@ -264,7 +266,7 @@ def find_distribution_maximin(
         - output_lines: list of debug strings
     """
     report = RunReport()
-    report.add_line_and_log("Using maximin algorithm.", log_level=logging.INFO)
+    report.add_message_and_log("using_maximin_algorithm", logging.INFO)
 
     # Set up an ILP that can be used for discovering new feasible committees
     new_committee_model, agent_vars = setup_committee_generation(

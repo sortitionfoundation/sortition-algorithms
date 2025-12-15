@@ -437,6 +437,8 @@ def _find_committees_for_uncovered_agents(
                 for covered_agent_id in new_committee:
                     covered_agents.add(covered_agent_id)
             else:
+                # TODO: i18n - Add to report_messages.py as "agent_not_in_feasible_committee"
+                # with agent_id parameter
                 report.add_line_and_log(
                     f"Agent {agent_id} not contained in any feasible committee.", log_level=logging.INFO
                 )
@@ -483,6 +485,6 @@ def generate_initial_committees(
     assert len(committees) >= 1  # We assume quotas are feasible at this stage
 
     if len(covered_agents) == len(agent_vars):
-        report.add_line_and_log("All agents are contained in some feasible committee.", log_level=logging.INFO)
+        report.add_message_and_log("all_agents_in_feasible_committees", logging.INFO)
 
     return committees, frozenset(covered_agents), report

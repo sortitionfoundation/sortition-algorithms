@@ -26,7 +26,6 @@ from sortition_algorithms.errors import (
 )
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
-from sortition_algorithms.report_messages import get_message
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport, get_cell_name, user_logger
 
@@ -240,13 +239,13 @@ class SelectionData:
         report = RunReport()
         self.data_source.write_selected(people_selected_rows, report)
         if not self.gen_rem_tab:
-            report.add_line_and_log("Finished writing selected (only)", logging.INFO)
+            report.add_message_and_log("finished_writing_selected_only", logging.INFO)
             return [], report
         self.data_source.write_remaining(people_remaining_rows, report)
         # TODO: also highlight dupes of address in selected tab/set
         dupes = generate_dupes(people_remaining_rows, people_selected_rows, settings, already_selected=already_selected)
         self.data_source.highlight_dupes(dupes)
-        report.add_line_and_log("Finished writing both selected and remaining", logging.INFO)
+        report.add_message_and_log("finished_writing_selected_and_remaining", logging.INFO)
         return dupes, report
 
     def output_multi_selections(self, multi_selections: list[list[str]]) -> RunReport:
@@ -405,12 +404,12 @@ class CSVFileDataSource(AbstractDataSource):
             yield list(already_selected_reader.fieldnames), already_selected_reader
 
     def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
-        report.add_line_and_log(f"Writing selected rows to {self.selected_file}", logging.INFO)
+        report.add_message_and_log("writing_selected_csv", logging.INFO, file_path=self.selected_file)
         with open(self.selected_file, "w", newline="") as csv_file:
             _write_csv_rows(csv_file, selected)
 
     def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None:
-        report.add_line_and_log(f"Writing remaining rows to {self.selected_file}", logging.INFO)
+        report.add_message_and_log("writing_remaining_csv", logging.INFO, file_path=self.remaining_file)
         with open(self.remaining_file, "w", newline="") as csv_file:
             _write_csv_rows(csv_file, remaining)
 
@@ -547,7 +546,7 @@ class GSheetDataSource(AbstractDataSource):
             else:
                 self._spreadsheet = self.client.open(self._g_sheet_name)
             self._open_g_sheet_name = self._g_sheet_name
-            self._report.add_line_and_log(f"Opened Google Sheet: '{self._spreadsheet.title}'. ", log_level=logging.INFO)
+            self._report.add_message_and_log("opened_gsheet", logging.INFO, title=self._spreadsheet.title)
         return self._spreadsheet
 
     def _get_tab(self, tab_name: str) -> gspread.Worksheet | None:
@@ -650,11 +649,7 @@ class GSheetDataSource(AbstractDataSource):
                 expected_headers=[],
             )
         )
-        self._report.add_line(
-            get_message("reading_gsheet_tab", tab_name=self.people_tab_name),
-            message_code="reading_gsheet_tab",
-            message_params={"tab_name": self.people_tab_name},
-        )
+        self._report.add_message("reading_gsheet_tab", tab_name=self.people_tab_name)
         yield people_head, people_body
 
     def _find_header_row(
@@ -690,10 +685,7 @@ class GSheetDataSource(AbstractDataSource):
         self._report = report
         if not self.already_selected_tab_name:
             # If no tab name provided, return empty data
-            self._report.add_line(
-                get_message("no_already_selected_tab"),
-                message_code="no_already_selected_tab",
-            )
+            self._report.add_message("no_already_selected_tab")
             yield [], []
             return
 
@@ -743,15 +735,15 @@ class GSheetDataSource(AbstractDataSource):
                 expected_headers=[],
             )
         )
-        self._report.add_line(
-            f"Reading in '{self.already_selected_tab_name}' tab (header at row {header_row_num}) in above Google sheet."
+        self._report.add_message(
+            "reading_already_selected_tab", tab_name=self.already_selected_tab_name, header_row=header_row_num
         )
         yield already_selected_head, already_selected_body
 
     def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
         self.tab_namer.find_unused_tab_suffix(self._get_tab_titles())
         tab_selected = self._create_tab(self.tab_namer.selected_tab_name())
-        report.add_line_and_log(f"Writing selected people to tab: {tab_selected.title}", logging.INFO)
+        report.add_message_and_log("writing_selected_tab", logging.INFO, tab_name=tab_selected.title)
         self.selected_tab_name = tab_selected.title
         tab_selected.update(selected)
         tab_selected.format("A1:U1", self.hl_light_blue)
@@ -760,7 +752,7 @@ class GSheetDataSource(AbstractDataSource):
     def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None:
         # the number is selected during write_selected(), so we reuse it here
         tab_remaining = self._create_tab(self.tab_namer.remaining_tab_name())
-        report.add_line_and_log(f"Writing remaining people to tab: {tab_remaining.title}", logging.INFO)
+        report.add_message_and_log("writing_remaining_tab", logging.INFO, tab_name=tab_remaining.title)
         self.remaining_tab_name = tab_remaining.title
         tab_remaining.update(remaining)
         tab_remaining.format("A1:U1", self.hl_light_blue)

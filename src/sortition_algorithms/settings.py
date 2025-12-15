@@ -136,17 +136,11 @@ class Settings:
         if not settings_file_path.is_file():
             with open(settings_file_path, "w", encoding="utf-8") as settings_file:
                 settings_file.write(DEFAULT_SETTINGS)
-            report.add_line(
-                f"Wrote default settings to '{settings_file_path.absolute()}' "
-                "- if editing is required, restart this app."
-            )
+            report.add_message("wrote_default_settings", file_path=str(settings_file_path.absolute()))
         with open(settings_file_path, "rb") as settings_file:
             settings = tomllib.load(settings_file)
         # you can't check an address if there is no info about which columns to check...
         if settings["check_same_address"] is False:
-            report.add_line(
-                "WARNING: Settings file is such that we do NOT check if respondents have same address.",
-                ReportLevel.IMPORTANT,
-            )
+            report.add_message("address_checking_disabled_warning", level=ReportLevel.IMPORTANT)
             settings["check_same_address_columns"] = []
         return structure(settings, cls), report

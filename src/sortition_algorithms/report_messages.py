@@ -40,10 +40,18 @@ REPORT_MESSAGES = {
     "reading_gsheet_tab": N_("Reading in '%(tab_name)s' tab in above Google sheet."),
     "no_already_selected_tab": N_("No already selected tab specified, using empty data."),
     "features_found": N_("Number of features found: %(count)s"),
+    "reading_already_selected_tab": N_(
+        "Reading in '%(tab_name)s' tab (header at row %(header_row)s) in above Google sheet."
+    ),
+    "opened_gsheet": N_("Opened Google Sheet: '%(title)s'."),
     # ========================================================================
     # Algorithm and selection messages
     # ========================================================================
     "using_legacy_algorithm": N_("Using legacy algorithm."),
+    "using_maximin_algorithm": N_("Using maximin algorithm."),
+    "using_leximin_algorithm": N_("Using leximin algorithm."),
+    "using_nash_algorithm": N_("Using Nash algorithm."),
+    "switched_to_ecos_solver": N_("Had to switch to ECOS solver."),
     "gurobi_unavailable_switching": N_(
         "The leximin algorithm requires the optimization library Gurobi to be installed "
         "(commercial, free academic licenses available). Switching to the simpler "
@@ -73,16 +81,36 @@ REPORT_MESSAGES = {
         "We do not calculate target details for multiple selections - please see your output files."
     ),
     # ========================================================================
+    # Output and writing messages
+    # ========================================================================
+    "writing_selected_csv": N_("Writing selected rows to %(file_path)s"),
+    "writing_remaining_csv": N_("Writing remaining rows to %(file_path)s"),
+    "writing_selected_tab": N_("Writing selected people to tab: %(tab_name)s"),
+    "writing_remaining_tab": N_("Writing remaining people to tab: %(tab_name)s"),
+    "finished_writing_selected_only": N_("Finished writing selected (only)"),
+    "finished_writing_selected_and_remaining": N_("Finished writing both selected and remaining"),
+    # ========================================================================
     # Validation and warnings
     # ========================================================================
     "blank_id_skipped": N_("WARNING: blank cell found in ID column in row %(row)s - skipped that line!"),
     "duplicate_people_header": N_("WARNING: Duplicate people found:"),
     "duplicate_person_details": N_("Person with ID '%(person_id)s' appears %(count)s times in rows: %(rows)s"),
+    "duplicate_ids_found": N_("Found %(count)s IDs that have more than one row"),
+    "duplicate_ids_list": N_("Duplicated IDs are: %(ids)s"),
+    "duplicate_rows_identical": N_("All duplicate rows have identical data - processing continuing."),
+    "all_agents_in_feasible_committees": N_("All agents are contained in some feasible committee."),
+    "heuristic_generated_committees": N_("Heuristic successfully generated %(count)s additional committees."),
     # ========================================================================
     # Settings messages
     # ========================================================================
     "using_settings": N_("Using these settings: %(settings)s"),
     "random_seed_set": N_("Random seed set to: %(seed)s"),
+    "wrote_default_settings": N_(
+        "Wrote default settings to '%(file_path)s' - if editing is required, restart this app."
+    ),
+    "address_checking_disabled_warning": N_(
+        "WARNING: Settings file is such that we do NOT check if respondents have same address."
+    ),
 }
 
 

@@ -237,8 +237,8 @@ def check_for_duplicate_people(people_body: Iterable[MutableMapping[str, str]], 
         if pkey in duplicate_ids:
             duplicate_rows[pkey].append(row)
 
-    report.add_line(f"Found {len(duplicate_rows)} IDs that have more than one row")
-    report.add_line(f"Duplicated IDs are: {' '.join(duplicate_rows)}")
+    report.add_message("duplicate_ids_found", count=len(duplicate_rows))
+    report.add_message("duplicate_ids_list", ids=" ".join(duplicate_rows))
 
     # find rows where everything is not equal
     duplicate_differing_rows: dict[str, list[MutableMapping[str, str]]] = {}
@@ -246,7 +246,7 @@ def check_for_duplicate_people(people_body: Iterable[MutableMapping[str, str]], 
         if not _all_in_list_equal(value):
             duplicate_differing_rows[key] = value
     if not duplicate_differing_rows:
-        report.add_line("All duplicate rows have identical data - processing continuing.")
+        report.add_message("duplicate_rows_identical")
         return report
 
     # Build error message with full context
