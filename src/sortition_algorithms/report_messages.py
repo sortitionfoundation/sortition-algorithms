@@ -67,6 +67,14 @@ REPORT_MESSAGES = {
         "@paulgoelz.de with the following information: algorithm=%(algorithm)s, "
         "num_panels=%(num_panels)s, num_agents=%(num_agents)s, min_probs=%(min_probs)s."
     ),
+    "agent_not_in_feasible_committee": N_("Agent %(agent_id)s not contained in any feasible committee."),
+    "scaled_nash_welfare": N_("Scaled Nash welfare is now: %(scaled_welfare)s."),
+    "maximin_is_at_most": N_(
+        "Maximin is at most %(at_most)s, can do %(upper_str)s with %(num_committees)s committees. Gap %(gap_str)s."
+    ),
+    "leximin_is_at_most": N_(
+        "Leximin is at most %(at_most)s, can do %(dual_obj_str)s with %(num_committees)s committees. Gap %(gap_str)s.",
+    ),
     # ========================================================================
     # Selection process messages
     # ========================================================================

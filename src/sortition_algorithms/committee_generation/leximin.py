@@ -74,6 +74,22 @@ def _dual_leximin_stage(
     return model, agent_vars, cap_var
 
 
+def _add_report_update(
+    report: RunReport, dual_obj: float, value: float, upper: float, committees: set[frozenset[str]]
+) -> None:
+    at_most = f"{dual_obj - upper + value:.2%}"
+    dual_obj_str = f"{dual_obj:.2%}"
+    gap_str = f"{value - upper:.2%}"
+    report.add_message_and_log(
+        "leximin_is_at_most",
+        log_level=logging.DEBUG,
+        at_most=at_most,
+        dual_obj_str=dual_obj_str,
+        num_committees=len(committees),
+        gap_str=gap_str,
+    )
+
+
 def _run_leximin_column_generation_loop(
     new_committee_model: mip.model.Model,
     agent_vars: dict[str, mip.entities.Var],
@@ -147,13 +163,7 @@ def _run_leximin_column_generation_loop(
         upper = dual_cap_var.x  # ŷ
         dual_obj = dual_model.objVal  # ŷ - Σ_{i in fixed_probabilities} fixed_probabilities[i] * yᵢ
 
-        # TODO: i18n - Complex message with percentage formatting
-        # Consider adding to report_messages.py with appropriate parameters
-        report.add_line_and_log(
-            f"Maximin is at most {dual_obj - upper + value:.2%}, can do {dual_obj:.2%} with "
-            f"{len(committees)} committees. Gap {value - upper:.2%}.",
-            log_level=logging.DEBUG,
-        )
+        _add_report_update(report, dual_obj, value, upper, committees)
         if value <= upper + EPS:
             # Within numeric tolerance, the panels in `committees` are enough to constrain the dual, i.e., they are
             # enough to support an optimal primal solution.

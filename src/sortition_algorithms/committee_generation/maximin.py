@@ -167,6 +167,22 @@ def _run_maximin_heuristic_for_additional_committees(
     return counter
 
 
+def _add_report_update(report: RunReport, value: float, upper: float, committees: set[frozenset[str]]) -> None:
+    """Complex formatting, so pull out of the main flow."""
+    at_most = f"{value:.2%}"
+    upper_str = f"{upper:.2%}"
+    num_committees = len(committees)
+    gap_str = f"{value - upper:.2%}{'≤' if value - upper <= EPS else '>'}{EPS:%}"
+    report.add_message_and_log(
+        "maximin_is_at_most",
+        log_level=logging.DEBUG,
+        at_most=at_most,
+        upper_str=upper_str,
+        num_committees=num_committees,
+        gap_str=gap_str,
+    )
+
+
 def _run_maximin_optimization_loop(
     new_committee_model: mip.model.Model,
     agent_vars: dict[str, mip.entities.Var],
@@ -208,13 +224,7 @@ def _run_maximin_optimization_loop(
         new_set = ilp_results_to_committee(agent_vars)
         value = sum(entitlement_weights[agent_id] for agent_id in new_set)
 
-        # TODO: i18n - Complex message with percentage formatting and mathematical symbols
-        # Consider adding to report_messages.py with appropriate parameters
-        report.add_line_and_log(
-            f"Maximin is at most {value:.2%}, can do {upper:.2%} with {len(committees)} "
-            f"committees. Gap {value - upper:.2%}{'≤' if value - upper <= EPS else '>'}{EPS:%}.",
-            log_level=logging.DEBUG,
-        )
+        _add_report_update(report, value, upper, committees)
         if value <= upper + EPS:
             # No feasible committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z (at least up to EPS, to prevent rounding errors)
             # Thus, we have enough committees

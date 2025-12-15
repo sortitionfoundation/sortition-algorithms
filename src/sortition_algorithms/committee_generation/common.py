@@ -437,11 +437,7 @@ def _find_committees_for_uncovered_agents(
                 for covered_agent_id in new_committee:
                     covered_agents.add(covered_agent_id)
             else:
-                # TODO: i18n - Add to report_messages.py as "agent_not_in_feasible_committee"
-                # with agent_id parameter
-                report.add_line_and_log(
-                    f"Agent {agent_id} not contained in any feasible committee.", log_level=logging.INFO
-                )
+                report.add_message_and_log("agent_not_in_feasible_committee", log_level=logging.INFO, agent_id=agent_id)
 
     return new_committees, covered_agents, report
 

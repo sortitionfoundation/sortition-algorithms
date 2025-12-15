@@ -115,8 +115,7 @@ def _solve_nash_welfare_optimization(
         nash_welfare = problem.solve(solver=cp.ECOS, warm_start=True)
 
     scaled_welfare = nash_welfare - len(entitlements) * log(number_people_wanted / len(entitlements))
-    # TODO: i18n - Add to report_messages.py as "scaled_nash_welfare" with welfare parameter
-    report.add_line_and_log(f"Scaled Nash welfare is now: {scaled_welfare}.", log_level=logging.INFO)
+    report.add_message_and_log("scaled_nash_welfare", log_level=logging.INFO, scaled_welfare=scaled_welfare)
 
     assert lambdas.value.shape == (len(committees),)
     entitled_utilities = matrix.dot(lambdas.value)
