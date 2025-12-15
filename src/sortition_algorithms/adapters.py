@@ -26,6 +26,7 @@ from sortition_algorithms.errors import (
 )
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
+from sortition_algorithms.report_messages import get_message
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport, get_cell_name, user_logger
 
@@ -180,7 +181,7 @@ class SelectionData:
             except ParseTableMultiError as error:
                 new_error = self.data_source.customise_features_parse_error(error, headers)
                 raise new_error from error
-        report.add_line(f"Number of features found: {len(features)}")
+        report.add_message("features_found", count=len(features))
         return features, report
 
     def load_people(self, settings: Settings, features: FeatureCollection) -> tuple[People, RunReport]:
@@ -288,7 +289,7 @@ class CSVStringDataSource(AbstractDataSource):
     def read_feature_data(
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
-        report.add_line("Loading features from string.")
+        report.add_message("loading_features_from_string")
         feature_reader = csv.DictReader(StringIO(self.features_data), strict=True)
         assert feature_reader.fieldnames is not None
         yield list(feature_reader.fieldnames), feature_reader
@@ -297,7 +298,7 @@ class CSVStringDataSource(AbstractDataSource):
     def read_people_data(
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
-        report.add_line("Loading people from string.")
+        report.add_message("loading_people_from_string")
         people_reader = csv.DictReader(StringIO(self.people_data), strict=True)
         assert people_reader.fieldnames is not None
         yield list(people_reader.fieldnames), people_reader
@@ -307,10 +308,10 @@ class CSVStringDataSource(AbstractDataSource):
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         if not self.already_selected_data or not self.already_selected_data.strip():
-            report.add_line("No already selected data provided, using empty data.")
+            report.add_message("no_already_selected_data")
             yield [], []
             return
-        report.add_line("Loading already selected people from string.")
+        report.add_message("loading_already_selected_from_string")
         already_selected_reader = csv.DictReader(StringIO(self.already_selected_data), strict=True)
         assert already_selected_reader.fieldnames is not None
         yield list(already_selected_reader.fieldnames), already_selected_reader
@@ -373,7 +374,7 @@ class CSVFileDataSource(AbstractDataSource):
     def read_feature_data(
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
-        report.add_line(f"Loading features from file {self.features_file}.")
+        report.add_message("loading_features_from_file", file_path=str(self.features_file))
         with open(self.features_file, newline="") as csv_file:
             feature_reader = csv.DictReader(csv_file, strict=True)
             assert feature_reader.fieldnames is not None
@@ -383,7 +384,7 @@ class CSVFileDataSource(AbstractDataSource):
     def read_people_data(
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
-        report.add_line(f"Loading people from file {self.people_file}.")
+        report.add_message("loading_people_from_file", file_path=str(self.people_file))
         with open(self.people_file, newline="") as csv_file:
             people_reader = csv.DictReader(csv_file, strict=True)
             assert people_reader.fieldnames is not None
@@ -394,10 +395,10 @@ class CSVFileDataSource(AbstractDataSource):
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         if self.already_selected_file is None or not self.already_selected_file.exists():
-            report.add_line("No already selected file provided or file does not exist, using empty data.")
+            report.add_message("no_already_selected_file")
             yield [], []
             return
-        report.add_line(f"Loading already selected people from file {self.already_selected_file}.")
+        report.add_message("loading_already_selected_from_file", file_path=str(self.already_selected_file))
         with open(self.already_selected_file, newline="") as csv_file:
             already_selected_reader = csv.DictReader(csv_file, strict=True)
             assert already_selected_reader.fieldnames is not None
@@ -649,7 +650,11 @@ class GSheetDataSource(AbstractDataSource):
                 expected_headers=[],
             )
         )
-        self._report.add_line(f"Reading in '{self.people_tab_name}' tab in above Google sheet.")
+        self._report.add_line(
+            get_message("reading_gsheet_tab", tab_name=self.people_tab_name),
+            message_code="reading_gsheet_tab",
+            message_params={"tab_name": self.people_tab_name},
+        )
         yield people_head, people_body
 
     def _find_header_row(
@@ -685,7 +690,10 @@ class GSheetDataSource(AbstractDataSource):
         self._report = report
         if not self.already_selected_tab_name:
             # If no tab name provided, return empty data
-            self._report.add_line("No already selected tab specified, using empty data.")
+            self._report.add_line(
+                get_message("no_already_selected_tab"),
+                message_code="no_already_selected_tab",
+            )
             yield [], []
             return
 

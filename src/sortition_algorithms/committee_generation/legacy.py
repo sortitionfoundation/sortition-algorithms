@@ -36,7 +36,7 @@ def find_random_sample_legacy(
         SelectionError: If selection becomes impossible (not enough people, etc.)
     """
     report = RunReport()
-    report.add_line("Using legacy algorithm.")
+    report.add_message("using_legacy_algorithm")
     people_selected: set[str] = set()
 
     # Create PeopleFeatures and initialize
@@ -79,8 +79,8 @@ def find_random_sample_legacy(
 
         # Handle any categories that are now full after this selection
         try:
-            category_messages = people_features.handle_category_full_deletions(selected_person_data)
-            report.add_lines(category_messages)
+            category_report = people_features.handle_category_full_deletions(selected_person_data)
+            report.add_report(category_report)
         except errors.SelectionError as e:
             msg = f"Selection failed after selecting {selected_person_key}: {e}"
             raise errors.RetryableSelectionError(msg) from e

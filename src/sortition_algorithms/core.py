@@ -24,6 +24,7 @@ from sortition_algorithms.people_features import (
     select_from_feature_collection,
     simple_add_selected,
 )
+from sortition_algorithms.report_messages import get_message
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import ReportLevel, RunReport, logger, random_provider, set_random_provider
 
@@ -218,8 +219,16 @@ def _distribution_stats(
     assert len(committees) == len(probabilities)
     num_non_zero = sum(1 for prob in probabilities if prob > 0)
     report.add_line(
-        f"Algorithm produced distribution over {len(committees)} committees, out of which "
-        f"{num_non_zero} are chosen with positive probability."
+        get_message(
+            "distribution_stats",
+            total_committees=len(committees),
+            non_zero_committees=num_non_zero,
+        ),
+        message_code="distribution_stats",
+        message_params={
+            "total_committees": len(committees),
+            "non_zero_committees": num_non_zero,
+        },
     )
 
     individual_probabilities = dict.fromkeys(people, 0.0)
@@ -300,12 +309,7 @@ def find_random_sample(
 
     # Check if Gurobi is available for leximin
     if selection_algorithm == "leximin" and not GUROBI_AVAILABLE:
-        msg = (
-            "The leximin algorithm requires the optimization library Gurobi to be installed "
-            "(commercial, free academic licenses available). Switching to the simpler "
-            "maximin algorithm, which can be run using open source solvers."
-        )
-        report.add_line(msg)
+        report.add_message("gurobi_unavailable_switching")
         selection_algorithm = "maximin"
 
     # Route to appropriate algorithm
@@ -340,12 +344,13 @@ def find_random_sample(
     # Post-process the distribution
     committees, probabilities = standardize_distribution(committees, probabilities)
     if len(committees) > people.count:
-        report.add_line_and_log(
-            "INFO: The distribution over panels is what is known as a 'basic solution'. There is no reason for concern "
-            "about the correctness of your output, but we'd appreciate if you could reach out to panelot"
-            f"@paulgoelz.de with the following information: algorithm={selection_algorithm}, "
-            f"num_panels={len(committees)}, num_agents={people.count}, min_probs={min(probabilities)}.",
+        report.add_message_and_log(
+            "basic_solution_warning",
             logging.WARNING,
+            algorithm=selection_algorithm,
+            num_panels=len(committees),
+            num_agents=people.count,
+            min_probs=min(probabilities),
         )
 
     assert len(set(committees)) == len(committees)
@@ -413,8 +418,10 @@ def _category_info_table(
     """
     report = RunReport()
     if len(people_selected) != 1:
-        msg = "We do not calculate target details for multiple selections - please see your output files."
-        report.add_line(msg)
+        report.add_line(
+            get_message("no_category_info_multiple"),
+            message_code="no_category_info_multiple",
+        )
         return report
 
     # Build HTML table header
@@ -458,7 +465,10 @@ def _check_category_selected(
     """
     report = RunReport()
     if number_selections > 1:
-        report.add_line("No target checks done for multiple selections - please see your output files.")
+        report.add_line(
+            get_message("no_target_checks_multiple"),
+            message_code="no_target_checks_multiple",
+        )
         return
 
     if len(people_selected) != 1:
@@ -546,16 +556,16 @@ def run_stratification(
     set_random_provider(settings.random_number_seed)
 
     if test_selection:
-        report.add_line("WARNING: Panel is not selected at random! Only use for testing!", ReportLevel.CRITICAL)
+        report.add_message("test_selection_warning", ReportLevel.CRITICAL)
 
-    report.add_line("Initial: (selected = 0)", ReportLevel.IMPORTANT)
+    report.add_message("initial_state", ReportLevel.IMPORTANT)
     report.add_report(_initial_category_info_table(features, working_people))
 
     tries = 0
     for tries in range(settings.max_attempts):
         people_selected = []
 
-        report.add_line_and_log(f"Trial number: {tries + 1}", logging.WARNING)
+        report.add_message_and_log("trial_number", logging.WARNING, trial=tries + 1)
 
         try:
             people_selected, new_report = find_random_sample(
@@ -573,7 +583,7 @@ def run_stratification(
             # This raises an error if we did not select properly
             _check_category_selected(features, working_people, people_selected, number_selections)
 
-            report.add_line("SUCCESS!! Final:", ReportLevel.IMPORTANT)
+            report.add_message("selection_success", ReportLevel.IMPORTANT)
             report.add_report(_category_info_table(features, working_people, people_selected, number_people_wanted))
             success = True
             break
@@ -581,7 +591,7 @@ def run_stratification(
         except errors.SelectionError as serr:
             if serr.is_retryable:
                 report.add_error(serr, is_fatal=False)
-                report.add_line(f"Failed one attempt. Selection Error raised - will retry. {serr}")
+                report.add_message("retry_after_error", error=str(serr))
                 # we do not break here, we try again.
             else:
                 report.add_error(serr)
@@ -592,6 +602,6 @@ def run_stratification(
             break
 
     if not success:
-        report.add_line(f"Failed {tries + 1} times. Gave up.", level=ReportLevel.IMPORTANT)
+        report.add_message("selection_failed", ReportLevel.IMPORTANT, attempts=tries + 1)
 
     return success, people_selected, report

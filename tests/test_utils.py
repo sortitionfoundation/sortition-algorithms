@@ -403,7 +403,9 @@ class TestRunReportSerialisation:
         report = RunReport()
         report.add_line("some text", level=ReportLevel.CRITICAL)
         serialised_form = report.serialize()
-        assert serialised_form == {"_data": [{"level": 2, "line": "some text", "log_level": 0}]}
+        assert serialised_form == {
+            "_data": [{"level": 2, "line": "some text", "log_level": 0, "message_code": None, "message_params": {}}]
+        }
 
     def test_run_report_with_line_deserialisation(self):
         serialised_form = {"_data": [{"line": "some text", "level": 2, "log_level": 0}]}

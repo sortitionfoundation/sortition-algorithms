@@ -211,39 +211,48 @@ def _all_in_list_equal(list_to_check: list[Any]) -> bool:
     return all(item == list_to_check[0] for item in list_to_check)
 
 
-def check_for_duplicate_people(people_body: Iterable[MutableMapping[str, str]], settings: Settings) -> list[str]:
+def check_for_duplicate_people(people_body: Iterable[MutableMapping[str, str]], settings: Settings) -> RunReport:
     """
     If we have rows with duplicate IDs things are going to go bad.
     First check for any duplicate IDs. If we find any, check if the duplicates are identical.
+
+    Returns:
+        RunReport containing warnings about duplicate people
+
+    Raises:
+        SelectionMultilineError: If duplicate IDs have different data
     """
+    report = RunReport()
+
     # first check for any duplicate_ids
     id_counter = Counter(row[settings.id_column] for row in people_body)
     duplicate_ids = {k for k, v in id_counter.items() if v > 1}
     if not duplicate_ids:
-        return []
+        return report
 
     # find the duplicate rows
-    output: list[str] = []
     duplicate_rows: dict[str, list[MutableMapping[str, str]]] = defaultdict(list)
     for row in people_body:
         pkey = row[settings.id_column]
         if pkey in duplicate_ids:
             duplicate_rows[pkey].append(row)
-    output += [
-        f"Found {len(duplicate_rows)} IDs that have more than one row",
-        f"Duplicated IDs are: {' '.join(duplicate_rows)}",
-    ]
+
+    report.add_line(f"Found {len(duplicate_rows)} IDs that have more than one row")
+    report.add_line(f"Duplicated IDs are: {' '.join(duplicate_rows)}")
+
     # find rows where everything is not equal
     duplicate_differing_rows: dict[str, list[MutableMapping[str, str]]] = {}
     for key, value in duplicate_rows.items():
         if not _all_in_list_equal(value):
             duplicate_differing_rows[key] = value
     if not duplicate_differing_rows:
-        output += [
-            "All duplicate rows have identical data - processing continuing.",
-        ]
-        return output
+        report.add_line("All duplicate rows have identical data - processing continuing.")
+        return report
 
+    # Build error message with full context
+    output: list[str] = []
+    output.append(f"Found {len(duplicate_rows)} IDs that have more than one row")
+    output.append(f"Duplicated IDs are: {' '.join(duplicate_rows)}")
     output.append(f"Found {len(duplicate_differing_rows)} IDs that have more than one row with different data")
     for key, value in duplicate_differing_rows.items():
         for row in value:
@@ -294,7 +303,7 @@ def read_in_people(
     _check_people_head(people_head, features, settings, data_container)
     # we need to iterate through more than once, so save as list here
     stripped_people_body = [normalise_dict(row) for row in people_body]
-    report.add_lines(check_for_duplicate_people(stripped_people_body, settings))
+    report.add_report(check_for_duplicate_people(stripped_people_body, settings))
     people = People(settings.full_columns_to_keep)
     combined_error = ParseTableMultiError()
     # row 1 is the header, so the body starts on row 2
@@ -302,7 +311,7 @@ def read_in_people(
         pkey = stripped_row[settings.id_column]
         # skip over any blank lines... but warn the user
         if pkey == "":
-            report.add_line(f"WARNING: blank cell found in ID column in row {row_number} - skipped that line!")
+            report.add_message("blank_id_skipped", row=row_number)
             continue
         try:
             people.add(

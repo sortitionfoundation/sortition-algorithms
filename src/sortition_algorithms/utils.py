@@ -5,6 +5,7 @@ import random
 import secrets
 import string
 import sys
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from typing import TYPE_CHECKING, Any
@@ -15,6 +16,7 @@ from requests.structures import CaseInsensitiveDict
 from tabulate import tabulate
 
 from sortition_algorithms import errors
+from sortition_algorithms.report_messages import get_message
 
 # Create a configured converter for RunReport serialization
 _converter = Converter()
@@ -92,6 +94,8 @@ class RunLineLevel:
     line: str
     level: ReportLevel
     log_level: int = logging.NOTSET
+    message_code: str | None = None
+    message_params: dict[str, Any] = field(factory=dict)
 
 
 @define(slots=True, eq=True)
@@ -207,13 +211,31 @@ class RunReport:
         """
         return bool(self._data)
 
-    def add_line(self, line: str, level: ReportLevel = ReportLevel.NORMAL) -> None:
+    def add_line(
+        self,
+        line: str,
+        level: ReportLevel = ReportLevel.NORMAL,
+        message_code: str | None = None,
+        message_params: dict[str, Any] | None = None,
+    ) -> None:
         """
         Add a line of text, and a level - so important/critical messages can be highlighted in the HTML report.
-        """
-        self._data.append(RunLineLevel(line, level))
 
-    def add_line_and_log(self, line: str, log_level: int) -> None:
+        Args:
+            line: The English message text (for backward compatibility and standalone use)
+            level: Importance level of the message
+            message_code: Optional translation key for i18n (e.g., "loading_features_from_file")
+            message_params: Optional parameters for message translation (e.g., {"file_path": "features.csv"})
+        """
+        self._data.append(RunLineLevel(line, level, message_code=message_code, message_params=message_params or {}))
+
+    def add_line_and_log(
+        self,
+        line: str,
+        log_level: int,
+        message_code: str | None = None,
+        message_params: dict[str, Any] | None = None,
+    ) -> None:
         """
         Add a line of text, and a level - so important/critical messages can be highlighted in the HTML report.
 
@@ -223,12 +245,73 @@ class RunReport:
         When generating the report we can skip those messages, to avoid duplication. But if the user_logger
         has not been set up to be shown to the user during the run, we do want those messages to be in the
         final report.
+
+        Args:
+            line: The English message text (for backward compatibility and standalone use)
+            log_level: Logging level for the message
+            message_code: Optional translation key for i18n (e.g., "trial_number")
+            message_params: Optional parameters for message translation (e.g., {"trial": 3})
         """
-        self._data.append(RunLineLevel(line, ReportLevel.NORMAL, log_level))
+        self._data.append(
+            RunLineLevel(
+                line, ReportLevel.NORMAL, log_level, message_code=message_code, message_params=message_params or {}
+            )
+        )
         user_logger.log(level=log_level, msg=line)
 
+    def add_message(self, code: str, level: ReportLevel = ReportLevel.NORMAL, **params: Any) -> None:
+        """
+        Add a translatable message using a message code and parameters.
+
+        This is a convenience method that combines get_message() and add_line() in one call,
+        making it simpler to add messages with translation support.
+
+        Args:
+            code: The message code from REPORT_MESSAGES (e.g., "loading_features_from_file")
+            level: Importance level of the message
+            **params: Parameters to substitute into the message template
+
+        Example:
+            >>> report.add_message("features_found", count=5)
+            >>> report.add_message("trial_number", ReportLevel.IMPORTANT, trial=3)
+        """
+        message = get_message(code, **params)
+        self.add_line(message, level=level, message_code=code, message_params=params)
+
+    def add_message_and_log(self, code: str, log_level: int, **params: Any) -> None:
+        """
+        Add a translatable message using a message code and parameters, and log it.
+
+        This is a convenience method that combines get_message() and add_line_and_log() in one call,
+        making it simpler to add messages with translation support that are also logged.
+
+        Args:
+            code: The message code from REPORT_MESSAGES (e.g., "trial_number")
+            log_level: Logging level for the message
+            **params: Parameters to substitute into the message template
+
+        Example:
+            >>> report.add_message_and_log("trial_number", logging.WARNING, trial=3)
+            >>> report.add_message_and_log("basic_solution_warning", logging.WARNING, algorithm="maximin", num_panels=150, num_agents=100, min_probs=0.001)
+        """
+        message = get_message(code, **params)
+        self.add_line_and_log(message, log_level, message_code=code, message_params=params)
+
     def add_lines(self, lines: Iterable[str], level: ReportLevel = ReportLevel.NORMAL) -> None:
-        """Add a line of text, and a level - we use the logging levels"""
+        """
+        Add multiple lines of text with the same level.
+
+        .. deprecated:: (next version)
+            This method is deprecated. Functions should return RunReport instead of list[str],
+            and callers should use add_report() to merge them. This provides better support
+            for translation and structured reporting.
+        """
+        warnings.warn(
+            "add_lines() is deprecated. Functions should return RunReport instead of list[str], "
+            "and use add_report() to merge them.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         for line in lines:
             self._data.append(RunLineLevel(line, level))
 

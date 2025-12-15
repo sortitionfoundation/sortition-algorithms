@@ -11,7 +11,7 @@ from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import random_provider
+from sortition_algorithms.utils import RunReport, random_provider
 
 
 @define(kw_only=True, slots=True)
@@ -257,7 +257,7 @@ class PeopleFeatures:
             random_person_index=random_person_index,
         )
 
-    def handle_category_full_deletions(self, selected_person_data: MutableMapping[str, str]) -> list[str]:
+    def handle_category_full_deletions(self, selected_person_data: MutableMapping[str, str]) -> RunReport:
         """
         Check if any categories are now full after a selection and delete remaining people.
 
@@ -268,12 +268,12 @@ class PeopleFeatures:
             selected_person_data: Dictionary of the selected person's feature values
 
         Returns:
-            List of output messages about categories that became full and people deleted
+            RunReport containing messages about categories that became full and people deleted
 
         Raises:
             SelectionError: If deletions would violate minimum constraints
         """
-        output_messages = []
+        report = RunReport()
 
         for feature_name, fvalue_name, select_counts in iterate_select_collection(self.select_collection):
             if (
@@ -282,11 +282,11 @@ class PeopleFeatures:
             ):
                 num_deleted, num_left = self.delete_all_with_feature_value(feature_name, fvalue_name)
                 if num_deleted > 0:
-                    output_messages.append(
+                    report.add_line(
                         f"Category {feature_name}/{fvalue_name} full - deleted {num_deleted} people, {num_left} left."
                     )
 
-        return output_messages
+        return report
 
 
 def simple_add_selected(person_keys: Iterable[str], people: People, features: SelectCollection) -> None:

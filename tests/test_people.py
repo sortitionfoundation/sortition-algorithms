@@ -931,7 +931,8 @@ class TestPeopleMatchingAddress:
             },
         ]
         stripped_people_body = [normalise_dict(row) for row in people_body]
-        assert check_for_duplicate_people(stripped_people_body, settings) == []
+        report = check_for_duplicate_people(stripped_people_body, settings)
+        assert not report.has_content()
 
     def test_check_for_duplicate_people_with_exact_dupes(self):
         """
@@ -974,7 +975,8 @@ class TestPeopleMatchingAddress:
             },
         ]
         stripped_people_body = [normalise_dict(row) for row in people_body]
-        combined_messages = " ".join(check_for_duplicate_people(stripped_people_body, settings)).lower()
+        report = check_for_duplicate_people(stripped_people_body, settings)
+        combined_messages = report.as_text().lower()
         assert "found 1 ids that have more than one row" in combined_messages
         assert "duplicated ids are: 2" in combined_messages
         assert "all duplicate rows have identical data" in combined_messages
