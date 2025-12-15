@@ -13,6 +13,14 @@ class SortitionBaseError(Exception):
 
     is_retryable: bool = False
 
+    def __init__(
+        self, message: str = "", error_code: str = "", error_params: dict[str, str | int] | None = None
+    ) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.error_params = error_params or {}
+        self.message = message
+
     def to_html(self) -> str:
         return html.escape(str(self))
 
@@ -39,7 +47,15 @@ class RetryableSelectionError(SelectionError):
 class SelectionMultilineError(SelectionError):
     """Generic error for things that happen in selection - multiline"""
 
-    def __init__(self, lines: list[str], is_retryable: bool = False) -> None:
+    def __init__(
+        self,
+        lines: list[str],
+        is_retryable: bool = False,
+        error_code: str = "",
+        error_params: dict[str, str | int] | None = None,
+    ) -> None:
+        message = "\n".join(lines)
+        super().__init__(message=message, error_code=error_code, error_params=error_params)
         self.all_lines = lines
         self.is_retryable = is_retryable
 

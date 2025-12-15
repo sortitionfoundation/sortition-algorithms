@@ -48,7 +48,7 @@ def _dual_leximin_stage(
     """
     if not GUROBI_AVAILABLE:
         msg = "Leximin algorithm requires Gurobi solver which is not available"
-        raise RuntimeError(msg)
+        raise RuntimeError(msg, "gurobi_not_available", {})
 
     assert len(committees) != 0
 
@@ -288,7 +288,7 @@ def find_distribution_leximin(
     """
     if not GUROBI_AVAILABLE:
         msg = "Leximin algorithm requires Gurobi solver which is not available"
-        raise RuntimeError(msg)
+        raise RuntimeError(msg, "gurobi_not_available", {})
 
     report = RunReport()
     report.add_line_and_log("Using leximin algorithm.", log_level=logging.INFO)

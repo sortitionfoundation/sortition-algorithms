@@ -55,12 +55,14 @@ random_number_seed = 0
 
 def check_columns_for_same_address(instance: "Settings", attribute: Any, value: Any) -> None:
     if not isinstance(value, list):
-        raise TypeError("check_same_address_columns must be a LIST of strings")
+        raise TypeError("check_same_address_columns must be a LIST of strings", "check_same_address_not_list", {})
     if not all(isinstance(element, str) for element in value):
-        raise TypeError("check_same_address_columns must be a list of STRINGS")
+        raise TypeError("check_same_address_columns must be a list of STRINGS", "check_same_address_not_strings", {})
     if len(value) == 0 and instance.check_same_address:
         raise ValueError(
-            "check_same_address is TRUE but there are no columns listed to check! FIX THIS and RESTART this program!"
+            "check_same_address is TRUE but there are no columns listed to check! FIX THIS and RESTART this program!",
+            "check_same_address_empty",
+            {},
         )
 
 
@@ -87,14 +89,19 @@ class Settings:
     @columns_to_keep.validator
     def check_columns_to_keep(self, attribute: Any, value: Any) -> None:
         if not isinstance(value, list):
-            raise TypeError("columns_to_keep must be a LIST of strings")
+            raise TypeError("columns_to_keep must be a LIST of strings", "columns_to_keep_not_list", {})
         if not all(isinstance(element, str) for element in value):
-            raise TypeError("columns_to_keep must be a list of STRINGS")
+            raise TypeError("columns_to_keep must be a list of STRINGS", "columns_to_keep_not_strings", {})
 
     @selection_algorithm.validator
     def check_selection_algorithm(self, attribute: Any, value: str) -> None:
         if value not in SELECTION_ALGORITHMS:
-            raise ValueError(f"selection_algorithm {value} is not one of: {', '.join(SELECTION_ALGORITHMS)}")
+            algorithms_str = ", ".join(SELECTION_ALGORITHMS)
+            raise ValueError(
+                f"selection_algorithm {value} is not one of: {algorithms_str}",
+                "invalid_selection_algorithm",
+                {"algorithm": value, "valid_algorithms": algorithms_str},
+            )
 
     @property
     def normalised_address_columns(self) -> list[str]:

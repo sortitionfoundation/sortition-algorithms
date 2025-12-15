@@ -464,12 +464,20 @@ class GSheetTabNamer:
 
     def selected_tab_name(self) -> str:
         if not self._write_tab_suffix:
-            raise SelectionError("Logic error - trying to create new tab before choosing suffix")
+            raise SelectionError(
+                message="Logic error - trying to create new tab before choosing suffix",
+                error_code="logic_error_tab_suffix",
+                error_params={},
+            )
         return f"{self.selected_tab_name_stub}{self._write_tab_suffix}"
 
     def remaining_tab_name(self) -> str:
         if not self._write_tab_suffix:
-            raise SelectionError("Logic error - trying to create new tab before choosing suffix")
+            raise SelectionError(
+                message="Logic error - trying to create new tab before choosing suffix",
+                error_code="logic_error_tab_suffix",
+                error_params={},
+            )
         return f"{self.remaining_tab_name_stub}{self._write_tab_suffix}"
 
     def matches_stubs(self, tab_name: str) -> bool:
@@ -577,7 +585,9 @@ class GSheetDataSource(AbstractDataSource):
             return self.spreadsheet.title
         except gspread.SpreadsheetNotFound as err:
             msg = f"Google spreadsheet not found: {self._g_sheet_name}."
-            raise SelectionError(msg) from err
+            raise SelectionError(
+                message=msg, error_code="spreadsheet_not_found", error_params={"spreadsheet_name": self._g_sheet_name}
+            ) from err
 
     @contextmanager
     def read_feature_data(
@@ -590,10 +600,16 @@ class GSheetDataSource(AbstractDataSource):
                     f"Error in Google sheet: no tab called '{self.feature_tab_name}' "
                     f"found in spreadsheet '{self.spreadsheet.title}'."
                 )
-                raise SelectionError(msg)
+                raise SelectionError(
+                    message=msg,
+                    error_code="tab_not_found",
+                    error_params={"tab_name": self.feature_tab_name, "spreadsheet_title": self.spreadsheet.title},
+                )
         except gspread.SpreadsheetNotFound as err:
             msg = f"Google spreadsheet not found: {self._g_sheet_name}."
-            raise SelectionError(msg) from err
+            raise SelectionError(
+                message=msg, error_code="spreadsheet_not_found", error_params={"spreadsheet_name": self._g_sheet_name}
+            ) from err
         tab_features = self.spreadsheet.worksheet(self.feature_tab_name)
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
@@ -610,10 +626,16 @@ class GSheetDataSource(AbstractDataSource):
                     f"Error in Google sheet: no tab called '{self.people_tab_name}' "
                     f"found in spreadsheet '{self.spreadsheet.title}'."
                 )
-                raise SelectionError(msg)
+                raise SelectionError(
+                    message=msg,
+                    error_code="tab_not_found",
+                    error_params={"tab_name": self.people_tab_name, "spreadsheet_title": self.spreadsheet.title},
+                )
         except gspread.SpreadsheetNotFound as err:
             msg = f"Google spreadsheet not found: {self._g_sheet_name}. "
-            raise SelectionError(msg) from err
+            raise SelectionError(
+                message=msg, error_code="spreadsheet_not_found", error_params={"spreadsheet_name": self._g_sheet_name}
+            ) from err
 
         tab_people = self.spreadsheet.worksheet(self.people_tab_name)
         # if we don't read this in here we can't check if there are 2 columns with the same name
@@ -673,10 +695,19 @@ class GSheetDataSource(AbstractDataSource):
                     f"Error in Google sheet: no tab called '{self.already_selected_tab_name}' "
                     f"found in spreadsheet '{self.spreadsheet.title}'."
                 )
-                raise SelectionError(msg)
+                raise SelectionError(
+                    message=msg,
+                    error_code="tab_not_found",
+                    error_params={
+                        "tab_name": self.already_selected_tab_name,
+                        "spreadsheet_title": self.spreadsheet.title,
+                    },
+                )
         except gspread.SpreadsheetNotFound as err:
             msg = f"Google spreadsheet not found: {self._g_sheet_name}. "
-            raise SelectionError(msg) from err
+            raise SelectionError(
+                message=msg, error_code="spreadsheet_not_found", error_params={"spreadsheet_name": self._g_sheet_name}
+            ) from err
 
         tab_already_selected = self.spreadsheet.worksheet(self.already_selected_tab_name)
 

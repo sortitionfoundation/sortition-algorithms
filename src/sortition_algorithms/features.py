@@ -197,7 +197,12 @@ def _get_feature_from_row(row: Mapping[str, str]) -> tuple[str, str]:
     for key in feature_column_names:
         if key in row:
             return row[key], key
-    raise ValueError(f"Could not find feature column, looked for column headers: {' '.join(feature_column_names)}")
+    column_names_str = " ".join(feature_column_names)
+    raise ValueError(
+        f"Could not find feature column, looked for column headers: {column_names_str}",
+        "feature_column_not_found",
+        {"column_names": column_names_str},
+    )
 
 
 def _get_feature_value_from_row(row: Mapping[str, str]) -> tuple[str, str]:
@@ -205,8 +210,11 @@ def _get_feature_value_from_row(row: Mapping[str, str]) -> tuple[str, str]:
     for key in feature_value_column_names:
         if key in row:
             return row[key], key
+    column_names_str = " ".join(feature_value_column_names)
     raise ValueError(
-        f"Could not find feature value column, looked for column headers: {' '.join(feature_value_column_names)}"
+        f"Could not find feature value column, looked for column headers: {column_names_str}",
+        "feature_value_column_not_found",
+        {"column_names": column_names_str},
     )
 
 
@@ -243,8 +251,14 @@ def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
             messages.append(
                 f"Found MORE THAN 1 column named '{field_name}' in the input (found {feature_head_field_name_count})"
             )
-    msg = "\n".join(messages) if messages else f"Unexpected error in set of column names: {headers}"
-    raise ValueError(msg)
+    if messages:
+        msg = "\n".join(messages)
+        # Multi-line error - no single error code applies
+        raise ValueError(msg)
+    else:
+        headers_str = str(headers)
+        msg = f"Unexpected error in set of column names: {headers_str}"
+        raise ValueError(msg, "unexpected_column_error", {"headers": headers_str})
 
 
 def _row_val_to_int(row: MutableMapping, key: str) -> tuple[int, str, str, dict[str, str | int]]:

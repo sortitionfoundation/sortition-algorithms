@@ -326,7 +326,7 @@ def ilp_results_to_committee(variables: dict[str, mip.entities.Var]) -> frozense
     # unfortunately, MIP sometimes throws generic Exceptions rather than a subclass
     except Exception as error:
         msg = f"It seems like some variables do not have a value. Original exception: {error}."
-        raise ValueError(msg) from error
+        raise ValueError(msg, "variables_without_value", {"error": str(error)}) from error
 
     return committee
 

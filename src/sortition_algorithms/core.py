@@ -282,14 +282,14 @@ def find_random_sample(
             "Running the test selection does not support generating a transparent lottery, so, if "
             "`test_selection` is true, `number_selections` must be 1."
         )
-        raise ValueError(msg)
+        raise ValueError(msg, "test_selection_multiple_selections", {})
 
     if selection_algorithm == "legacy" and number_selections != 1:
         msg = (
             "Currently, the legacy algorithm does not support generating a transparent lottery, "
             "so `number_selections` must be set to 1."
         )
-        raise ValueError(msg)
+        raise ValueError(msg, "legacy_multiple_selections", {})
 
     # Quick test selection using find_any_committee
     if test_selection:
@@ -333,7 +333,7 @@ def find_random_sample(
             f"Unknown selection algorithm {selection_algorithm!r}, must be either 'legacy', 'leximin', "
             f"'maximin', or 'nash'."
         )
-        raise ValueError(msg)
+        raise ValueError(msg, "unknown_selection_algorithm", {"algorithm": selection_algorithm})
 
     report.add_report(new_report)
 

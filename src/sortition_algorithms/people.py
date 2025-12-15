@@ -159,7 +159,11 @@ class People:
             # Should always find someone if position is valid
             # If we hit this line it is a bug
             msg = f"Failed to find person at position {position} in {feature_name}/{feature_value}"
-            raise SelectionError(msg) from None
+            raise SelectionError(
+                message=msg,
+                error_code="person_not_found",
+                error_params={"position": position, "feature_name": feature_name, "feature_value": feature_value},
+            ) from None
 
 
 # simple helper function to tidy the code below
@@ -172,10 +176,18 @@ def _check_columns_exist_or_multiple(
         column_count = people_head_lower.count(column)
         if column_count == 0:
             msg = f"No '{column}' column {error_label} found in {data_container}!"
-            raise BadDataError(msg)
+            raise BadDataError(
+                message=msg,
+                error_code="missing_column",
+                error_params={"column": column, "error_label": error_label, "data_container": data_container},
+            )
         elif column_count > 1:
             msg = f"MORE THAN 1 '{column}' column {error_label} found in {data_container}!"
-            raise BadDataError(msg)
+            raise BadDataError(
+                message=msg,
+                error_code="duplicate_column",
+                error_params={"column": column, "error_label": error_label, "data_container": data_container},
+            )
 
 
 def _check_people_head(
