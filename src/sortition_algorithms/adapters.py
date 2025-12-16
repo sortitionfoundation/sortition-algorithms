@@ -687,7 +687,7 @@ class GSheetDataSource(AbstractDataSource):
         This helps skip over title rows, empty rows, etc.
 
         Args:
-            worksheet: The worksheet to search
+            all_values: The values from the worksheet to search
             id_column: The text for the id_column - from settings
             min_headers: Minimum number of non-empty cells to consider a row as headers (default: 3)
 
