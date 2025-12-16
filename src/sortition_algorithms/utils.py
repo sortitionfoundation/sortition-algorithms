@@ -124,6 +124,11 @@ def _unstructure_exception(exc: Exception) -> dict[str, Any]:
         "type": f"{exc.__class__.__module__}.{exc.__class__.__name__}",
         "args": _converter.unstructure(exc.args),
     }
+    # Store error_code and error_params if they exist
+    if hasattr(exc, "error_code"):
+        result["error_code"] = exc.error_code
+    if hasattr(exc, "error_params"):
+        result["error_params"] = exc.error_params
     # Special handling for SelectionMultilineError which has custom attributes
     if hasattr(exc, "all_lines"):
         result["all_lines"] = exc.all_lines
@@ -138,14 +143,21 @@ def _unstructure_exception(exc: Exception) -> dict[str, Any]:
 def _structure_exception(obj: dict[str, Any], _: Any) -> Exception:
     """Structure hook for exceptions - reconstruct from type and args"""
     exc_type_name = obj["type"]
+    error_code = obj.get("error_code", "")
+    error_params = obj.get("error_params", {})
 
     # Map type names to actual exception classes
     if exc_type_name == "sortition_algorithms.errors.SelectionError":
-        return errors.SelectionError(*obj.get("args", ()))
+        # Get the message from args if available
+        message = obj.get("args", ("",))[0] if obj.get("args") else ""
+        return errors.SelectionError(message, error_code=error_code, error_params=error_params)
     elif exc_type_name == "sortition_algorithms.errors.SelectionMultilineError":
         if "all_lines" in obj:
-            return errors.SelectionMultilineError(obj["all_lines"])
-        return errors.SelectionMultilineError(*obj.get("args", ()))
+            return errors.SelectionMultilineError(obj["all_lines"], error_code=error_code, error_params=error_params)
+        # Fallback for edge cases - reconstruct from message string
+        message = obj.get("args", ("",))[0] if obj.get("args") else ""
+        lines = message.split("\n") if message else []
+        return errors.SelectionMultilineError(lines, error_code=error_code, error_params=error_params)
     elif exc_type_name == "sortition_algorithms.errors.ParseTableMultiError":
         all_errors = _converter.structure(
             obj.get("all_errors", []),
@@ -163,7 +175,9 @@ def _structure_exception(obj: dict[str, Any], _: Any) -> Exception:
         # For other custom errors, try to find the class
         class_name = exc_type_name.split(".")[-1]
         exc_class = getattr(errors, class_name, errors.SortitionBaseError)
-        return exc_class(*obj.get("args", ()))
+        # Get the message from args if available
+        message = obj.get("args", ("",))[0] if obj.get("args") else ""
+        return exc_class(message, error_code=error_code, error_params=error_params)
     else:
         # For built-in exceptions, reconstruct as generic Exception
         return Exception(*obj.get("args", ()))

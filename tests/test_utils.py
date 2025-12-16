@@ -458,7 +458,7 @@ class TestRunReportSerialisation:
 
     def test_run_report_with_error_serialisation(self):
         report = RunReport()
-        report.add_error(SelectionError("Something went wrong"))
+        report.add_error(SelectionError("Something went wrong", error_code="error.selection.generic"))
         serialised_form = report.serialize()
         # Check the structure - exact match depends on exception serialization
         assert "_data" in serialised_form
@@ -468,7 +468,7 @@ class TestRunReportSerialisation:
 
     def test_run_report_with_error_deserialisation(self):
         report = RunReport()
-        report.add_error(SelectionError("Something went wrong"))
+        report.add_error(SelectionError("Something went wrong", error_code="error.selection.generic"))
         serialised_form = report.serialize()
         json_report = json.dumps(serialised_form)
         from_json = json.loads(json_report)
@@ -478,16 +478,29 @@ class TestRunReportSerialisation:
         assert deserialised_report.last_error() is not None
         assert str(deserialised_report.last_error()) == "Something went wrong"
         assert isinstance(deserialised_report.last_error(), SelectionError)
+        # Check error_code is preserved
+        assert deserialised_report.last_error().error_code == "error.selection.generic"
+        assert deserialised_report.last_error().error_params == {}
 
     def test_run_report_with_non_fatal_error_serialisation(self):
         report = RunReport()
-        report.add_error(SelectionError("Minor issue"), is_fatal=False)
+        report.add_error(
+            SelectionError(
+                "Minor issue", error_code="error.selection.minor", error_params={"severity": "low", "count": 3}
+            ),
+            is_fatal=False,
+        )
         serialised_form = report.serialize()
         assert serialised_form["_data"][0]["is_fatal"] is False
 
     def test_run_report_with_non_fatal_error_deserialisation(self):
         report = RunReport()
-        report.add_error(SelectionError("Minor issue"), is_fatal=False)
+        report.add_error(
+            SelectionError(
+                "Minor issue", error_code="error.selection.minor", error_params={"severity": "low", "count": 3}
+            ),
+            is_fatal=False,
+        )
         serialised_form = report.serialize()
         json_report = json.dumps(serialised_form)
         from_json = json.loads(json_report)
@@ -495,17 +508,30 @@ class TestRunReportSerialisation:
 
         # Verify is_fatal is preserved
         assert str(deserialised_report.last_error()) == "Minor issue"
+        # Verify error_code and error_params are preserved
+        assert deserialised_report.last_error().error_code == "error.selection.minor"
+        assert deserialised_report.last_error().error_params == {"severity": "low", "count": 3}
 
     def test_run_report_with_multiline_error_serialisation(self):
         report = RunReport()
-        report.add_error(SelectionMultilineError(["Error line 1", "Error line 2", "Error line 3"]))
+        report.add_error(
+            SelectionMultilineError(
+                ["Error line 1", "Error line 2", "Error line 3"],
+                error_code="error.multiline.test",
+                error_params={"line_count": 3},
+            )
+        )
         serialised_form = report.serialize()
         assert "_data" in serialised_form
         assert len(serialised_form["_data"]) == 1
 
     def test_run_report_with_multiline_error_deserialisation(self):
         report = RunReport()
-        error = SelectionMultilineError(["Error line 1", "Error line 2", "Error line 3"])
+        error = SelectionMultilineError(
+            ["Error line 1", "Error line 2", "Error line 3"],
+            error_code="error.multiline.test",
+            error_params={"line_count": 3},
+        )
         report.add_error(error)
         serialised_form = report.serialize()
         json_report = json.dumps(serialised_form)
@@ -516,6 +542,9 @@ class TestRunReportSerialisation:
         assert deserialised_report.last_error() is not None
         assert str(deserialised_report.last_error()) == "Error line 1\nError line 2\nError line 3"
         assert isinstance(deserialised_report.last_error(), SelectionMultilineError)
+        # Check error_code and error_params are preserved
+        assert deserialised_report.last_error().error_code == "error.multiline.test"
+        assert deserialised_report.last_error().error_params == {"line_count": 3}
 
     def test_run_report_with_infeasible_quotas_error_serialisation(self):
         report = RunReport()
@@ -560,7 +589,7 @@ class TestRunReportSerialisation:
         report.add_line("Introduction", ReportLevel.IMPORTANT)
         report.add_table(["Col1", "Col2"], [["A", 1], ["B", 2]])
         report.add_line("Middle section")
-        report.add_error(SelectionError("An error occurred"))
+        report.add_error(SelectionError("An error occurred", error_code="error.test.mixed"))
         report.add_line("Conclusion", ReportLevel.CRITICAL)
 
         # Round trip
@@ -583,3 +612,50 @@ class TestRunReportSerialisation:
 
         # Verify the error message is preserved
         assert str(deserialised_report.last_error()) == str(report.last_error())
+        # Verify error_code is preserved
+        assert deserialised_report.last_error().error_code == "error.test.mixed"
+
+    def test_error_code_and_params_empty_round_trip(self):
+        """Test that empty error_code and error_params are preserved"""
+        report = RunReport()
+        report.add_error(SelectionError("No metadata"))
+        serialised_form = report.serialize()
+        json_report = json.dumps(serialised_form)
+        from_json = json.loads(json_report)
+        deserialised_report = RunReport.deserialize(from_json)
+
+        error = deserialised_report.last_error()
+        assert error.error_code == ""
+        assert error.error_params == {}
+
+    def test_error_code_and_params_with_various_types(self):
+        """Test that error_params with different value types are preserved"""
+        report = RunReport()
+        report.add_error(
+            SelectionError(
+                "Complex error",
+                error_code="error.complex.test",
+                error_params={"string_val": "test", "int_val": 42, "feature": "gender"},
+            )
+        )
+        serialised_form = report.serialize()
+        json_report = json.dumps(serialised_form)
+        from_json = json.loads(json_report)
+        deserialised_report = RunReport.deserialize(from_json)
+
+        error = deserialised_report.last_error()
+        assert error.error_code == "error.complex.test"
+        assert error.error_params == {"string_val": "test", "int_val": 42, "feature": "gender"}
+
+    def test_error_code_only_without_params(self):
+        """Test that error_code works without error_params"""
+        report = RunReport()
+        report.add_error(SelectionError("Code only", error_code="error.code.only"))
+        serialised_form = report.serialize()
+        json_report = json.dumps(serialised_form)
+        from_json = json.loads(json_report)
+        deserialised_report = RunReport.deserialize(from_json)
+
+        error = deserialised_report.last_error()
+        assert error.error_code == "error.code.only"
+        assert error.error_params == {}
