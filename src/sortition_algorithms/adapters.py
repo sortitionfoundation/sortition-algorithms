@@ -7,7 +7,7 @@ Initially we have CSV files locally, and Google Docs Spreadsheets.
 import abc
 import csv
 import logging
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
 from io import StringIO
@@ -499,11 +499,26 @@ class GSheetDataSource(AbstractDataSource):
     hl_orange: ClassVar = {"backgroundColor": {"red": 5, "green": 2.5, "blue": 0}}
 
     def __init__(
-        self, *, feature_tab_name: str, people_tab_name: str, already_selected_tab_name: str = "", auth_json_path: Path
+        self,
+        *,
+        feature_tab_name: str,
+        people_tab_name: str,
+        already_selected_tab_name: str = "",
+        id_column: str = "not_set",
+        auth_json_path: Path,
     ) -> None:
+        """
+        Args:
+        - feature_tab_name - the name of the tab/worksheet containing the features (aka categories)
+        - people_tab_name - the name of the tab/worksheet containing the people to select from
+        - already_selected_tab_name (optional) - the name of the tab/worksheet containing people who have already been selected
+        - id_column (optional) - the name of the column containing the ID. Only required if already_selected_tab_name is set
+        - auth_json_path - path to the file containing the google service account details.
+        """
         self.feature_tab_name = feature_tab_name
         self.people_tab_name = people_tab_name
         self.already_selected_tab_name = already_selected_tab_name
+        self.id_column = id_column
         self.auth_json_path = auth_json_path
         self._client: gspread.client.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
@@ -652,8 +667,9 @@ class GSheetDataSource(AbstractDataSource):
         self._report.add_message("reading_gsheet_tab", tab_name=self.people_tab_name)
         yield people_head, people_body
 
-    def _find_header_row(
-        self, all_values: gspread.ValueRange | list[list[Any]], min_headers: int = 3
+    @staticmethod
+    def find_header_row(
+        all_values: gspread.ValueRange | list[list[Any]], id_column: str, min_headers: int = 5
     ) -> tuple[int, list[str]]:
         """
         Find the first row that looks like a header row in the worksheet.
@@ -663,6 +679,7 @@ class GSheetDataSource(AbstractDataSource):
 
         Args:
             worksheet: The worksheet to search
+            id_column: The text for the id_column - from settings
             min_headers: Minimum number of non-empty cells to consider a row as headers (default: 3)
 
         Returns:
@@ -671,12 +688,32 @@ class GSheetDataSource(AbstractDataSource):
         # Find the first row with enough non-empty cells to be a header row
         for row_idx, row in enumerate(all_values, start=1):
             # Count non-empty cells in this row
-            non_empty_cells = [cell.strip() for cell in row if cell and cell.strip()]
-            if len(non_empty_cells) >= min_headers:
+            non_empty_cells = [str(cell).strip() for cell in row if cell and str(cell).strip()]
+            # also check if the id_column is in this row
+            if len(non_empty_cells) >= min_headers and id_column in non_empty_cells:
                 return row_idx, list(row)
 
         # If no suitable header row found, return empty
         return 1, []
+
+    @staticmethod
+    def get_valid_people_rows(
+        entire_sheet: list[list[str]], header_row_num: int, min_values: int = 5
+    ) -> list[list[str]]:
+        """
+        Find all rows under the header row that contain at least 3 values.
+
+        Sometimes in the spreadsheet there will be a comment in a cell underneath all the valid rows.
+        We should ignore such rows rather than attempt to convert them into an element of People.
+        """
+        all_rows_under_header = entire_sheet[header_row_num:]
+        all_valid_rows: list[list[str]] = []
+        for row in all_rows_under_header:
+            # Count non-empty cells in this row
+            non_empty_cells = [str(cell).strip() for cell in row if cell and str(cell).strip()]
+            if len(non_empty_cells) > min_values:
+                all_valid_rows.append(row)
+        return all_valid_rows
 
     @contextmanager
     def read_already_selected_data(
@@ -712,10 +749,10 @@ class GSheetDataSource(AbstractDataSource):
         tab_already_selected = self.spreadsheet.worksheet(self.already_selected_tab_name)
 
         # Get all values from the sheet
-        all_values = tab_already_selected.get_all_values(value_render_option=ValueRenderOption.unformatted)
+        all_values = tab_already_selected.get(value_render_option=ValueRenderOption.unformatted, pad_values=True)
 
         # Find which row contains the headers
-        header_row_num, already_selected_head = self._find_header_row(all_values)
+        header_row_num, already_selected_head = self.find_header_row(all_values, self.id_column)
 
         # If no header row found or it's empty, return empty data
         if not already_selected_head or not any(cell.strip() for cell in already_selected_head):
@@ -725,16 +762,24 @@ class GSheetDataSource(AbstractDataSource):
             yield [], []
             return
 
-        # the numericise_ignore doesn't convert the phone numbers to ints...
-        # 1 Oct 2024: the final argument with expected_headers is to deal with the fact that
-        # updated versions of gspread can't cope with duplicate headers
-        already_selected_body = _stringify_records(
-            tab_already_selected.get_all_records(
-                head=header_row_num,
-                numericise_ignore=["all"],
-                expected_headers=[],
+        counts = Counter(already_selected_head)
+        header_dupes = [item for item in counts if item and counts[item] > 1]
+        if header_dupes:
+            msg = f"the header row in the {self.already_selected_tab_name} tab contains duplicates: {header_dupes}"
+            raise SelectionError(
+                message=msg,
+                error_code="already_selected_duplicate_headers",
+                error_params={
+                    "tab_name": self.already_selected_tab_name,
+                    "duplicates": ", ".join(header_dupes),
+                },
             )
-        )
+
+        entire_sheet = tab_already_selected.get(pad_values=True)
+        already_selected_people = self.get_valid_people_rows(entire_sheet, header_row_num)
+        already_selected_body = _stringify_records([
+            dict(zip(already_selected_head, row, strict=False)) for row in already_selected_people
+        ])
         self._report.add_message(
             "reading_already_selected_tab", tab_name=self.already_selected_tab_name, header_row=header_row_num
         )

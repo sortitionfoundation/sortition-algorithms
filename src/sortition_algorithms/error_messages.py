@@ -40,6 +40,9 @@ ERROR_MESSAGES = {
         "Error in Google sheet: no tab called '%(tab_name)s' found in spreadsheet '%(spreadsheet_title)s'."
     ),
     "variables_without_value": N_("It seems like some variables do not have a value. Original exception: %(error)s."),
+    "already_selected_duplicate_headers": N_(
+        "the header row in the %(tab_name)s tab contains duplicates: %(duplicates)s"
+    ),
     # ValueError messages
     "test_selection_multiple_selections": N_(
         "Running the test selection does not support generating a transparent lottery, so, if "

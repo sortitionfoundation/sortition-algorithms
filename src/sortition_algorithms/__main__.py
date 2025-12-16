@@ -206,14 +206,15 @@ def gsheet(
     """Do sortition with Google Spreadsheets."""
     if verbose:
         set_log_level(logging.DEBUG)
+    settings_obj, report = Settings.load_from_file(Path(settings))
     data_source = adapters.GSheetDataSource(
         feature_tab_name=feature_tab_name,
         people_tab_name=people_tab_name,
         already_selected_tab_name=already_selected_tab_name,
+        id_column=settings_obj.id_column,
         auth_json_path=Path(auth_json_file),
     )
     select_data = adapters.SelectionData(data_source, gen_rem_tab=gen_rem_tab)
-    settings_obj, report = Settings.load_from_file(Path(settings))
     echo_report(report)
 
     data_source.set_g_sheet_name(gsheet_name)
