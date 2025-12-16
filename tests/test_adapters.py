@@ -812,3 +812,340 @@ def test_gsheet_read_already_selected_no_tab_name():
         assert list(headers) == []
         assert list(body) == []
     assert "No already selected tab specified" in report.as_text()
+
+
+# Tests for GSheetDataAdapter.find_header_row()
+
+
+def test_find_header_row_happy_path():
+    """
+    Test find_header_row finds correct row when id_column is present and has sufficient headers.
+    """
+    all_values = [
+        ["Title Row"],
+        ["", "", ""],
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+        ["p2", "Bob", "bob@example.com", "Male", "35-44", "456 Oak Ave"],
+    ]
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=5)
+    assert row_num == 3
+    assert headers == ["id", "name", "email", "gender", "age", "address"]
+
+
+def test_find_header_row_first_row():
+    """
+    Test find_header_row when header row is the first row.
+    """
+    all_values = [
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+    ]
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=3)
+    assert row_num == 1
+    assert headers == ["id", "name", "email", "gender", "age", "address"]
+
+
+def test_find_header_row_with_whitespace_cells():
+    """
+    Test that cells with only whitespace are treated as empty.
+    """
+    all_values = [
+        ["id", "name", "  ", "gender", "   \t  ", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+    ]
+    # Should have 4 non-empty cells (id, name, gender, address), not enough for min_headers=5
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=5)
+    assert row_num == 1
+    assert headers == []
+
+
+def test_find_header_row_with_numbers():
+    """
+    Test that numeric values in cells are handled correctly.
+    """
+    all_values = [
+        [123, 456, 789, "id", "name", "email"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+    ]
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=5)
+    assert row_num == 1
+    assert headers == [123, 456, 789, "id", "name", "email"]
+
+
+def test_find_header_row_id_column_not_found():
+    """
+    Test that find_header_row returns empty when id_column is not in any row.
+    """
+    all_values = [
+        ["person_id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+    ]
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=3)
+    assert row_num == 1
+    assert headers == []
+
+
+def test_find_header_row_insufficient_headers():
+    """
+    Test that find_header_row returns empty when no row has enough non-empty cells.
+    """
+    all_values = [
+        ["id", "name"],
+        ["p1", "Alice"],
+    ]
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=5)
+    assert row_num == 1
+    assert headers == []
+
+
+def test_find_header_row_empty_input():
+    """
+    Test find_header_row with empty input.
+    """
+    all_values = []
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=3)
+    assert row_num == 1
+    assert headers == []
+
+
+def test_find_header_row_custom_min_headers():
+    """
+    Test find_header_row with custom min_headers value.
+    """
+    all_values = [
+        ["id", "name", "email"],
+        ["p1", "Alice", "alice@example.com"],
+    ]
+    # Should not find with min_headers=5
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=5)
+    assert row_num == 1
+    assert headers == []
+
+    # Should find with min_headers=3
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=3)
+    assert row_num == 1
+    assert headers == ["id", "name", "email"]
+
+
+def test_find_header_row_skips_empty_rows():
+    """
+    Test that find_header_row skips empty or nearly-empty rows.
+    """
+    all_values = [
+        [],
+        ["", ""],
+        ["  ", "  ", "  "],
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+    ]
+    row_num, headers = GSheetDataSource.find_header_row(all_values, "id", min_headers=5)
+    assert row_num == 4
+    assert headers == ["id", "name", "email", "gender", "age", "address"]
+
+
+# Tests for GSheetDataAdapter.get_valid_people_rows()
+
+
+def test_get_valid_people_rows_happy_path():
+    """
+    Test get_valid_people_rows returns rows with sufficient non-empty values.
+    """
+    entire_sheet = [
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+        ["p2", "Bob", "bob@example.com", "Male", "35-44", "456 Oak Ave"],
+        ["p3", "Charlie", "charlie@example.com", "Male", "45-54", "789 Pine Rd"],
+    ]
+    rows = list(GSheetDataSource.get_valid_people_rows(entire_sheet, header_row_num=1, min_values=5))
+    assert len(rows) == 3
+    assert rows[0] == ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"]
+    assert rows[1] == ["p2", "Bob", "bob@example.com", "Male", "35-44", "456 Oak Ave"]
+    assert rows[2] == ["p3", "Charlie", "charlie@example.com", "Male", "45-54", "789 Pine Rd"]
+
+
+def test_get_valid_people_rows_filters_insufficient_values():
+    """
+    Test that get_valid_people_rows filters out rows with too few non-empty values.
+    """
+    entire_sheet = [
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+        ["p2", "Bob"],
+        ["p3", "Charlie", "charlie@example.com", "Male", "45-54", "789 Pine Rd"],
+        ["", "", ""],
+    ]
+    rows = list(GSheetDataSource.get_valid_people_rows(entire_sheet, header_row_num=1, min_values=5))
+    assert len(rows) == 2
+    assert rows[0][0] == "p1"
+    assert rows[1][0] == "p3"
+
+
+def test_get_valid_people_rows_with_whitespace():
+    """
+    Test that cells with only whitespace are treated as empty.
+    """
+    entire_sheet = [
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+        ["p2", "  ", "  ", "  ", "  ", "  "],
+        ["p3", "Charlie", "charlie@example.com", "Male", "45-54", "789 Pine Rd"],
+    ]
+    rows = list(GSheetDataSource.get_valid_people_rows(entire_sheet, header_row_num=1, min_values=5))
+    assert len(rows) == 2
+    assert rows[0][0] == "p1"
+    assert rows[1][0] == "p3"
+
+
+def test_get_valid_people_rows_empty_after_header():
+    """
+    Test get_valid_people_rows when there are no valid rows after header.
+    """
+    entire_sheet = [
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice"],
+        ["", ""],
+    ]
+    rows = list(GSheetDataSource.get_valid_people_rows(entire_sheet, header_row_num=1, min_values=5))
+    assert len(rows) == 0
+
+
+def test_get_valid_people_rows_header_not_at_start():
+    """
+    Test get_valid_people_rows when header row is not the first row.
+    """
+    entire_sheet = [
+        ["Title Row"],
+        [""],
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+        ["p2", "Bob", "bob@example.com", "Male", "35-44", "456 Oak Ave"],
+    ]
+    rows = list(GSheetDataSource.get_valid_people_rows(entire_sheet, header_row_num=3, min_values=5))
+    assert len(rows) == 2
+    assert rows[0][0] == "p1"
+    assert rows[1][0] == "p2"
+
+
+def test_get_valid_people_rows_custom_min_values():
+    """
+    Test get_valid_people_rows with custom min_values.
+    """
+    entire_sheet = [
+        ["id", "name", "email"],
+        ["p1", "Alice", "alice@example.com"],
+        ["p2", "Bob", "bob@example.com"],
+    ]
+    # Should find no rows with min_values=5
+    rows = list(GSheetDataSource.get_valid_people_rows(entire_sheet, header_row_num=1, min_values=5))
+    assert len(rows) == 0
+
+    # Should find both rows with min_values=2
+    rows = list(GSheetDataSource.get_valid_people_rows(entire_sheet, header_row_num=1, min_values=2))
+    assert len(rows) == 2
+
+
+def test_get_valid_people_rows_with_comment_row():
+    """
+    Test that comment rows with few values are filtered out.
+    """
+    entire_sheet = [
+        ["id", "name", "email", "gender", "age", "address"],
+        ["p1", "Alice", "alice@example.com", "Female", "25-34", "123 Main St"],
+        ["p2", "Bob", "bob@example.com", "Male", "35-44", "456 Oak Ave"],
+        ["Note: Some comment here"],
+    ]
+    rows = list(GSheetDataSource.get_valid_people_rows(entire_sheet, header_row_num=1, min_values=5))
+    assert len(rows) == 2
+    assert rows[0][0] == "p1"
+    assert rows[1][0] == "p2"
+
+
+# Tests for GSheetDataAdapter.check_header_duplicates()
+
+
+def test_check_header_duplicates_no_duplicates():
+    """
+    Test check_header_duplicates passes when there are no duplicates.
+    """
+    headers = ["id", "name", "email", "gender", "age", "address"]
+    # Should not raise
+    GSheetDataSource.check_header_duplicates(headers, "TestTab")
+
+
+def test_check_header_duplicates_with_duplicates():
+    """
+    Test check_header_duplicates raises error when there are duplicate headers.
+    """
+    headers = ["id", "name", "email", "name", "age", "address"]
+    with pytest.raises(SelectionError) as excinfo:
+        GSheetDataSource.check_header_duplicates(headers, "TestTab")
+    error = excinfo.value
+    assert "TestTab" in error.message
+    assert "name" in error.message
+    assert error.error_code == "already_selected_duplicate_headers"
+    assert error.error_params["tab_name"] == "TestTab"
+    assert "name" in error.error_params["duplicates"]
+
+
+def test_check_header_duplicates_ignores_empty_strings():
+    """
+    Test that check_header_duplicates ignores empty string headers.
+    """
+    headers = ["id", "name", "", "email", "", "address"]
+    # Should not raise - empty strings are ignored
+    GSheetDataSource.check_header_duplicates(headers, "TestTab")
+
+
+def test_check_header_duplicates_multiple_duplicates():
+    """
+    Test check_header_duplicates with multiple different duplicate headers.
+    """
+    headers = ["id", "name", "email", "name", "email", "address"]
+    with pytest.raises(SelectionError) as excinfo:
+        GSheetDataSource.check_header_duplicates(headers, "TestTab")
+    error = excinfo.value
+    assert "name" in error.message or "name" in error.error_params["duplicates"]
+    assert "email" in error.message or "email" in error.error_params["duplicates"]
+
+
+def test_check_header_duplicates_triple_duplicate():
+    """
+    Test check_header_duplicates when a header appears three times.
+    """
+    headers = ["id", "name", "name", "name", "email"]
+    with pytest.raises(SelectionError) as excinfo:
+        GSheetDataSource.check_header_duplicates(headers, "TestTab")
+    error = excinfo.value
+    assert "name" in error.message
+
+
+def test_check_header_duplicates_case_sensitive():
+    """
+    Test that check_header_duplicates is case-sensitive (different cases are different headers).
+    """
+    headers = ["id", "Name", "name", "email"]
+    # Should not raise - "Name" and "name" are different (case-sensitive)
+    GSheetDataSource.check_header_duplicates(headers, "TestTab")
+
+
+def test_check_header_duplicates_all_empty():
+    """
+    Test check_header_duplicates with all empty headers.
+    """
+    headers = ["", "", ""]
+    # Should not raise - empty strings are ignored
+    GSheetDataSource.check_header_duplicates(headers, "TestTab")
+
+
+def test_check_header_duplicates_error_message_format():
+    """
+    Test that check_header_duplicates error message is properly formatted.
+    """
+    headers = ["id", "name", "email", "name"]
+    with pytest.raises(SelectionError) as excinfo:
+        GSheetDataSource.check_header_duplicates(headers, "AlreadySelectedTab")
+    error = excinfo.value
+    assert "AlreadySelectedTab" in error.message
+    assert "duplicate" in error.message.lower()
+    assert error.error_code == "already_selected_duplicate_headers"

@@ -39,6 +39,15 @@ def _stringify_records(
     return new_records
 
 
+def _non_empty_cells(records: Iterable[str | float] | Iterable[str]) -> list[str]:
+    """
+    Take a list of strings and numbers and return the cells that are non-empty.
+    A string with only whitespace counts as empty.
+    Convert all numbers to strings.
+    """
+    return [str(cell).strip() for cell in records if cell and str(cell).strip()]
+
+
 def generate_dupes(  # noqa: C901
     people_remaining_rows: list[list[str]],
     people_selected_rows: list[list[str]],
@@ -688,7 +697,7 @@ class GSheetDataSource(AbstractDataSource):
         # Find the first row with enough non-empty cells to be a header row
         for row_idx, row in enumerate(all_values, start=1):
             # Count non-empty cells in this row
-            non_empty_cells = [str(cell).strip() for cell in row if cell and str(cell).strip()]
+            non_empty_cells = _non_empty_cells(row)
             # also check if the id_column is in this row
             if len(non_empty_cells) >= min_headers and id_column in non_empty_cells:
                 return row_idx, list(row)
@@ -699,7 +708,7 @@ class GSheetDataSource(AbstractDataSource):
     @staticmethod
     def get_valid_people_rows(
         entire_sheet: list[list[str]], header_row_num: int, min_values: int = 5
-    ) -> list[list[str]]:
+    ) -> Generator[list[str]]:
         """
         Find all rows under the header row that contain at least 3 values.
 
@@ -707,13 +716,24 @@ class GSheetDataSource(AbstractDataSource):
         We should ignore such rows rather than attempt to convert them into an element of People.
         """
         all_rows_under_header = entire_sheet[header_row_num:]
-        all_valid_rows: list[list[str]] = []
         for row in all_rows_under_header:
             # Count non-empty cells in this row
-            non_empty_cells = [str(cell).strip() for cell in row if cell and str(cell).strip()]
+            non_empty_cells = _non_empty_cells(row)
             if len(non_empty_cells) > min_values:
-                all_valid_rows.append(row)
-        return all_valid_rows
+                yield row
+
+    @staticmethod
+    def check_header_duplicates(already_selected_head: list[str], already_selected_tab_name: str) -> None:
+        counts = Counter(already_selected_head)
+        # note that we ignore empty strings when checking for duplicates
+        header_dupes = [item for item in counts if item and counts[item] > 1]
+        if header_dupes:
+            msg = f"the header row in the {already_selected_tab_name} tab contains duplicates: {header_dupes}"
+            raise SelectionError(
+                message=msg,
+                error_code="already_selected_duplicate_headers",
+                error_params={"tab_name": already_selected_tab_name, "duplicates": ", ".join(header_dupes)},
+            )
 
     @contextmanager
     def read_already_selected_data(
@@ -762,23 +782,11 @@ class GSheetDataSource(AbstractDataSource):
             yield [], []
             return
 
-        counts = Counter(already_selected_head)
-        header_dupes = [item for item in counts if item and counts[item] > 1]
-        if header_dupes:
-            msg = f"the header row in the {self.already_selected_tab_name} tab contains duplicates: {header_dupes}"
-            raise SelectionError(
-                message=msg,
-                error_code="already_selected_duplicate_headers",
-                error_params={
-                    "tab_name": self.already_selected_tab_name,
-                    "duplicates": ", ".join(header_dupes),
-                },
-            )
+        self.check_header_duplicates(already_selected_head, self.already_selected_tab_name)
 
-        entire_sheet = tab_already_selected.get(pad_values=True)
-        already_selected_people = self.get_valid_people_rows(entire_sheet, header_row_num)
         already_selected_body = _stringify_records([
-            dict(zip(already_selected_head, row, strict=False)) for row in already_selected_people
+            dict(zip(already_selected_head, row, strict=False))
+            for row in self.get_valid_people_rows(all_values, header_row_num)
         ])
         self._report.add_message(
             "reading_already_selected_tab", tab_name=self.already_selected_tab_name, header_row=header_row_num
