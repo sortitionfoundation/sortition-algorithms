@@ -173,6 +173,7 @@ Different algorithms optimize for different fairness criteria:
 **Trade-offs**:
 
 - Does not focus on individual fairness, only on panel composition
+- Does not generate multiple committees with different probabilities, only one optimal committee
 
 **Example scenario**: An assembly focused on social or community issues where diverse perspectives are critical.
 
@@ -222,6 +223,7 @@ The chosen algorithm finds an optimal probability distribution over possible com
 ### 3. Lottery Rounding
 
 The probability distribution is converted to concrete selections using randomized rounding.
+(This step is skipped for Diverimax, which produces a single optimal committee directly.)
 
 ### 4. Validation
 

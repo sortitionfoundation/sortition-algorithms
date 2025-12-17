@@ -292,6 +292,12 @@ def find_random_sample(
             "so `number_selections` must be set to 1."
         )
         raise ValueError(msg, "legacy_multiple_selections", {})
+    if selection_algorithm == "diversimax" and number_selections != 1:
+        msg = (
+            "The diversimax algorithm does not support generating multiple committees, "
+            "so `number_selections` must be set to 1."
+        )
+        raise ValueError(msg, "diversimax_multiple_selections", {})
 
     # Quick test selection using find_any_committee
     if test_selection:

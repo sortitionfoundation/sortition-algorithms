@@ -1,5 +1,6 @@
 import itertools
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 import mip
@@ -76,7 +77,7 @@ class DiversityOptimizer:
         self.all_ohe = self.create_all_one_hot_encodings()
 
     @staticmethod
-    def _intersection_name(category_names: tuple | list) -> str:
+    def _intersection_name(category_names: Iterable[str]) -> str:
         return "__".join(category_names)
 
     def _prepare_features_data(self, features_names: tuple) -> IntersectionData:
