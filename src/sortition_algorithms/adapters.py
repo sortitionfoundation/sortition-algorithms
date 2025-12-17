@@ -694,6 +694,7 @@ class GSheetDataSource(AbstractDataSource):
         Returns:
             Tuple of (row_number, header_values) where row_number is 1-indexed
         """
+        # TODO: some logging of non-empty rows that we skipped
         # Find the first row with enough non-empty cells to be a header row
         for row_idx, row in enumerate(all_values, start=1):
             # Count non-empty cells in this row
@@ -715,6 +716,7 @@ class GSheetDataSource(AbstractDataSource):
         Sometimes in the spreadsheet there will be a comment in a cell underneath all the valid rows.
         We should ignore such rows rather than attempt to convert them into an element of People.
         """
+        # TODO: some logging of non-empty rows that we skipped
         all_rows_under_header = entire_sheet[header_row_num:]
         for row in all_rows_under_header:
             # Count non-empty cells in this row
