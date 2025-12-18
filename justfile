@@ -4,14 +4,14 @@ default: testfast
 install:
 	@echo "🚀 Creating virtual environment using uv"
 	@uv sync
-	@uv run pre-commit install
+	@uv tool install prek
 
 # Run code quality tools.
 check:
 	@echo "🚀 Checking lock file consistency with 'pyproject.toml'"
 	@uv lock --locked
-	@echo "🚀 Linting code: Running pre-commit"
-	@uv run pre-commit run -a
+	@echo "🚀 Linting code: Running prek (pre-commit)"
+	@uv tool run prek run -a
 	@echo "🚀 Static type checking: Running mypy"
 	@uv run mypy
 	@echo "🚀 Checking for obsolete dependencies: Running deptry"

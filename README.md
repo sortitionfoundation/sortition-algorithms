@@ -104,7 +104,7 @@ The recommended prerequisites are:
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - [justfile](https://github.com/casey/just?tab=readme-ov-file#installation)
-- [pre-commit](https://pre-commit.com/)
+- [prek](https://prek.j178.dev/) (pre-commit clone in rust)
 
 ### Set Up
 

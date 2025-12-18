@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/cache@v4
         with:
-          path: ~/.cache/pre-commit
+          path: ~/.cache/prek
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Set up the environment

@@ -23,8 +23,8 @@ uv run python -m pytest -k "test_name"          # Run specific test
 ### Code Quality
 
 ```bash
-just check             # Run all quality checks (pre-commit, mypy, deptry)
-uv run pre-commit run -a  # Run formatting and linting
+just check             # Run all quality checks (pre-commit using prek, mypy, deptry)
+uv tool run prek run -a  # Run formatting and linting
 uv run mypy            # Type checking
 uv run deptry src      # Check for unused dependencies
 ```
