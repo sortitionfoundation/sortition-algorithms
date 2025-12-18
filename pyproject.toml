@@ -30,7 +30,6 @@ dependencies = [
   "requests>=2.32.0",
   "tabulate>=0.9.0",
   "pandas==2.3.3",
-  "pandas-stubs>=2.0.0",
   "scikit-learn==1.7.2",
 ]
 
@@ -61,6 +60,7 @@ dev = [
   "types-tabulate>=0.9.0.20241207",
   "tomli-w>=1.2.0",
   "types-requests>=2.32.4.20250913",
+  "pandas-stubs>=2.3.3.251201",
 ]
 
 [build-system]
@@ -175,6 +175,9 @@ skip_empty = true
 [tool.coverage.run]
 branch = true
 source = ["src"]
+
+[tool.deptry.package_module_name_map]
+gurobipy = "gurobipy"
 
 [tool.typos.default.extend-words]
 # used for 'strat select' - short for stratification

@@ -48,7 +48,7 @@ def _non_empty_cells(records: Iterable[str | float] | Iterable[str]) -> list[str
     return [str(cell).strip() for cell in records if cell and str(cell).strip()]
 
 
-def generate_dupes(  # noqa: C901
+def generate_dupes(
     people_remaining_rows: list[list[str]],
     people_selected_rows: list[list[str]],
     settings: Settings,

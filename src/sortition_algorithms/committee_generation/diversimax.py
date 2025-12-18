@@ -80,7 +80,7 @@ class DiversityOptimizer:
     def _intersection_name(category_names: Iterable[str]) -> str:
         return "__".join(category_names)
 
-    def _prepare_features_data(self, features_names: tuple) -> IntersectionData:
+    def _prepare_features_data(self, features_names: InteractionNamesTuple) -> IntersectionData:
         """
         Prepares the data for a given set of features.
         Makes all the possible intersections between the features' category names (e.g. male__18-24__highschool)
@@ -110,7 +110,7 @@ class DiversityOptimizer:
             for i in range(1, self.pool_members_df.shape[1] + 1)
         ]
         all_dims_combs: list[InteractionNamesTuple] = [x for y in all_dims_combs_iterators for x in y]
-        data = {}
+        data: dict[InteractionNamesTuple, IntersectionData] = {}
         for features_intersections in all_dims_combs:
             try:
                 data[features_intersections] = self._prepare_features_data(features_intersections)
@@ -138,7 +138,7 @@ class DiversityOptimizer:
             all_ohe.append(ohe_values)
         return all_ohe
 
-    def optimize(self) -> tuple[mip.Model, frozenset]:
+    def optimize(self) -> tuple[mip.Model, frozenset[str]]:
         """
         Uses MIP to optimize based on the categories constraints
 
