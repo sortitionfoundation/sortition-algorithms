@@ -13,6 +13,7 @@ from sortition_algorithms.committee_generation import (
     find_random_sample_legacy,
     standardize_distribution,
 )
+from sortition_algorithms.committee_generation.diversimax import find_distribution_diversimax
 from sortition_algorithms.features import FeatureCollection, check_desired
 from sortition_algorithms.people import (
     People,
@@ -291,6 +292,12 @@ def find_random_sample(
             "so `number_selections` must be set to 1."
         )
         raise ValueError(msg, "legacy_multiple_selections", {})
+    if selection_algorithm == "diversimax" and number_selections != 1:
+        msg = (
+            "The diversimax algorithm does not support generating multiple committees, "
+            "so `number_selections` must be set to 1."
+        )
+        raise ValueError(msg, "diversimax_multiple_selections", {})
 
     # Quick test selection using find_any_committee
     if test_selection:
@@ -324,10 +331,16 @@ def find_random_sample(
         committees, probabilities, new_report = find_distribution_nash(
             features, people, number_people_wanted, check_same_address_columns
         )
+    elif selection_algorithm == "diversimax":
+        selected_ids, new_report = find_distribution_diversimax(
+            features, people, number_people_wanted, check_same_address_columns
+        )
+        report.add_report(new_report)
+        return [selected_ids], report
     else:
         msg = (
             f"Unknown selection algorithm {selection_algorithm!r}, must be either 'legacy', 'leximin', "
-            f"'maximin', or 'nash'."
+            f"'maximin', 'diversimax', or 'nash'."
         )
         raise ValueError(msg, "unknown_selection_algorithm", {"algorithm": selection_algorithm})
 

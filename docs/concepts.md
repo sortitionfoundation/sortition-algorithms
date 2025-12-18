@@ -160,6 +160,24 @@ Different algorithms optimize for different fairness criteria:
 
 **Example scenario**: Government-sponsored citizen assembly where mathematical proof of fairness is required.
 
+### Diverimax
+
+**Objective**: Maximize the diversity of the panel, preferring as many unique profiles as possible
+
+**When to use**:
+
+- Ensures no group is severely underrepresented
+- Tries to make all groups AND all intersections of groups (e.g Black, Woman, High income) as represented as possible
+- Enhances deliberative quality by maximizing the number of unique perspectives
+
+**Trade-offs**:
+
+- Does not focus on individual fairness, only on panel composition
+- Does not generate multiple committees with different probabilities, only one optimal committee
+
+**Example scenario**: An assembly focused on social or community issues where diverse perspectives are critical.
+
+
 ### Legacy
 
 **Objective**: Backwards compatibility with earlier implementations.
@@ -178,6 +196,8 @@ Different algorithms optimize for different fairness criteria:
 ### Research Background
 
 The algorithms are described in [this paper (open access)](https://www.nature.com/articles/s41586-021-03788-6).
+
+DiversiMax is described [here](https://orenmatar.github.io/diversimax_algorithm/).
 
 Other relevant papers:
 
@@ -203,6 +223,7 @@ The chosen algorithm finds an optimal probability distribution over possible com
 ### 3. Lottery Rounding
 
 The probability distribution is converted to concrete selections using randomized rounding.
+(This step is skipped for Diverimax, which produces a single optimal committee directly.)
 
 ### 4. Validation
 

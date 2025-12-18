@@ -23,7 +23,7 @@ Sortition creates representative groups by randomly selecting people while respe
 
 - **Stratified Random Selection**: Respects demographic quotas while maintaining randomness
 - **Household Diversity**: Optional address checking to ensure geographic and household spread
-- **Multiple Algorithms**: Choose from maximin, leximin, nash, or legacy selection methods
+- **Multiple Algorithms**: Choose from maximin, leximin, nash, diversimax, or legacy selection methods
 - **Flexible Data Sources**: Works with CSV files, Google Sheets, or direct Python data structures
 - **Transparency**: Detailed reporting of selection process and quota fulfillment
 

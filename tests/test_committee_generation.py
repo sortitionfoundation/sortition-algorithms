@@ -12,6 +12,8 @@ from sortition_algorithms.committee_generation import (
     find_distribution_maximin,
     find_distribution_nash,
 )
+from sortition_algorithms.committee_generation.diversimax import find_distribution_diversimax
+from sortition_algorithms.core import _check_category_selected
 from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import normalise_dict
@@ -594,3 +596,104 @@ def test_nash_no_address_example6() -> None:
     assert marginals["p61"] == 0
     for i in range(1, 61):
         assert abs(marginals["p" + str(i)] - 46 / 60) < 10 ** (-precision)
+
+
+# Diversimax Algorithm Tests
+
+
+@pytest.mark.slow
+def test_diversimax_no_address_example1() -> None:
+    """Test diversimax without address constraints on example1."""
+    features = deepcopy(example1.features)
+    people = example1.people
+    address_columns = []
+    number_people_wanted = example1.number_people_wanted
+
+    selected_ids, _ = find_distribution_diversimax(
+        features,
+        people,
+        number_people_wanted,
+        address_columns,
+    )
+
+    _check_category_selected(features, people, [selected_ids], 1)
+
+
+@pytest.mark.slow
+def test_diversimax_with_address_example1() -> None:
+    """Test diversimax with address constraints on example1."""
+    features = deepcopy(example1.features)
+    people = example1.people
+    number_people_wanted = example1.number_people_wanted
+
+    selected_ids, _ = find_distribution_diversimax(
+        features,
+        people,
+        number_people_wanted,
+        example1.address_columns,
+    )
+
+    _check_category_selected(features, people, [selected_ids], 1)
+
+
+@pytest.mark.slow
+def test_diversimax_no_address_example3() -> None:
+    """Test maximin without address constraints on example3."""
+    features = deepcopy(example3.features)
+    people = example3.people
+    number_people_wanted = example3.number_people_wanted
+
+    selected_ids, _ = find_distribution_diversimax(
+        features,
+        people,
+        number_people_wanted,
+        example3.no_address_columns,
+    )
+
+    _check_category_selected(features, people, [selected_ids], 1)
+
+
+@pytest.mark.slow
+def test_diversimax_no_address_example4_infeasible() -> None:
+    """Test maximin on example4 which should be infeasible."""
+    features = deepcopy(example4.features)
+    people = example4.people
+    number_people_wanted = example4.number_people_wanted
+
+    # There are no feasible committees at all.
+    with pytest.raises(errors.InfeasibleQuotasCantRelaxError):
+        find_distribution_diversimax(features, people, number_people_wanted, example4.no_address_columns)
+
+
+@pytest.mark.slow
+def test_diversimax_no_address_example5() -> None:
+    """Test maximin without address constraints on example5."""
+    features = deepcopy(example5.features)
+    people = example5.people
+    number_people_wanted = example5.number_people_wanted
+
+    selected_ids, _ = find_distribution_diversimax(
+        features,
+        people,
+        number_people_wanted,
+        example5.no_address_columns,
+    )
+
+    _check_category_selected(features, people, [selected_ids], 1)
+
+
+@pytest.mark.slow
+def test_diversimax_no_address_example6() -> None:
+    """Test maximin without address constraints on example5."""
+    features = deepcopy(example6.features)
+    people = example6.people
+    number_people_wanted = example6.number_people_wanted
+
+    selected_ids, _ = find_distribution_diversimax(
+        features,
+        people,
+        number_people_wanted,
+        example6.no_address_columns,
+    )
+
+    _check_category_selected(features, people, [selected_ids], 1)
