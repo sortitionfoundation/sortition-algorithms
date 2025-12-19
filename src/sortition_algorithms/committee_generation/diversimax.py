@@ -140,7 +140,7 @@ class DiversityOptimizer:
         The values are 0/1 if the person is in that intersection or not.
         i.e. The number of columns is the number of combinations we have between the features: product of their sizes.
         """
-        all_ohe = []
+        all_ohe: list[np.ndarray] = []
         for dims in self.intersections_data.all_dims_combs:
             intersection_data: IntersectionData = self.intersections_data.data[dims]
             possible_profiles = intersection_data.intersections_names
@@ -157,7 +157,7 @@ class DiversityOptimizer:
             all_ohe.append(ohe_values)
         return all_ohe
 
-    def optimize(self, max_seconds: int = 30, accepted_gap=0.1) -> tuple[mip.Model, frozenset[str]]:
+    def optimize(self, max_seconds: int = 30, accepted_gap: float = 0.1) -> tuple[mip.Model, frozenset[str]]:
         """
         Uses MIP to optimize based on the categories constraints
 
@@ -230,7 +230,7 @@ class DiversityOptimizer:
             return m, selected_ids_set
         return m, frozenset()
 
-    def log_problem_stats(self):
+    def log_problem_stats(self) -> None:
         logger.info(f"Features: {len(self.pool_members_df.columns)}")
         logger.info(f"Feature combinations considered: {len(self.intersections_data.all_dims_combs)}")
         logger.info(f"  Number of OHE matrices: {len(self.all_ohe)}")
