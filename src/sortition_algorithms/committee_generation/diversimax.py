@@ -13,7 +13,7 @@ from sortition_algorithms import errors
 from sortition_algorithms.committee_generation.common import _relax_infeasible_quotas
 from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import RunReport
+from sortition_algorithms.utils import RunReport, logger
 
 InteractionNamesTuple = tuple[str, ...]
 
@@ -42,18 +42,30 @@ def find_distribution_diversimax(
     report = RunReport()
     report.add_line_and_log("Using Diversimax algorithm.", log_level=logging.INFO)
     optimizer = DiversityOptimizer(people, features, number_people_wanted, check_same_address_columns)
+    optimizer.log_problem_stats()
+
     model, selected_ids = optimizer.optimize()
-    if model.status == mip.OptimizationStatus.OPTIMAL:
-        report.add_line_and_log(
-            f"Diversimax optimization successful. Selected {len(selected_ids)} participants.",
-            log_level=logging.INFO,
-        )
+
+    # ===== HANDLE BOTH OPTIMAL AND FEASIBLE AS SUCCESS =====
+    if model.status in [mip.OptimizationStatus.OPTIMAL, mip.OptimizationStatus.FEASIBLE]:
+        if model.status == mip.OptimizationStatus.OPTIMAL:
+            report.add_line_and_log(
+                f"Diversimax optimization successful (optimal). Selected {len(selected_ids)} participants.",
+                log_level=logging.INFO,
+            )
+        else:  # FEASIBLE
+            report.add_line_and_log(
+                f"Diversimax optimization successful (feasible, gap {model.gap:.1%}). Selected {len(selected_ids)} participants.",
+                log_level=logging.INFO,
+            )
         return selected_ids, report
+
     elif model.status == mip.OptimizationStatus.INFEASIBLE:
         relaxed_features, output_lines = _relax_infeasible_quotas(
             features, people, number_people_wanted, check_same_address_columns
         )
         raise errors.InfeasibleQuotasError(relaxed_features, output_lines)
+
     else:
         msg = (
             f"No feasible committees found, solver returns code {model.status} (see "
@@ -69,7 +81,10 @@ class DiversityOptimizer:
         self.people = people
         # convert people to dataframe
         people_df = pd.DataFrame.from_dict(dict(people.items()), orient="index")
-        self.pool_members_df = people_df[features.keys()]  # keep only feature columns
+        people_df = people_df.rename(columns=str.lower)
+        people_df = people_df.map(lambda x: x.lower() if isinstance(x, str) else x)  # normalize to lower case
+
+        self.pool_members_df = people_df[(k.lower() for k in features)]  # keep only feature columns
         self.features = features
         self.panel_size = panel_size
         self.check_same_address_columns = check_same_address_columns
@@ -132,13 +147,17 @@ class DiversityOptimizer:
             # When there are too many intersections, each will have 0/1 people, and optimization is pointless + too slow
             if len(possible_profiles) > self.panel_size:
                 continue
+            if len(self.pool_members_df) / len(possible_profiles) < 2:
+                continue
+            if len(all_ohe) >= 50:  # limit to 50 different intersections to avoid too much computation
+                break
 
             ohe = OneHotEncoder(categories=[possible_profiles], sparse_output=False)
             ohe_values = ohe.fit_transform(intersection_data.intersection_member_values.reshape(-1, 1))
             all_ohe.append(ohe_values)
         return all_ohe
 
-    def optimize(self) -> tuple[mip.Model, frozenset[str]]:
+    def optimize(self, max_seconds: int = 30, accepted_gap=0.1) -> tuple[mip.Model, frozenset[str]]:
         """
         Uses MIP to optimize based on the categories constraints
 
@@ -151,6 +170,9 @@ class DiversityOptimizer:
         """
         df = self.pool_members_df
         m = mip.Model()
+        m.max_seconds = max_seconds
+        m.max_mip_gap = accepted_gap
+
         # binary variable for each person - if they are selected or not
         model_variables = []
         for person_id in df.index:
@@ -166,7 +188,7 @@ class DiversityOptimizer:
 
         # the sum of all people in each category must be between the min and max specified
         for feature_name, value_name, fv_minmax in iterate_feature_collection(self.features):
-            relevant_members = model_variables_series[df[feature_name] == value_name]
+            relevant_members = model_variables_series[df[feature_name.lower()] == value_name.lower()]
             rel_sum = xsum(relevant_members)
             m.add_constr(rel_sum >= fv_minmax.min)
             m.add_constr(rel_sum <= fv_minmax.max)
@@ -193,12 +215,32 @@ class DiversityOptimizer:
 
         obj = xsum(all_objectives)
         m.objective = minimize(obj)
-        m.optimize()
-        selected_ids = []
-        for person_id in df.index:
-            var = m.var_by_name(str(person_id))
-            if var.x == 1:
-                selected_ids.append(person_id)
-        selected_ids_set = frozenset(selected_ids)
 
-        return m, selected_ids_set
+        logger.info(f"Constraints: {m.num_cols} variables, {m.num_rows} constraints")
+        logger.info(f"Binary vars: {m.num_int}, Continuous vars: {m.num_cols - m.num_int}")
+
+        status = m.optimize()
+        if status in [mip.OptimizationStatus.OPTIMAL, mip.OptimizationStatus.FEASIBLE]:
+            selected_ids = []
+            for person_id in df.index:
+                var = m.var_by_name(str(person_id))
+                if var.x >= 0.99:  # ==1, for numerical stability
+                    selected_ids.append(person_id)
+            selected_ids_set = frozenset(selected_ids)
+            return m, selected_ids_set
+        return m, frozenset()
+
+    def log_problem_stats(self):
+        logger.info(f"Features: {len(self.pool_members_df.columns)}")
+        logger.info(f"Feature combinations considered: {len(self.intersections_data.all_dims_combs)}")
+        logger.info(f"  Number of OHE matrices: {len(self.all_ohe)}")
+
+        total_intersections = 0
+        for i, (dims, ohe) in enumerate(zip(self.intersections_data.all_dims_combs, self.all_ohe, strict=False)):
+            if i < len(self.all_ohe):  # Only show those that passed filtering
+                n_intersections = ohe.shape[1]
+                total_intersections += n_intersections
+                logger.info(f"  {dims}: {n_intersections} intersections")
+
+        logger.info(f"TOTAL INTERSECTIONS: {total_intersections}")
+        logger.info(f"BINARY VARIABLES: {len(self.pool_members_df)}")

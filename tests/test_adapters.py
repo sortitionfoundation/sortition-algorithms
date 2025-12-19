@@ -32,7 +32,11 @@ from tests.helpers import (
 )
 
 # only test leximin if gurobipy is available
-ALGORITHMS = ("legacy", "maximin", "leximin", "nash") if GUROBI_AVAILABLE else ("legacy", "maximin", "nash")
+ALGORITHMS = (
+    ("diversimax", "legacy", "maximin", "leximin", "nash")
+    if GUROBI_AVAILABLE
+    else ("diversimax", "legacy", "maximin", "nash")
+)
 PEOPLE_TO_SELECT = 22
 
 features_content = features_csv_path.read_text("utf8")
