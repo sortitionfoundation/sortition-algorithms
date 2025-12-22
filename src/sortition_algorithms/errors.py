@@ -1,5 +1,5 @@
 import html
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from attrs import define, field
 
@@ -23,6 +23,10 @@ class SortitionBaseError(Exception):
 
     def to_html(self) -> str:
         return html.escape(str(self))
+
+    def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
+        """Support pickling by returning constructor and arguments."""
+        return (self.__class__, (self.message, self.error_code, self.error_params))
 
 
 class BadDataError(SortitionBaseError):
@@ -72,6 +76,10 @@ class SelectionMultilineError(SelectionError):
         """Add all the lines from the other error to this one."""
         self.all_lines += other.lines()
 
+    def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
+        """Support pickling by returning constructor and arguments."""
+        return (self.__class__, (self.all_lines, self.is_retryable, self.error_code, self.error_params))
+
 
 @define
 class ParseTableErrorMsg:
@@ -112,6 +120,8 @@ class ParseTableMultiError(SelectionMultilineError):
 
     def __init__(self, errors: list[ParseTableErrorMsg | ParseTableMultiValueErrorMsg] | None = None) -> None:
         self.all_errors: list[ParseTableErrorMsg | ParseTableMultiValueErrorMsg] = errors or []
+        # Fix: Call parent __init__ to set Exception.args properly
+        super().__init__(lines=self.lines())
 
     def __len__(self) -> int:
         """This means that we will be falsy if len is 0, so is effectively a __bool__ as well"""
@@ -124,6 +134,10 @@ class ParseTableMultiError(SelectionMultilineError):
         """Add all the lines from the other error to this one."""
         assert isinstance(other, ParseTableMultiError)
         self.all_errors += other.all_errors
+
+    def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
+        """Support pickling by returning constructor and arguments."""
+        return (self.__class__, (self.all_errors,))
 
 
 class ParseErrorsCollector:
@@ -196,6 +210,12 @@ class InfeasibleQuotasError(SelectionMultilineError):
     def __init__(self, features: "FeatureCollection", output: list[str]) -> None:
         self.features = features
         super().__init__(lines=["The quotas are infeasible:", *output])
+
+    def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
+        """Support pickling by returning constructor and arguments."""
+        # Extract output from all_lines (skip first line "The quotas are infeasible:")
+        output = self.all_lines[1:] if len(self.all_lines) > 1 else []
+        return (self.__class__, (self.features, output))
 
 
 class InfeasibleQuotasCantRelaxError(SortitionBaseError):
