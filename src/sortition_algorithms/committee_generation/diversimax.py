@@ -69,7 +69,7 @@ class DiversityOptimizer:
         self.people = people
         # convert people to dataframe
         people_df = pd.DataFrame.from_dict(dict(people.items()), orient="index")
-        self.pool_members_df = people_df[features.keys()]  # keep only feature columns
+        self.pool_members_df = people_df[(k.lower() for k in features)]  # keep only feature columns
         self.features = features
         self.panel_size = panel_size
         self.check_same_address_columns = check_same_address_columns
@@ -166,7 +166,7 @@ class DiversityOptimizer:
 
         # the sum of all people in each category must be between the min and max specified
         for feature_name, value_name, fv_minmax in iterate_feature_collection(self.features):
-            relevant_members = model_variables_series[df[feature_name] == value_name]
+            relevant_members = model_variables_series[df[feature_name.lower()] == value_name.lower()]
             rel_sum = xsum(relevant_members)
             m.add_constr(rel_sum >= fv_minmax.min)
             m.add_constr(rel_sum <= fv_minmax.max)
