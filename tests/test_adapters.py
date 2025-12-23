@@ -21,7 +21,7 @@ from sortition_algorithms.errors import (
     SelectionMultilineError,
 )
 from sortition_algorithms.people import People
-from sortition_algorithms.settings import Settings
+from sortition_algorithms.settings import SELECTION_ALGORITHMS, Settings
 from sortition_algorithms.utils import RunReport, normalise_dict
 from tests.helpers import (
     candidates_csv_path,
@@ -32,11 +32,7 @@ from tests.helpers import (
 )
 
 # only test leximin if gurobipy is available
-ALGORITHMS = (
-    ("diversimax", "legacy", "maximin", "leximin", "nash")
-    if GUROBI_AVAILABLE
-    else ("diversimax", "legacy", "maximin", "nash")
-)
+ALGORITHMS = SELECTION_ALGORITHMS if GUROBI_AVAILABLE else (alg for alg in SELECTION_ALGORITHMS if alg != "leximin")
 PEOPLE_TO_SELECT = 22
 
 features_content = features_csv_path.read_text("utf8")
