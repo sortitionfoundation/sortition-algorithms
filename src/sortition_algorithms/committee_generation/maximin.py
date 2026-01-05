@@ -5,6 +5,7 @@ import mip
 
 from sortition_algorithms.committee_generation.common import (
     EPS,
+    create_mip_model,
     generate_initial_committees,
     ilp_results_to_committee,
     setup_committee_generation,
@@ -27,8 +28,7 @@ def _find_maximin_primal(
     Returns:
         list of probabilities for each committee (same order as input)
     """
-    model = mip.Model(sense=mip.MAXIMIZE)
-    model.verbose = 0
+    model = create_mip_model()
 
     committee_variables = [model.add_var(var_type=mip.CONTINUOUS, lb=0.0, ub=1.0) for _ in committees]
     model.add_constr(mip.xsum(committee_variables) == 1)
@@ -75,8 +75,7 @@ def _setup_maximin_incremental_model(
     Returns:
         tuple of (incremental_model, incr_agent_vars, upper_bound_var)
     """
-    incremental_model = mip.Model(sense=mip.MINIMIZE)
-    incremental_model.verbose = 0
+    incremental_model = create_mip_model()
 
     upper_bound = incremental_model.add_var(
         var_type=mip.CONTINUOUS,

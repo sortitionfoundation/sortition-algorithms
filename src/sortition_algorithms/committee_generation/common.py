@@ -14,6 +14,13 @@ EPS = 0.0005
 EPS2 = 0.00000001
 
 
+def create_mip_model() -> mip.Model:
+    model = mip.Model(sense=mip.MAXIMIZE)
+    model.verbose = 0  # TODO: get debug level from settings
+    model.seed = random_provider().randbelow(1_000_000_000)
+    return model
+
+
 def setup_committee_generation(
     features: FeatureCollection, people: People, number_people_wanted: int, check_same_address_columns: list[str]
 ) -> tuple[mip.model.Model, dict[str, mip.entities.Var]]:
@@ -33,8 +40,7 @@ def setup_committee_generation(
         InfeasibleQuotasError: If quotas are infeasible, includes suggested relaxations
         SelectionError: If solver fails for other reasons
     """
-    model = mip.Model(sense=mip.MAXIMIZE)
-    model.verbose = 0  # TODO: get debug level from settings
+    model = create_mip_model()
 
     # Binary variable for each person (selected/not selected)
     agent_vars = {person_id: model.add_var(var_type=mip.BINARY) for person_id in people}
@@ -105,10 +111,9 @@ def _relax_infeasible_quotas(
         InfeasibleQuotasCantRelaxError: If quotas cannot be relaxed within min_flex/max_flex bounds
         SelectionError: If solver fails for other reasons
     """
-    model = mip.Model(sense=mip.MINIMIZE)
-    model.verbose = 0  # TODO: get debug level from settings
-
     assert len(ensure_inclusion) > 0  # otherwise, the existence of a panel is not required
+
+    model = create_mip_model()
 
     # Create relaxation variables and bounds constraints
     min_vars, max_vars = _create_relaxation_variables_and_bounds(model, features)
