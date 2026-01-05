@@ -480,6 +480,7 @@ def set_random_provider(seed: int | None = None) -> None:
     global _random_provider
     if seed:
         _random_provider = GenRandom(seed)
+        return
     _random_provider = GenSecrets()
 
 
