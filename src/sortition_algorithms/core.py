@@ -248,9 +248,11 @@ def find_random_sample(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    *,
     selection_algorithm: str = "maximin",
     test_selection: bool = False,
     number_selections: int = 1,
+    max_seconds: int = 30,
 ) -> tuple[list[frozenset[str]], RunReport]:
     """Main algorithm to find one or multiple random committees.
 
@@ -266,6 +268,8 @@ def find_random_sample(
             a single panel is chosen. When specifying a value n ≥ 2, the function will return a list of length n,
             containing multiple panels (some panels might be repeated in the list). In this case the eventual panel
             should be drawn uniformly at random from the returned list.
+        max_seconds: the maximum number of seconds to spend searching, for those algorithms that support it.
+            Currently only diversimax supports this.
 
     Returns:
         tuple of (committee_lottery, report)
@@ -333,7 +337,7 @@ def find_random_sample(
         )
     elif selection_algorithm == "diversimax":
         selected_ids, new_report = find_distribution_diversimax(
-            features, people, number_people_wanted, check_same_address_columns
+            features, people, number_people_wanted, check_same_address_columns, max_seconds=max_seconds
         )
         report.add_report(new_report)
         return [selected_ids], report
@@ -507,6 +511,7 @@ def run_stratification(
     test_selection: bool = False,
     number_selections: int = 1,
     already_selected: People | None = None,
+    max_seconds: int = 30,
 ) -> tuple[bool, list[frozenset[str]], RunReport]:
     """Run stratified random selection with retry logic.
 
@@ -518,6 +523,7 @@ def run_stratification(
         test_selection: If True, don't randomize (for testing only)
         number_selections: Number of panels to return (default: 1)
         already_selected: People who have already been selected (optional)
+        max_seconds: Maximum seconds to try and find optimal answer (diversimax only)
 
     Returns:
         Tuple of (success, selected_committees, report)
@@ -572,9 +578,10 @@ def run_stratification(
                 working_people,
                 number_people_wanted,
                 settings.normalised_address_columns,
-                settings.selection_algorithm,
-                test_selection,
-                number_selections,
+                selection_algorithm=settings.selection_algorithm,
+                test_selection=test_selection,
+                number_selections=number_selections,
+                max_seconds=max_seconds,
             )
             report.add_report(new_report)
 

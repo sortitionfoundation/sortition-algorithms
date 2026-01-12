@@ -35,6 +35,7 @@ def find_distribution_diversimax(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    max_seconds: int = 30,
 ) -> tuple[frozenset[str], RunReport]:
     """
     Find a committee using the Diversimax algorithm.
@@ -44,7 +45,7 @@ def find_distribution_diversimax(
     optimizer = DiversityOptimizer(people, features, number_people_wanted, check_same_address_columns)
     optimizer.log_problem_stats()
 
-    model, selected_ids = optimizer.optimize()
+    model, selected_ids = optimizer.optimize(max_seconds=max_seconds)
 
     # ===== HANDLE BOTH OPTIMAL AND FEASIBLE AS SUCCESS =====
     if model.status in [mip.OptimizationStatus.OPTIMAL, mip.OptimizationStatus.FEASIBLE]:

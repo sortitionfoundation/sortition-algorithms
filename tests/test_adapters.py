@@ -69,7 +69,7 @@ def test_csv_selection_happy_path_defaults(algorithm):
     print("load_people_message: ")
     print(people_report.as_text())
 
-    success, people_selected, report = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
+    success, people_selected, report = run_stratification(features, people, PEOPLE_TO_SELECT, settings, max_seconds=3)
 
     if not success:
         print(report.as_text())
@@ -94,7 +94,7 @@ def test_csv_selection_with_case_mismatch(algorithm):
     print("load_people_message: ")
     print(people_report.as_text())
 
-    success, people_selected, report = run_stratification(features, people, PEOPLE_TO_SELECT, settings)
+    success, people_selected, report = run_stratification(features, people, PEOPLE_TO_SELECT, settings, max_seconds=3)
 
     if not success:
         print(report.as_text())
