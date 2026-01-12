@@ -28,7 +28,7 @@ def _find_maximin_primal(
     Returns:
         list of probabilities for each committee (same order as input)
     """
-    model = create_mip_model()
+    model = create_mip_model(sense=mip.MAXIMIZE)
 
     committee_variables = [model.add_var(var_type=mip.CONTINUOUS, lb=0.0, ub=1.0) for _ in committees]
     model.add_constr(mip.xsum(committee_variables) == 1)
@@ -75,7 +75,7 @@ def _setup_maximin_incremental_model(
     Returns:
         tuple of (incremental_model, incr_agent_vars, upper_bound_var)
     """
-    incremental_model = create_mip_model()
+    incremental_model = create_mip_model(sense=mip.MINIMIZE)
 
     upper_bound = incremental_model.add_var(
         var_type=mip.CONTINUOUS,

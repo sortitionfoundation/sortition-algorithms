@@ -14,8 +14,14 @@ EPS = 0.0005
 EPS2 = 0.00000001
 
 
-def create_mip_model() -> mip.Model:
-    model = mip.Model(sense=mip.MAXIMIZE)
+def create_mip_model(*, sense: str) -> mip.Model:
+    """
+    Creates a MIP model with a sense and verbose set to zero. Can also set the seed.
+
+    Args:
+        sense: the sense. Key values are mip.MINIMIZE and mip.MAXIMIZE
+    """
+    model = mip.Model(sense=sense)
     model.verbose = 0  # TODO: get debug level from settings
     model.seed = random_provider().randbelow(1_000_000_000)
     return model
@@ -40,7 +46,7 @@ def setup_committee_generation(
         InfeasibleQuotasError: If quotas are infeasible, includes suggested relaxations
         SelectionError: If solver fails for other reasons
     """
-    model = create_mip_model()
+    model = create_mip_model(sense=mip.MAXIMIZE)
 
     # Binary variable for each person (selected/not selected)
     agent_vars = {person_id: model.add_var(var_type=mip.BINARY) for person_id in people}
@@ -113,7 +119,7 @@ def _relax_infeasible_quotas(
     """
     assert len(ensure_inclusion) > 0  # otherwise, the existence of a panel is not required
 
-    model = create_mip_model()
+    model = create_mip_model(sense=mip.MINIMIZE)
 
     # Create relaxation variables and bounds constraints
     min_vars, max_vars = _create_relaxation_variables_and_bounds(model, features)
