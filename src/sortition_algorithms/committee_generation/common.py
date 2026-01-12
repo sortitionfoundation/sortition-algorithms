@@ -23,7 +23,7 @@ def create_mip_model(*, sense: str) -> mip.Model:
     """
     model = mip.Model(sense=sense)
     model.verbose = 0  # TODO: get debug level from settings
-    model.seed = random_provider().randbelow(1_000_000_000)
+    model.seed = random_provider().randint()
     return model
 
 

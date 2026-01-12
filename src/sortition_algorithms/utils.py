@@ -426,6 +426,9 @@ class RandomProvider(ABC):
     the current version of the global.
     """
 
+    # tests fail if we use sys.maxsize, so we use the max signed 32 bit int instead
+    max_int = 2**31 - 1
+
     @classmethod
     @abstractmethod
     def uniform(cls, lower: float, upper: float) -> float: ...
@@ -433,6 +436,10 @@ class RandomProvider(ABC):
     @classmethod
     @abstractmethod
     def randbelow(cls, upper: int) -> int: ...
+
+    @classmethod
+    def randint(cls) -> int:
+        return cls.randbelow(cls.max_int)
 
     @classmethod
     @abstractmethod
@@ -461,8 +468,8 @@ class GenSecrets(RandomProvider):
     def uniform(cls, lower: float, upper: float) -> float:
         assert upper > lower
         diff = upper - lower
-        rand_int = secrets.randbelow(1_000_000)
-        return lower + (rand_int * diff / 1_000_000)
+        rand_int = cls.randint()
+        return lower + (rand_int * diff / cls.max_int)
 
     @classmethod
     def randbelow(cls, upper: int) -> int:

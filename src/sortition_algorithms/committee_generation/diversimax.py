@@ -13,7 +13,7 @@ from sortition_algorithms import errors
 from sortition_algorithms.committee_generation.common import _relax_infeasible_quotas
 from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.people import People
-from sortition_algorithms.utils import RunReport, logger
+from sortition_algorithms.utils import RunReport, logger, random_provider
 
 InteractionNamesTuple = tuple[str, ...]
 
@@ -82,7 +82,6 @@ class DiversityOptimizer:
         features: FeatureCollection,
         panel_size: int,
         check_same_address_columns: list[str],
-        seed: int = 42,
     ):
         self.people = people
         # convert people to dataframe
@@ -90,7 +89,6 @@ class DiversityOptimizer:
         people_df = people_df.rename(columns=str.lower)
         people_df = people_df.map(lambda x: x.lower() if isinstance(x, str) else x)  # normalize to lower case
 
-        self.seed = seed
         self.pool_members_df = people_df[(k.lower() for k in features)]  # keep only feature columns
         self.features = features
         self.panel_size = panel_size
@@ -133,7 +131,7 @@ class DiversityOptimizer:
         ]
         all_dims_combs: list[InteractionNamesTuple] = [x for y in all_dims_combs_iterators for x in y]
         # randomize order within each size, so if we cutoff intersections at len(all_ohe) >= 50, we get a random sample
-        rng = np.random.default_rng(self.seed)
+        rng = np.random.default_rng(random_provider().randint())
         rng.shuffle(all_dims_combs)
         all_dims_combs = sorted(all_dims_combs, key=lambda x: len(x))
         data: dict[InteractionNamesTuple, IntersectionData] = {}
