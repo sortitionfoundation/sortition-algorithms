@@ -60,6 +60,7 @@ dev = [
   "tomli-w>=1.2.0",
   "types-requests>=2.32.4.20250913",
   "pandas-stubs>=2.3.3.251201",
+  "memray>=1.19.1",
 ]
 
 [build-system]
@@ -70,10 +71,12 @@ build-backend = "hatchling.build"
 packages = ["src/sortition_algorithms"]
 
 [tool.uv]
-# this provides a "cooldown" to avoid supply chain issues - requires uv>=0.9.17
-# background: https://blog.yossarian.net/2025/11/21/We-should-all-be-using-dependency-cooldowns
+# this is for "cooldown" - insulating us from supply chain issues.
+# Read https://blog.yossarian.net/2025/11/21/We-should-all-be-using-dependency-cooldowns for more.
 exclude-newer = "1 week"
-exclude-newer-package = { uv = "0 days" }
+# this is how to get newer versions into uv.lock, eg for security issue
+# don't need any for now, so commented out
+# exclude-newer-package = { uv = "0 days" }
 
 [tool.mypy]
 files = ["src"]
