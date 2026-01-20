@@ -177,7 +177,6 @@ Different algorithms optimize for different fairness criteria:
 
 **Example scenario**: An assembly focused on social or community issues where diverse perspectives are critical.
 
-
 ### Legacy
 
 **Objective**: Backwards compatibility with earlier implementations.
@@ -192,6 +191,43 @@ Different algorithms optimize for different fairness criteria:
 
 - Less sophisticated than modern algorithms
 - May not provide optimal fairness
+
+**Details**:
+
+- it will have multiple attempts at the core algorithm
+  - it goes through each target value in turn, in order of the target value that will be hardest to meet first.
+  - for each category, it will randomly choose a sample of people to meet the target for that value, which combined with the people already in the selected group, and add that to the selected group
+  - at the end it either finds a sample that meets the targets, or it fails, and another attempt is made from the start
+
+### Algorithms not in this library
+
+(Though they may be added at some point in the future.)
+
+#### Goldilocks
+
+From the same family as Maximin and Leximin. It tries to ensure no one in the pool gets a really high or low chance of being selected.
+
+The code is not yet open, but you can read a bit more on the [lotterylab algorithms page](https://lotterylab.muon.dev/lottery/algorithm).
+
+#### Max Entropy
+
+This just tries to select from every possible sample of the right size in the data, finding one at random that meets the targets. Because the number of samples is so large, there are some mathematical tricks used to create samples in a way that increases the chance of finding one that will match the targets, while keeping the randomness.
+
+The code is not yet open, but you can read a bit more on the [lotterylab algorithms page](https://lotterylab.muon.dev/lottery/algorithm).
+
+#### Swedish Selection
+
+This take random samples, calculates the "distance" from the ideal targets, and saves it if the distance has gone down. After a while, the sample with the lowest distance is used. It is computationally intense - the [README](https://github.com/digidemlab/swedish-sortition/blob/master/README.md) says "after running it for a few hours ...". For more complex targets it would take a long time. But it does have the advantage of being easy to explain to people, and the code is fairly easy to read.
+
+A note on "distance" - there is a weight applied to each target category, and the distance for each target category is multiplied by that weight. This means the most important target categories will be more closely matched.
+
+The code can be seen on [github](https://github.com/digidemlab/swedish-sortition) and it is developed by [Digidem Lab](https://www.corganisers.org.uk/organising-organisations/digidemlab/).
+
+#### Automatic Selection
+
+This is inspired by Swedish Selection, using the same distance measure. But instead of finding fresh random samples each time, it swaps excess people out of the sample for people with target values that are below target from the pool. By doing this it can often find a sample that hits the targets exactly.
+
+The code can be seen on [github](https://github.com/ogtal/automatic-sortition) and it is developed by [Analyse og Tal](https://www.ogtal.dk/).
 
 ### Research Background
 
