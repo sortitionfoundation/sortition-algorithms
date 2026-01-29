@@ -25,7 +25,7 @@ class People:
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
             return False
-        return self._full_data == other._full_data and self._columns_to_keep == self._columns_to_keep
+        return self._full_data == other._full_data and self._columns_to_keep == other._columns_to_keep
 
     @property
     def count(self) -> int:

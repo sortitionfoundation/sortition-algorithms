@@ -133,7 +133,7 @@ class DiversityOptimizer:
         # randomize order within each size, so if we cutoff intersections at len(all_ohe) >= 50, we get a random sample
         rng = np.random.default_rng(random_provider().randint())
         rng.shuffle(all_dims_combs)
-        all_dims_combs = sorted(all_dims_combs, key=lambda x: len(x))
+        all_dims_combs = sorted(all_dims_combs, key=len)
         data: dict[InteractionNamesTuple, IntersectionData] = {}
         for features_intersections in all_dims_combs:
             try:
