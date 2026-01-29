@@ -10,6 +10,7 @@ import logging
 from collections import Counter, defaultdict
 from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
+from copy import deepcopy
 from io import StringIO
 from pathlib import Path
 from typing import Any, ClassVar, TextIO
@@ -211,7 +212,7 @@ class SelectionData:
                 raise new_error from error
         return people, report
 
-    def load_already_selected(self, settings: Settings, features: FeatureCollection) -> tuple[People, RunReport]:
+    def load_already_selected(self, settings: Settings) -> tuple[People, RunReport]:
         report = RunReport()
         with self.data_source.read_already_selected_data(report) as headers_body:
             headers_iter, body = headers_body
@@ -220,12 +221,19 @@ class SelectionData:
             if not headers:
                 return People(columns_to_keep=settings.columns_to_keep), report
 
+            # We don't need to import and verify lots of columns from already selected
+            # as we only need the ID and address columns. So change the settings to
+            # have no features and no columns_to_keep.
+            empty_features: FeatureCollection = {}
+            minimal_settings = deepcopy(settings)
+            minimal_settings.columns_to_keep = []
+
             try:
                 people, report = read_in_people(
                     people_head=headers,
                     people_body=body,
-                    features=features,
-                    settings=settings,
+                    features=empty_features,
+                    settings=minimal_settings,
                     feature_column_name=self.feature_column_name,
                     data_container=self.data_source.already_selected_data_container,
                 )

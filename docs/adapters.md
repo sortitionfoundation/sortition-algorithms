@@ -84,7 +84,7 @@ def csv_selection_workflow():
     print(report.as_text())
     people, report = select_data.load_people(settings, features)
     print(report.as_text())
-    already_selected, report = select_data.load_already_selected(settings, features)
+    already_selected, report = select_data.load_already_selected(settings)
     print(report.as_text())
 
     # Run selection
@@ -184,7 +184,7 @@ def gsheet_selection_workflow():
         print("Failed to load people:", "\n".join(msgs))
         return
 
-    already_selected, report = adapter.load_already_selected(settings, features)
+    already_selected, report = adapter.load_already_selected(settings)
 
     # Run selection
     success, panels, report = run_stratification(

@@ -111,7 +111,7 @@ def csv(
     if people is None:
         raise click.ClickException("Could not load people, exiting.")
 
-    already_selected, report = select_data.load_already_selected(settings_obj, features)
+    already_selected, report = select_data.load_already_selected(settings_obj)
     echo_report(report)
 
     success, people_selected, report = core.run_stratification(
@@ -228,7 +228,7 @@ def gsheet(
     if people is None:
         raise click.ClickException("Could not load people, exiting.")
 
-    already_selected, report = select_data.load_already_selected(settings_obj, features)
+    already_selected, report = select_data.load_already_selected(settings_obj)
     echo_report(report)
 
     success, people_selected, report = core.run_stratification(

@@ -814,6 +814,28 @@ def test_gsheet_read_already_selected_no_tab_name():
     assert "No already selected tab specified" in report.as_text()
 
 
+def test_csv_string_load_already_selected_with_data_with_column_mismatch():
+    """
+    Test that load_already_selected() does not care about column names apart from
+    the address columns.
+    """
+    # note that we have email_address here, vs "email" in the original. And we are missing
+    # many columns that are in the candidates.csv file. But this should still work.
+    already_selected_csv = (
+        "nationbuilder_id,first_name,primary_address1,primary_zip,email_address,other\n"
+        "p1,John,1 High Street,E1A 1AA,me@mine.com,\n"
+        "p2,Jane,15 New Lane,W2B 2BB,you@your.com,something\n"
+    )
+    data_source = CSVStringDataSource(features_content, candidates_content, already_selected_data=already_selected_csv)
+    select_data = SelectionData(data_source)
+    settings = get_settings_for_fixtures()
+    people, _ = select_data.load_already_selected(settings)
+    assert people.count == 2
+    # note that everything is converted to lower case
+    assert people.get_address("p1", settings.check_same_address_columns) == ("1 high street", "e1a 1aa")
+    assert people.get_address("p2", settings.check_same_address_columns) == ("15 new lane", "w2b 2bb")
+
+
 # Tests for GSheetDataAdapter.find_header_row()
 
 
