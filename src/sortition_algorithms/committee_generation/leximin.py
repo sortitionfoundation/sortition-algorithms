@@ -1,7 +1,9 @@
+# ABOUTME: Leximin algorithm for committee generation.
+# ABOUTME: Maximizes minimum probability, breaking ties by second-lowest, third-lowest, etc.
+
 import logging
 from typing import Any
 
-import mip
 import numpy
 
 try:
@@ -18,6 +20,7 @@ from sortition_algorithms.committee_generation.common import (
     ilp_results_to_committee,
     setup_committee_generation,
 )
+from sortition_algorithms.committee_generation.solver import Solver, SolverSense, solver_sum
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import RunReport, logger
@@ -91,8 +94,8 @@ def _add_report_update(
 
 
 def _run_leximin_column_generation_loop(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
+    new_committee_solver: Solver,
+    agent_vars: dict[str, Any],
     dual_model: Any,  # grb.Model
     dual_agent_vars: dict[str, Any],  # dict[str, grb.Var]
     dual_cap_var: Any,  # grb.Var
@@ -120,8 +123,8 @@ def _run_leximin_column_generation_loop(
              ŷ, yᵢ ≥ 0                                     ∀ i
 
     Args:
-        new_committee_model: MIP model for finding committees
-        agent_vars: agent variables in the committee model
+        new_committee_solver: Solver for finding committees
+        agent_vars: agent variables in the committee solver
         dual_model: Gurobi model for dual LP
         dual_agent_vars: agent variables in dual model
         dual_cap_var: capacity variable in dual model
@@ -155,10 +158,12 @@ def _run_leximin_column_generation_loop(
 
         # Find the panel P for which Σ_{i ∈ P} yᵢ is largest, i.e., for which Σ_{i ∈ P} yᵢ ≤ ŷ is tightest
         agent_weights = {agent_id: agent_var.x for agent_id, agent_var in dual_agent_vars.items()}
-        new_committee_model.objective = mip.xsum(agent_weights[agent_id] * agent_vars[agent_id] for agent_id in people)
-        new_committee_model.optimize()
-        new_set = ilp_results_to_committee(agent_vars)  # panel P
-        value = new_committee_model.objective_value  # Σ_{i ∈ P} yᵢ
+        new_committee_solver.set_objective(
+            solver_sum(agent_weights[agent_id] * agent_vars[agent_id] for agent_id in people), SolverSense.MAXIMIZE
+        )
+        new_committee_solver.optimize()
+        new_set = ilp_results_to_committee(new_committee_solver, agent_vars)  # panel P
+        value = new_committee_solver.get_objective_value()  # Σ_{i ∈ P} yᵢ
 
         upper = dual_cap_var.x  # ŷ
         dual_obj = dual_model.objVal  # ŷ - Σ_{i in fixed_probabilities} fixed_probabilities[i] * yᵢ
@@ -220,8 +225,8 @@ def _solve_leximin_primal_for_final_probabilities(
 
 
 def _run_leximin_main_loop(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
+    new_committee_solver: Solver,
+    agent_vars: dict[str, Any],
     committees: set[frozenset[str]],
     people: People,
     report: RunReport,
@@ -232,8 +237,8 @@ def _run_leximin_main_loop(
     In each iteration, at least one more probability is fixed, but often more than one.
 
     Args:
-        new_committee_model: MIP model for finding committees
-        agent_vars: agent variables in the committee model
+        new_committee_solver: Solver for finding committees
+        agent_vars: agent variables in the committee solver
         committees: set of committees (modified in-place)
         people: People object with all agents
         output_lines: list of output messages (modified in-place)
@@ -255,7 +260,7 @@ def _run_leximin_main_loop(
 
         # Run column generation inner loop
         should_break, reduction_counter = _run_leximin_column_generation_loop(
-            new_committee_model,
+            new_committee_solver,
             agent_vars,
             dual_model,
             dual_agent_vars,
@@ -307,18 +312,18 @@ def find_distribution_leximin(
     grb.setParam("OutputFlag", 0)
 
     # Set up an ILP that can be used for discovering new feasible committees
-    new_committee_model, agent_vars = setup_committee_generation(
+    new_committee_solver, agent_vars = setup_committee_generation(
         features, people, number_people_wanted, check_same_address_columns
     )
 
     # Find initial committees that cover every possible agent
     committees, covered_agents, initial_report = generate_initial_committees(
-        new_committee_model, agent_vars, 3 * people.count
+        new_committee_solver, agent_vars, 3 * people.count
     )
     report.add_report(initial_report)
 
     # Run the main leximin optimization loop to fix agent probabilities
-    fixed_probabilities = _run_leximin_main_loop(new_committee_model, agent_vars, committees, people, report)
+    fixed_probabilities = _run_leximin_main_loop(new_committee_solver, agent_vars, committees, people, report)
 
     # Convert fixed agent probabilities to committee probabilities
     probabilities_normalised = _solve_leximin_primal_for_final_probabilities(committees, fixed_probabilities)

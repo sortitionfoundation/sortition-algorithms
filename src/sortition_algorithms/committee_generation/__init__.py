@@ -34,8 +34,8 @@ def find_any_committee(
         InfeasibleQuotasError: If quotas are infeasible
         SelectionError: If solver fails for other reasons
     """
-    _, agent_vars = setup_committee_generation(features, people, number_people_wanted, check_same_address_columns)
-    committee = ilp_results_to_committee(agent_vars)
+    solver, agent_vars = setup_committee_generation(features, people, number_people_wanted, check_same_address_columns)
+    committee = ilp_results_to_committee(solver, agent_vars)
     return [committee], RunReport()
 
 
