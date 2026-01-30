@@ -202,6 +202,17 @@ class HighsSolver(Solver):
         return var
 
     def add_constr(self, constraint: Any) -> None:
+        # When a constraint evaluates to a plain boolean (e.g., 0 >= 0 -> True),
+        # we need to handle it specially since highspy expects a constraint object.
+        if constraint is True:
+            # Trivially satisfied constraint, skip it
+            return
+        if constraint is False:
+            # Trivially infeasible constraint - add a constraint that forces infeasibility
+            # Create 0 <= -1 which is always false
+            dummy = self._h.addVariable(lb=0.0, ub=0.0)
+            self._h.addConstr(dummy >= 1)
+            return
         self._h.addConstr(constraint)
 
     def set_objective(self, expr: Any, sense: SolverSense) -> None:
@@ -300,6 +311,16 @@ class MipSolver(Solver):
         return self._model.add_var(var_type=self._mip.CONTINUOUS, lb=lb, ub=ub, name=name if name else None)
 
     def add_constr(self, constraint: Any) -> None:
+        # When a constraint evaluates to a plain boolean (e.g., 0 >= 0 -> True),
+        # we need to handle it specially.
+        if constraint is True:
+            # Trivially satisfied constraint, skip it
+            return
+        if constraint is False:
+            # Trivially infeasible constraint - add a constraint that forces infeasibility
+            dummy = self._model.add_var(var_type=self._mip.CONTINUOUS, lb=0.0, ub=0.0)
+            self._model.add_constr(dummy >= 1)
+            return
         self._model.add_constr(constraint)
 
     def set_objective(self, expr: Any, sense: SolverSense) -> None:
