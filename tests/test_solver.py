@@ -50,7 +50,10 @@ class TestSolverBasicOperations:
     @pytest.fixture(params=["highspy", "mip"])
     def solver(self, request: pytest.FixtureRequest) -> Solver:
         """Parametrized fixture returning both solver types."""
-        return create_solver(backend=request.param, seed=42)
+        # Add a time limit to prevent hangs when running in full test suite.
+        # The MIP solver can occasionally get stuck proving infeasibility
+        # under resource contention.
+        return create_solver(backend=request.param, seed=42, time_limit=10.0)
 
     def test_add_binary_var(self, solver: Solver) -> None:
         """Test adding a binary variable."""
@@ -144,7 +147,7 @@ class TestSolverSum:
 
     @pytest.fixture(params=["highspy", "mip"])
     def solver(self, request: pytest.FixtureRequest) -> Solver:
-        return create_solver(backend=request.param, seed=42)
+        return create_solver(backend=request.param, seed=42, time_limit=10.0)
 
     def test_sum_variables(self, solver: Solver) -> None:
         """Test summing variables."""
@@ -187,7 +190,7 @@ class TestSolverEquivalence:
     @pytest.fixture(params=["highspy", "mip"])
     def solver(self, request: pytest.FixtureRequest) -> Solver:
         """Parametrized fixture returning both solver types."""
-        return create_solver(backend=request.param, seed=42)
+        return create_solver(backend=request.param, seed=42, time_limit=10.0)
 
     def test_same_optimal_value(self, solver: Solver) -> None:
         """Test that both solvers find the same optimal value."""
