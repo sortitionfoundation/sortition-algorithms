@@ -184,55 +184,56 @@ class TestSolverSum:
 class TestSolverEquivalence:
     """Test that both solvers produce equivalent results."""
 
-    def test_same_optimal_value(self) -> None:
+    @pytest.fixture(params=["highspy", "mip"])
+    def solver(self, request: pytest.FixtureRequest) -> Solver:
+        """Parametrized fixture returning both solver types."""
+        return create_solver(backend=request.param, seed=42)
+
+    def test_same_optimal_value(self, solver: Solver) -> None:
         """Test that both solvers find the same optimal value."""
         # Solve: maximize x + y
         # subject to: x + 2y <= 14, 3x + y <= 14, 0 <= x,y <= 10
         # Optimal at intersection of x + 2y = 14 and 3x + y = 14
         # Solving: x = 2.8, y = 5.6, so x + y = 8.4
-        for backend in ["highspy", "mip"]:
-            solver = create_solver(backend=backend, seed=42)
 
-            x = solver.add_continuous_var(lb=0.0, ub=10.0)
-            y = solver.add_continuous_var(lb=0.0, ub=10.0)
+        x = solver.add_continuous_var(lb=0.0, ub=10.0)
+        y = solver.add_continuous_var(lb=0.0, ub=10.0)
 
-            solver.add_constr(x + 2 * y <= 14)
-            solver.add_constr(3 * x + y <= 14)
-            solver.set_objective(x + y, SolverSense.MAXIMIZE)
+        solver.add_constr(x + 2 * y <= 14)
+        solver.add_constr(3 * x + y <= 14)
+        solver.set_objective(x + y, SolverSense.MAXIMIZE)
 
-            status = solver.optimize()
-            assert status == SolverStatus.OPTIMAL
+        status = solver.optimize()
+        assert status == SolverStatus.OPTIMAL
 
-            obj_value = solver.get_objective_value()
-            # Both solvers should find the same optimal value
-            assert abs(obj_value - 8.4) < 1e-4
+        obj_value = solver.get_objective_value()
+        # Both solvers should find the same optimal value
+        assert abs(obj_value - 8.4) < 1e-4
 
-    def test_committee_selection_like_problem(self) -> None:
+    def test_committee_selection_like_problem(self, solver: Solver) -> None:
         """Test a problem similar to committee selection."""
-        for backend in ["highspy", "mip"]:
-            solver = create_solver(backend=backend, seed=42)
 
-            # 5 people, select 2
-            people = ["alice", "bob", "charlie", "diana", "eve"]
-            person_vars = {p: solver.add_binary_var(name=p) for p in people}
+        # 5 people, select 2
+        people = ["alice", "bob", "charlie", "diana", "eve"]
+        person_vars = {p: solver.add_binary_var(name=p) for p in people}
 
-            # Must select exactly 2
-            solver.add_constr(solver_sum(person_vars.values()) == 2)
+        # Must select exactly 2
+        solver.add_constr(solver_sum(person_vars.values()) == 2)
 
-            # Gender constraint: at least 1 female (alice, diana, eve)
-            females = ["alice", "diana", "eve"]
-            solver.add_constr(solver_sum(person_vars[p] for p in females) >= 1)
+        # Gender constraint: at least 1 female (alice, diana, eve)
+        females = ["alice", "diana", "eve"]
+        solver.add_constr(solver_sum(person_vars[p] for p in females) >= 1)
 
-            # Maximize selection (any feasible solution is fine)
-            solver.set_objective(solver_sum(person_vars.values()), SolverSense.MAXIMIZE)
+        # Maximize selection (any feasible solution is fine)
+        solver.set_objective(solver_sum(person_vars.values()), SolverSense.MAXIMIZE)
 
-            status = solver.optimize()
-            assert status == SolverStatus.OPTIMAL
+        status = solver.optimize()
+        assert status == SolverStatus.OPTIMAL
 
-            # Check exactly 2 selected
-            selected = [p for p in people if solver.get_value(person_vars[p]) > 0.5]
-            assert len(selected) == 2
+        # Check exactly 2 selected
+        selected = [p for p in people if solver.get_value(person_vars[p]) > 0.5]
+        assert len(selected) == 2
 
-            # Check at least 1 female
-            selected_females = [p for p in selected if p in females]
-            assert len(selected_females) >= 1
+        # Check at least 1 female
+        selected_females = [p for p in selected if p in females]
+        assert len(selected_females) >= 1
