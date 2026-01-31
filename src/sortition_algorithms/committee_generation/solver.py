@@ -7,6 +7,15 @@ from typing import Any
 
 from sortition_algorithms.utils import random_provider
 
+# Check if python-mip is available (optional dependency)
+try:
+    import mip as _mip_module
+
+    MIP_AVAILABLE = True
+except ImportError:
+    MIP_AVAILABLE = False
+    _mip_module = None
+
 
 class SolverStatus(Enum):
     """Status returned by solver after optimization."""
@@ -278,12 +287,17 @@ class MipSolver(Solver):
             seed: Random seed for reproducibility
             time_limit: Maximum solve time in seconds
             mip_gap: Acceptable MIP gap (e.g., 0.1 for 10%)
-        """
-        import mip
 
-        self._mip = mip
+        Raises:
+            RuntimeError: If python-mip is not installed
+        """
+        if not MIP_AVAILABLE:
+            msg = "python-mip is not installed. Install it with: pip install mip"
+            raise RuntimeError(msg)
+
+        self._mip = _mip_module
         # Default to MAXIMIZE, will be changed when set_objective is called
-        self._model = mip.Model()
+        self._model = self._mip.Model()
         self._model.verbose = 1 if verbose else 0
 
         if seed is not None:
