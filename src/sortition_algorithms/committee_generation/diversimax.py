@@ -38,13 +38,26 @@ def find_distribution_diversimax(
     number_people_wanted: int,
     check_same_address_columns: list[str],
     max_seconds: int = 30,
+    solver_backend: str = "highspy",
 ) -> tuple[frozenset[str], RunReport]:
     """
     Find a committee using the Diversimax algorithm.
+
+    Args:
+        features: FeatureCollection with min/max quotas
+        people: People object with pool members
+        number_people_wanted: desired size of the panel
+        check_same_address_columns: columns to check for same address, or empty list if
+                                    not checking addresses.
+        max_seconds: maximum seconds to spend searching
+        solver_backend: solver backend to use ("highspy" or "mip")
+
+    Returns:
+        tuple of (selected_ids, report)
     """
     report = RunReport()
     report.add_line_and_log("Using Diversimax algorithm.", log_level=logging.INFO)
-    optimizer = DiversityOptimizer(people, features, number_people_wanted, check_same_address_columns)
+    optimizer = DiversityOptimizer(people, features, number_people_wanted, check_same_address_columns, solver_backend)
     optimizer.log_problem_stats()
 
     status, selected_ids, gap = optimizer.optimize(max_seconds=max_seconds)
@@ -65,7 +78,7 @@ def find_distribution_diversimax(
 
     elif status == SolverStatus.INFEASIBLE:
         relaxed_features, output_lines = _relax_infeasible_quotas(
-            features, people, number_people_wanted, check_same_address_columns
+            features, people, number_people_wanted, check_same_address_columns, solver_backend=solver_backend
         )
         raise errors.InfeasibleQuotasError(relaxed_features, output_lines)
 
@@ -81,6 +94,7 @@ class DiversityOptimizer:
         features: FeatureCollection,
         panel_size: int,
         check_same_address_columns: list[str],
+        solver_backend: str = "highspy",
     ):
         self.people = people
         # convert people to dataframe
@@ -92,6 +106,7 @@ class DiversityOptimizer:
         self.features = features
         self.panel_size = panel_size
         self.check_same_address_columns = check_same_address_columns
+        self.solver_backend = solver_backend
         self.intersections_data: AllIntersectionsData = self.prepare_all_data()
         self.all_ohe = self.create_all_one_hot_encodings()
 
@@ -180,7 +195,7 @@ class DiversityOptimizer:
             tuple of (status, selected_ids, gap)
         """
         df = self.pool_members_df
-        solver = create_solver(time_limit=max_seconds, mip_gap=accepted_gap)
+        solver = create_solver(backend=self.solver_backend, time_limit=max_seconds, mip_gap=accepted_gap)
 
         # binary variable for each person - if they are selected or not
         # We store them by name so we can look them up later

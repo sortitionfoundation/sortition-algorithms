@@ -231,6 +231,7 @@ def find_distribution_nash(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the Nash welfare, i.e., the product of
     selection probabilities over all persons.
@@ -241,6 +242,7 @@ def find_distribution_nash(
         number_people_wanted: desired size of the panel
         check_same_address_columns: Address columns for household identification, or empty
                                     if no address checking to be done.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (committees, probabilities, output_lines)
@@ -256,7 +258,9 @@ def find_distribution_nash(
     report.add_message_and_log("using_nash_algorithm", logging.INFO)
 
     # Set up an ILP used for discovering new feasible committees
-    solver, agent_vars = setup_committee_generation(features, people, number_people_wanted, check_same_address_columns)
+    solver, agent_vars = setup_committee_generation(
+        features, people, number_people_wanted, check_same_address_columns, solver_backend
+    )
 
     # Find initial committees that include every possible agent
     committee_set, covered_agents, initial_report = generate_initial_committees(solver, agent_vars, 2 * people.count)

@@ -8,6 +8,7 @@ from cattrs import structure, unstructure
 from sortition_algorithms.utils import ReportLevel, RunReport
 
 SELECTION_ALGORITHMS = ("legacy", "maximin", "nash", "leximin", "diversimax")
+SOLVER_BACKENDS = ("highspy", "mip")
 
 DEFAULT_SETTINGS = """
 # #####################################################################
@@ -48,6 +49,9 @@ columns_to_keep = [
 # see https://sortitionfoundation.github.io/sortition-algorithms/concepts/#selection-algorithms
 selection_algorithm = "maximin"
 
+# solver_backend can be "highspy" (default) or "mip" (requires optional mip package)
+solver_backend = "highspy"
+
 # random number seed - if this is NOT zero then it is used to set the random number generator seed
 random_number_seed = 0
 """
@@ -84,6 +88,7 @@ class Settings:
     check_same_address_columns: list[str] = field(validator=check_columns_for_same_address, factory=list)
     max_attempts: int = field(validator=validators.instance_of(int), default=100)
     selection_algorithm: str = field(default="maximin")
+    solver_backend: str = field(default="highspy")
     random_number_seed: int = field(validator=validators.instance_of(int), default=0)
 
     @columns_to_keep.validator
@@ -101,6 +106,16 @@ class Settings:
                 f"selection_algorithm {value} is not one of: {algorithms_str}",
                 "invalid_selection_algorithm",
                 {"algorithm": value, "valid_algorithms": algorithms_str},
+            )
+
+    @solver_backend.validator
+    def check_solver_backend(self, attribute: Any, value: str) -> None:
+        if value not in SOLVER_BACKENDS:
+            backends_str = ", ".join(SOLVER_BACKENDS)
+            raise ValueError(
+                f"solver_backend {value} is not one of: {backends_str}",
+                "invalid_solver_backend",
+                {"backend": value, "valid_backends": backends_str},
             )
 
     @property

@@ -19,6 +19,19 @@ class TestSettingsConstructor:
         with pytest.raises(ValueError, match="selection_algorithm unknown is not one of"):
             create_test_settings(selection_algorithm="unknown")
 
+    @pytest.mark.parametrize("backend", settings.SOLVER_BACKENDS)
+    def test_solver_backends_accepted(self, backend):
+        settings_obj = create_test_settings(solver_backend=backend)
+        assert settings_obj.solver_backend == backend
+
+    def test_solver_backend_blocked_for_unknown(self):
+        with pytest.raises(ValueError, match="solver_backend unknown is not one of"):
+            create_test_settings(solver_backend="unknown")
+
+    def test_solver_backend_default_is_highspy(self):
+        settings_obj = settings.Settings(id_column="test", columns_to_keep=[])
+        assert settings_obj.solver_backend == "highspy"
+
     def test_valid_settings_creation(self):
         """Test creating a valid Settings object."""
         settings_obj = create_test_settings(
@@ -223,3 +236,21 @@ this is not valid TOML syntax [[[
 
         with pytest.raises(tomllib.TOMLDecodeError):
             settings.Settings.load_from_file(settings_file_path)
+
+    def test_load_with_solver_backend(self, tmp_path):
+        """Test loading settings with solver_backend from a TOML file."""
+        toml_content = """
+id_column = "test_id"
+check_same_address = false
+check_same_address_columns = []
+max_attempts = 50
+columns_to_keep = ["name"]
+selection_algorithm = "maximin"
+solver_backend = "mip"
+random_number_seed = 42
+"""
+        settings_file_path = tmp_path / "settings.toml"
+        settings_file_path.write_text(toml_content)
+
+        settings_obj, _ = settings.Settings.load_from_file(settings_file_path)
+        assert settings_obj.solver_backend == "mip"

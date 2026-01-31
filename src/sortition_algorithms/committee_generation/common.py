@@ -24,7 +24,11 @@ EPS2 = 0.00000001
 
 
 def setup_committee_generation(
-    features: FeatureCollection, people: People, number_people_wanted: int, check_same_address_columns: list[str]
+    features: FeatureCollection,
+    people: People,
+    number_people_wanted: int,
+    check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
 ) -> tuple[Solver, dict[str, Any]]:
     """Set up the integer linear program for committee generation.
 
@@ -34,6 +38,7 @@ def setup_committee_generation(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns to check for same address, or empty list if
                                     not checking addresses.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (Solver, dict mapping person_id to binary variables)
@@ -42,7 +47,7 @@ def setup_committee_generation(
         InfeasibleQuotasError: If quotas are infeasible, includes suggested relaxations
         SelectionError: If solver fails for other reasons
     """
-    solver = create_solver()
+    solver = create_solver(backend=solver_backend)
 
     # Binary variable for each person (selected/not selected)
     agent_vars = {person_id: solver.add_binary_var() for person_id in people}
@@ -74,7 +79,7 @@ def setup_committee_generation(
     status = solver.optimize()
     if status == SolverStatus.INFEASIBLE:
         relaxed_features, output_lines = _relax_infeasible_quotas(
-            features, people, number_people_wanted, check_same_address_columns
+            features, people, number_people_wanted, check_same_address_columns, solver_backend=solver_backend
         )
         raise errors.InfeasibleQuotasError(relaxed_features, output_lines)
     if status != SolverStatus.OPTIMAL:
@@ -90,6 +95,7 @@ def _relax_infeasible_quotas(
     number_people_wanted: int,
     check_same_address_columns: list[str],
     ensure_inclusion: Collection[Iterable[str]] = ((),),
+    solver_backend: str = "highspy",
 ) -> tuple[FeatureCollection, list[str]]:
     """Assuming that the quotas are not satisfiable, suggest a minimal relaxation that would be.
 
@@ -103,6 +109,7 @@ def _relax_infeasible_quotas(
             passing `(("a",), ("b", "c"))` means that the quotas should be relaxed such that some valid panel contains
             agent "a" and some valid panel contains both agents "b" and "c". the default of `((),)` just requires
             a panel to exist, without further restrictions.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (relaxed FeatureCollection, list of output messages)
@@ -113,7 +120,7 @@ def _relax_infeasible_quotas(
     """
     assert len(ensure_inclusion) > 0  # otherwise, the existence of a panel is not required
 
-    solver = create_solver()
+    solver = create_solver(backend=solver_backend)
 
     # Create relaxation variables and bounds constraints
     min_vars, max_vars = _create_relaxation_variables_and_bounds(solver, features)

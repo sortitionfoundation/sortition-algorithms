@@ -25,17 +25,19 @@ from sortition_algorithms.utils import RunReport
 def _find_maximin_primal(
     committees: list[frozenset[str]],
     covered_agents: frozenset[str],
+    solver_backend: str = "highspy",
 ) -> list[float]:
     """Find the optimal probabilities for committees that maximize the minimum selection probability.
 
     Args:
         committees: list of feasible committees
         covered_agents: frozenset of agents who can be selected
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         list of probabilities for each committee (same order as input)
     """
-    solver = create_solver()
+    solver = create_solver(backend=solver_backend)
 
     committee_variables = [solver.add_continuous_var(lb=0.0, ub=1.0) for _ in committees]
     solver.add_constr(solver_sum(committee_variables) == 1)
@@ -62,6 +64,7 @@ def _find_maximin_primal(
 def _setup_maximin_incremental_model(
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
+    solver_backend: str = "highspy",
 ) -> tuple[Solver, dict[str, Any], Any]:
     """Set up the incremental LP model for maximin optimization.
 
@@ -78,11 +81,12 @@ def _setup_maximin_incremental_model(
     Args:
         committees: set of initial committees
         covered_agents: agents that can be included in some committee
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (incremental_solver, incr_agent_vars, upper_bound_var)
     """
-    incremental_solver = create_solver()
+    incremental_solver = create_solver(backend=solver_backend)
 
     # variable z - upper bound, no upper limit
     upper_bound = incremental_solver.add_continuous_var(lb=0.0, ub=float("inf"))
@@ -193,6 +197,7 @@ def _run_maximin_optimization_loop(
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
     report: RunReport,
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Run the main maximin optimization loop with column generation.
 
@@ -234,7 +239,7 @@ def _run_maximin_optimization_loop(
             # No feasible committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z (at least up to EPS, to prevent rounding errors)
             # Thus, we have enough committees
             committee_list = list(committees)
-            probabilities = _find_maximin_primal(committee_list, covered_agents)
+            probabilities = _find_maximin_primal(committee_list, covered_agents, solver_backend)
             return committee_list, probabilities, report
 
         # Some committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z. We add B to `committees` and recurse
@@ -264,6 +269,7 @@ def find_distribution_maximin(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected.
 
@@ -273,6 +279,7 @@ def find_distribution_maximin(
         number_people_wanted: desired size of the panel
         check_same_address_columns: Address columns for household identification, or empty
                                     if no address checking to be done.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (committees, probabilities, output_lines)
@@ -285,7 +292,7 @@ def find_distribution_maximin(
 
     # Set up an ILP that can be used for discovering new feasible committees
     new_committee_solver, agent_vars = setup_committee_generation(
-        features, people, number_people_wanted, check_same_address_columns
+        features, people, number_people_wanted, check_same_address_columns, solver_backend
     )
 
     # Find initial committees that cover every possible agent
@@ -295,7 +302,9 @@ def find_distribution_maximin(
     report.add_report(init_report)
 
     # Set up the incremental LP model for column generation
-    incremental_solver, incr_agent_vars, upper_bound_var = _setup_maximin_incremental_model(committees, covered_agents)
+    incremental_solver, incr_agent_vars, upper_bound_var = _setup_maximin_incremental_model(
+        committees, covered_agents, solver_backend
+    )
 
     # Run the main optimization loop
     return _run_maximin_optimization_loop(
@@ -307,4 +316,5 @@ def find_distribution_maximin(
         committees,
         covered_agents,
         report,
+        solver_backend,
     )

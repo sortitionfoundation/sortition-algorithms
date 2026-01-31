@@ -17,6 +17,7 @@ def find_any_committee(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], RunReport]:
     """Find any single feasible committee that satisfies the quotas.
 
@@ -26,6 +27,7 @@ def find_any_committee(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns to check for same address, or empty list if
                                     not checking addresses.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (list containing one committee as frozenset of person_ids, empty report)
@@ -34,7 +36,9 @@ def find_any_committee(
         InfeasibleQuotasError: If quotas are infeasible
         SelectionError: If solver fails for other reasons
     """
-    solver, agent_vars = setup_committee_generation(features, people, number_people_wanted, check_same_address_columns)
+    solver, agent_vars = setup_committee_generation(
+        features, people, number_people_wanted, check_same_address_columns, solver_backend
+    )
     committee = ilp_results_to_committee(solver, agent_vars)
     return [committee], RunReport()
 

@@ -250,6 +250,7 @@ def find_random_sample(
     check_same_address_columns: list[str],
     *,
     selection_algorithm: str = "maximin",
+    solver_backend: str = "highspy",
     test_selection: bool = False,
     number_selections: int = 1,
     max_seconds: int = 30,
@@ -262,6 +263,7 @@ def find_random_sample(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns for the address to check, or empty list if no check required
         selection_algorithm: one of "legacy", "maximin", "leximin", or "nash"
+        solver_backend: solver backend to use ("highspy" or "mip")
         test_selection: if set, do not do a random selection, but just return some valid panel.
             Useful for quickly testing whether quotas are satisfiable, but should always be false for actual selection!
         number_selections: how many panels to return. Most of the time, this should be set to 1, which means that
@@ -306,7 +308,7 @@ def find_random_sample(
     # Quick test selection using find_any_committee
     if test_selection:
         logger.info("Running test selection.")
-        return find_any_committee(features, people, number_people_wanted, check_same_address_columns)
+        return find_any_committee(features, people, number_people_wanted, check_same_address_columns, solver_backend)
 
     report = RunReport()
 
@@ -325,19 +327,24 @@ def find_random_sample(
         )
     elif selection_algorithm == "leximin":
         committees, probabilities, new_report = find_distribution_leximin(
-            features, people, number_people_wanted, check_same_address_columns
+            features, people, number_people_wanted, check_same_address_columns, solver_backend
         )
     elif selection_algorithm == "maximin":
         committees, probabilities, new_report = find_distribution_maximin(
-            features, people, number_people_wanted, check_same_address_columns
+            features, people, number_people_wanted, check_same_address_columns, solver_backend
         )
     elif selection_algorithm == "nash":
         committees, probabilities, new_report = find_distribution_nash(
-            features, people, number_people_wanted, check_same_address_columns
+            features, people, number_people_wanted, check_same_address_columns, solver_backend
         )
     elif selection_algorithm == "diversimax":
         selected_ids, new_report = find_distribution_diversimax(
-            features, people, number_people_wanted, check_same_address_columns, max_seconds=max_seconds
+            features,
+            people,
+            number_people_wanted,
+            check_same_address_columns,
+            max_seconds=max_seconds,
+            solver_backend=solver_backend,
         )
         report.add_report(new_report)
         return [selected_ids], report
@@ -579,6 +586,7 @@ def run_stratification(
                 number_people_wanted,
                 settings.normalised_address_columns,
                 selection_algorithm=settings.selection_algorithm,
+                solver_backend=settings.solver_backend,
                 test_selection=test_selection,
                 number_selections=number_selections,
                 max_seconds=max_seconds,

@@ -282,6 +282,7 @@ def find_distribution_leximin(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected
     (just like maximin), but breaks ties to maximize the second-lowest probability, breaks further ties to maximize the
@@ -293,6 +294,8 @@ def find_distribution_leximin(
         number_people_wanted: desired size of the panel
         check_same_address_columns: Address columns for household identification, or empty
                                     if no address checking to be done.
+        solver_backend: solver backend to use ("highspy" or "mip") for committee discovery.
+                        Note: The dual LP still uses Gurobi.
 
     Returns:
         tuple of (committees, probabilities, output_lines)
@@ -313,7 +316,7 @@ def find_distribution_leximin(
 
     # Set up an ILP that can be used for discovering new feasible committees
     new_committee_solver, agent_vars = setup_committee_generation(
-        features, people, number_people_wanted, check_same_address_columns
+        features, people, number_people_wanted, check_same_address_columns, solver_backend
     )
 
     # Find initial committees that cover every possible agent
