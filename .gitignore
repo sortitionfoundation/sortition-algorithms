@@ -3,6 +3,12 @@ docs/source
 # Project-specific ignores
 ignore/
 
+# Benchmark results (keep .gitkeep)
+benchmarks/results/*.csv
+benchmarks/results/*.json
+benchmarks/results/*.html
+memray-*.bin
+
 # From https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore
 
 # Byte-compiled / optimized / DLL files

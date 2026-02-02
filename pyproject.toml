@@ -44,7 +44,7 @@ Documentation = "https://sortitionfoundation.github.io/sortition-algorithms/"
 [project.optional-dependencies]
 gurobi = ["gurobipy>=12.0.2"]
 cli = ["click>=8.2.1"]
-legacy-mip = ["mip>=1.15.0"]
+mip = ["mip>=1.15.0"]
 
 [dependency-groups]
 dev = [
@@ -176,6 +176,9 @@ max-complexity = 12
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
+# S311: random.choice is fine for non-cryptographic test data generation
+# RUF046: int(round(...)) is intentional for type clarity
+"benchmarks/*" = ["S311", "RUF046"]
 
 [tool.ruff.format]
 preview = true
