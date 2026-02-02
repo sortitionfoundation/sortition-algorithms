@@ -21,6 +21,7 @@ import argparse
 import csv
 import tomllib
 from pathlib import Path
+from typing import Any
 
 import tomli_w
 
@@ -49,6 +50,16 @@ def load_people_csv(people_path: Path) -> tuple[list[str], list[dict[str, str]]]
     return header, rows
 
 
+def get_from_one_key(somedict: dict[str, Any], keys_to_try: list[str]) -> Any:
+    """Try a few different keys to get a value, to allow for different naming"""
+    for key in keys_to_try:
+        if key in somedict:
+            return somedict[key]
+    raise KeyError(
+        f"Could not find any of {', '.join(keys_to_try)} in the dict - full keys are {', '.join(somedict.keys())}"
+    )
+
+
 def extract_feature_info(features_rows: list[dict[str, str]]) -> dict[str, list[str]]:
     """Extract feature names and their possible values from features CSV.
 
@@ -57,8 +68,8 @@ def extract_feature_info(features_rows: list[dict[str, str]]) -> dict[str, list[
     """
     features: dict[str, list[str]] = {}
     for row in features_rows:
-        feature_name = row["feature"]
-        value_name = row["value"]
+        feature_name = get_from_one_key(row, ["feature", "category"])
+        value_name = get_from_one_key(row, ["value", "name"])
         if feature_name not in features:
             features[feature_name] = []
         if value_name not in features[feature_name]:
@@ -166,6 +177,9 @@ def anonymize_people(
                     break
             if new_value is None:
                 # Value not in features CSV, create a placeholder
+                print(
+                    f"unknown! Row: {row_idx} Feature: {feature_name}, value: {old_val}, possible values: {', '.join(value_map.keys())}"
+                )
                 new_value = f"f{list(feature_info.keys()).index(feature_name) + 1}unknown"
             new_row[new_col] = new_value
 
@@ -194,8 +208,8 @@ def anonymize_features(
     new_rows: list[dict[str, str]] = []
 
     for row in features_rows:
-        old_feature = row["feature"]
-        old_value = row["value"]
+        old_feature = get_from_one_key(row, ["feature", "category"])
+        old_value = get_from_one_key(row, ["value", "name"])
 
         new_feature = feature_name_map[old_feature]
         new_value = feature_value_maps[old_feature][old_value]
