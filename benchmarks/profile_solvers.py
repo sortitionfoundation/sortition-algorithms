@@ -21,8 +21,9 @@ Usage:
 import argparse
 import csv
 import json
+import resource
+import sys
 import time
-import tracemalloc
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -161,8 +162,8 @@ def profile_single_run(
     """
     set_random_provider(seed)
 
-    # Start memory tracking
-    tracemalloc.start()
+    # Get baseline memory before run (ru_maxrss is in KB on Linux, bytes on macOS)
+    mem_before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
     error_msg = None
     success = True
@@ -184,11 +185,15 @@ def profile_single_run(
 
     elapsed = time.perf_counter() - start_time
 
-    # Get peak memory
-    current, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
+    # Get peak memory after run
+    mem_after = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    mem_delta = mem_after - mem_before
 
-    peak_mb = peak / (1024 * 1024)
+    # Convert to MB (ru_maxrss is KB on Linux, bytes on macOS)
+    if sys.platform == "darwin":
+        peak_mb = mem_delta / (1024 * 1024)
+    else:
+        peak_mb = mem_delta / 1024
 
     return ProfileResult(
         backend=backend,
