@@ -1,11 +1,11 @@
 # ABOUTME: Memray profiling wrapper for detailed memory analysis.
-# ABOUTME: Run with: uv run memray run benchmarks/memray_profile.py
+# ABOUTME: Run with: uv run memray run -m benchmarks.memray_profile
 """
 Memray profiling script for detailed memory analysis.
 
 Usage:
     # Run memray profiling (generates .bin file)
-    uv run memray run benchmarks/memray_profile.py
+    uv run memray run -m benchmarks.memray_profile
 
     # Generate flamegraph from the output
     uv run memray flamegraph memray-*.bin -o benchmarks/results/flamegraph.html
@@ -17,9 +17,9 @@ Usage:
     uv run memray tree memray-*.bin
 
 Options can be passed via environment variables:
-    PROFILE_BACKEND=mip uv run memray run benchmarks/memray_profile.py
-    PROFILE_ALGORITHM=nash uv run memray run benchmarks/memray_profile.py
-    PROFILE_SIZE=500 uv run memray run benchmarks/memray_profile.py
+    PROFILE_BACKEND=mip uv run memray run -m benchmarks.memray_profile
+    PROFILE_ALGORITHM=nash uv run memray run -m benchmarks.memray_profile
+    PROFILE_SIZE=500 uv run memray run -m benchmarks.memray_profile
 """
 
 import os

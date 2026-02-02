@@ -14,7 +14,7 @@ This page documents performance comparisons between solver backends for the sort
 ### Small Pool (150 people, panel size 22)
 
 ```bash
-uv run python benchmarks/profile_solvers.py \
+uv run python -m benchmarks.profile_solvers \
     --backends highspy mip \
     --algorithms maximin \
     --runs 5
@@ -30,7 +30,7 @@ uv run python benchmarks/profile_solvers.py \
 ### Medium Pool (300 people, panel size 45)
 
 ```bash
-uv run python benchmarks/profile_solvers.py \
+uv run python -m benchmarks.profile_solvers \
     --backends highspy mip \
     --algorithms maximin \
     --sizes 300 \
@@ -47,7 +47,7 @@ uv run python benchmarks/profile_solvers.py \
 ### Large Pool (500 people, panel size 75)
 
 ```bash
-uv run python benchmarks/profile_solvers.py \
+uv run python -m benchmarks.profile_solvers \
     --backends highspy mip \
     --algorithms maximin \
     --sizes 500 \
@@ -64,7 +64,7 @@ uv run python benchmarks/profile_solvers.py \
 ### Extra Large Pool (750 people, panel size 112)
 
 ```bash
-uv run python benchmarks/profile_solvers.py \
+uv run python -m benchmarks.profile_solvers \
     --backends highspy mip \
     --algorithms maximin \
     --sizes 750 \
@@ -83,7 +83,7 @@ uv run python benchmarks/profile_solvers.py \
 Testing with narrow min/max gaps to stress the solvers:
 
 ```bash
-uv run python benchmarks/profile_solvers.py \
+uv run python -m benchmarks.profile_solvers \
     --backends highspy mip \
     --algorithms maximin \
     --sizes 300 \

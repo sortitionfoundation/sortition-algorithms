@@ -7,7 +7,7 @@ The base fixture has 150 people. This module can generate larger pools
 by scaling up while maintaining similar demographic distributions.
 
 Usage:
-    uv run python benchmarks/generate_fixtures.py
+    uv run python -m benchmarks.generate_fixtures
 """
 
 import copy

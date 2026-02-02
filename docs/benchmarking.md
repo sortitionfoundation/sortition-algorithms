@@ -42,25 +42,43 @@ git clone https://github.com/sortitionfoundation/sortition-algorithms
 cd sortition-algorithms
 
 # Run basic profiling
-uv run python benchmarks/profile_solvers.py
+uv run python -m benchmarks.profile_solvers
 
 # Compare backends (requires mip package)
-uv run python benchmarks/profile_solvers.py --backends highspy mip
+uv run python -m benchmarks.profile_solvers --backends highspy mip
 
 # Profile specific algorithms
-uv run python benchmarks/profile_solvers.py --algorithms maximin nash diversimax
+uv run python -m benchmarks.profile_solvers --algorithms maximin nash diversimax
 ```
 
 ### Profiling Options
 
-| Option         | Default                   | Description                     |
-| -------------- | ------------------------- | ------------------------------- |
-| `--backends`   | `highspy`                 | Solver backends to test         |
-| `--algorithms` | `maximin nash diversimax` | Algorithms to profile           |
-| `--sizes`      | `150`                     | Pool sizes to test              |
-| `--panel-size` | `22`                      | Panel size to select            |
-| `--runs`       | `3`                       | Runs per configuration          |
-| `--seed`       | `42`                      | Random seed for reproducibility |
+| Option           | Default                   | Description                                       |
+| ---------------- | ------------------------- | ------------------------------------------------- |
+| `--backends`     | `highspy`                 | Solver backends to test                           |
+| `--algorithms`   | `maximin nash diversimax` | Algorithms to profile                             |
+| `--sizes`        | `150`                     | Pool sizes to test (ignored with `--people-csv`)  |
+| `--panel-size`   | auto (~15%)               | Panel size to select                              |
+| `--runs`         | `3`                       | Runs per configuration                            |
+| `--seed`         | `42`                      | Random seed for reproducibility                   |
+| `--people-csv`   | -                         | Path to existing people CSV                       |
+| `--features-csv` | -                         | Path to existing features CSV                     |
+| `--settings`     | -                         | Path to settings TOML file                        |
+
+### Using Existing Datasets
+
+You can benchmark with your own datasets:
+
+```bash
+uv run python -m benchmarks.profile_solvers \
+    --people-csv data/candidates.csv \
+    --features-csv data/features.csv \
+    --settings data/settings.toml \
+    --panel-size 30 \
+    --backends highspy mip
+```
+
+All three options (`--people-csv`, `--features-csv`, `--settings`) must be provided together.
 
 ### Example Output
 
@@ -99,7 +117,7 @@ For detailed memory analysis, use memray:
 
 ```bash
 # Run memray profiling (generates .bin file)
-uv run memray run benchmarks/memray_profile.py
+uv run memray run -m benchmarks.memray_profile
 
 # Generate flamegraph
 uv run memray flamegraph memray-*.bin -o benchmarks/results/flamegraph.html
@@ -111,9 +129,9 @@ uv run memray summary memray-*.bin
 Configure via environment variables:
 
 ```bash
-PROFILE_BACKEND=mip uv run memray run benchmarks/memray_profile.py
-PROFILE_ALGORITHM=nash uv run memray run benchmarks/memray_profile.py
-PROFILE_SIZE=500 uv run memray run benchmarks/memray_profile.py
+PROFILE_BACKEND=mip uv run memray run -m benchmarks.memray_profile
+PROFILE_ALGORITHM=nash uv run memray run -m benchmarks.memray_profile
+PROFILE_SIZE=500 uv run memray run -m benchmarks.memray_profile
 ```
 
 ## Scaling Tests
@@ -122,10 +140,35 @@ Generate larger test fixtures for stress testing:
 
 ```bash
 # Profile with larger pool sizes
-uv run python benchmarks/profile_solvers.py --sizes 150 500 1000
+uv run python -m benchmarks.profile_solvers --sizes 150 500 1000
 ```
 
 The fixture generator scales the demographic distributions proportionally while maintaining similar constraint ratios.
+
+## Anonymizing Data for Sharing
+
+If you want to share benchmark data without exposing sensitive information, use the anonymize script:
+
+```bash
+uv run python -m benchmarks.anonymize_data \
+    --people data/candidates.csv \
+    --features data/features.csv \
+    --settings data/settings.toml \
+    --output-dir anonymized/
+```
+
+This creates anonymized versions of your files that:
+
+- Remove all personal information (names, emails, addresses)
+- Rename columns to generic names (`feature1`, `feature2`, etc.)
+- Rename values to generic names (`f1value1`, `f1value2`, etc.)
+- Preserve duplicate address detection (same addresses stay same)
+- Maintain identical feature distributions for benchmarking
+
+The output includes:
+- `people.csv` - Anonymized people data
+- `features.csv` - Features with renamed values
+- `settings.toml` - Updated settings with new column names
 
 ## Metrics Collected
 

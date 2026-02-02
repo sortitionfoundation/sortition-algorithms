@@ -4,10 +4,18 @@
 Profiling script for comparing solver backend performance.
 
 Usage:
-    uv run python benchmarks/profile_solvers.py
-    uv run python benchmarks/profile_solvers.py --backends highspy mip
-    uv run python benchmarks/profile_solvers.py --algorithms maximin nash
-    uv run python benchmarks/profile_solvers.py --sizes 150 500
+    # With generated fixtures
+    uv run python -m benchmarks.profile_solvers
+    uv run python -m benchmarks.profile_solvers --backends highspy mip
+    uv run python -m benchmarks.profile_solvers --algorithms maximin nash
+    uv run python -m benchmarks.profile_solvers --sizes 150 500
+
+    # With existing dataset
+    uv run python -m benchmarks.profile_solvers \\
+        --people-csv data/candidates.csv \\
+        --features-csv data/features.csv \\
+        --settings data/settings.toml \\
+        --panel-size 30
 """
 
 import argparse
@@ -23,8 +31,9 @@ from pathlib import Path
 from benchmarks.generate_fixtures import generate_scaled_fixtures, load_base_fixtures
 from sortition_algorithms.committee_generation.solver import MIP_AVAILABLE
 from sortition_algorithms.core import find_random_sample
-from sortition_algorithms.features import FeatureCollection
-from sortition_algorithms.people import People
+from sortition_algorithms.features import FeatureCollection, read_in_features
+from sortition_algorithms.people import People, read_in_people
+from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import set_random_provider
 
 
@@ -53,6 +62,45 @@ class ProfileConfig:
     num_runs: int = 3
     seed: int = 42
     tight_constraints: bool = False  # If True, use narrow min/max gaps
+    # External dataset paths (if provided, sizes is ignored)
+    people_csv: Path | None = None
+    features_csv: Path | None = None
+    settings_path: Path | None = None
+
+
+def load_external_dataset(
+    people_csv: Path,
+    features_csv: Path,
+    settings_path: Path,
+) -> tuple[FeatureCollection, People, Settings]:
+    """Load an external dataset from CSV files.
+
+    Args:
+        people_csv: Path to people/candidates CSV
+        features_csv: Path to features/targets CSV
+        settings_path: Path to settings TOML file
+
+    Returns:
+        tuple of (features, people, settings)
+    """
+    # Load settings
+    settings, _ = Settings.load_from_file(settings_path)
+
+    # Load features
+    with open(features_csv, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        head = reader.fieldnames or []
+        rows = list(reader)
+    features, _, _ = read_in_features(head, rows)
+
+    # Load people
+    with open(people_csv, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        head = reader.fieldnames or []
+        rows = list(reader)
+    people, _ = read_in_people(head, rows, features, settings)
+
+    return features, people, settings
 
 
 def load_fixtures(
@@ -93,6 +141,8 @@ def profile_single_run(
     algorithm: str,
     backend: str,
     seed: int,
+    check_same_address_columns: list[str] | None = None,
+    max_seconds: int = 600,
 ) -> ProfileResult:
     """Run a single profiling measurement.
 
@@ -103,6 +153,8 @@ def profile_single_run(
         algorithm: Selection algorithm name
         backend: Solver backend name
         seed: Random seed for reproducibility
+        check_same_address_columns: Columns to check for same address (optional)
+        max_seconds: Maximum time for solver (default 600s for real datasets)
 
     Returns:
         ProfileResult with timing and memory data
@@ -121,10 +173,10 @@ def profile_single_run(
             features,
             people,
             panel_size,
-            check_same_address_columns=[],
+            check_same_address_columns=check_same_address_columns or [],
             selection_algorithm=algorithm,
             solver_backend=backend,
-            max_seconds=60,
+            max_seconds=max_seconds,
         )
     except Exception as e:
         success = False
@@ -172,6 +224,11 @@ def run_profiling(config: ProfileConfig) -> list[ProfileResult]:
     if skipped_backends:
         print(f"Skipping unavailable backends: {skipped_backends}")
 
+    # Check if using external dataset
+    if config.people_csv and config.features_csv and config.settings_path:
+        return run_profiling_external(config, backends_to_test)
+
+    # Otherwise use generated fixtures
     for size in config.sizes:
         print(f"\n{'=' * 60}")
         constraint_type = "tight" if config.tight_constraints else "normal"
@@ -208,6 +265,78 @@ def run_profiling(config: ProfileConfig) -> list[ProfileResult]:
                     )
 
                 results.extend(run_results)
+
+    return results
+
+
+def run_profiling_external(config: ProfileConfig, backends_to_test: list[str]) -> list[ProfileResult]:
+    """Run profiling with an external dataset.
+
+    Args:
+        config: ProfileConfig with external dataset paths
+        backends_to_test: List of available backends to test
+
+    Returns:
+        list of ProfileResult objects
+    """
+    results: list[ProfileResult] = []
+
+    assert config.people_csv is not None
+    assert config.features_csv is not None
+    assert config.settings_path is not None
+
+    print(f"\n{'=' * 60}")
+    print("Loading external dataset...")
+    print(f"  People: {config.people_csv}")
+    print(f"  Features: {config.features_csv}")
+    print(f"  Settings: {config.settings_path}")
+
+    features, people, settings = load_external_dataset(
+        config.people_csv,
+        config.features_csv,
+        config.settings_path,
+    )
+
+    print(f"Loaded {people.count} people with {len(features)} features")
+
+    # Determine panel size
+    if config.panel_size is None:
+        # Try to infer from feature constraints (sum of min values)
+        total_min = sum(fv.min for feature in features.values() for fv in feature.values())
+        # Use max of inferred min and 15% of pool
+        panel_size = max(total_min, int(people.count * 0.15))
+        print(f"Panel size (inferred): {panel_size}")
+    else:
+        panel_size = config.panel_size
+        print(f"Panel size: {panel_size}")
+
+    check_same_address_columns = settings.check_same_address_columns if settings.check_same_address else []
+    if check_same_address_columns:
+        print(f"Address checking: {check_same_address_columns}")
+
+    for algorithm in config.algorithms:
+        for backend in backends_to_test:
+            print(f"\n  Profiling {algorithm} with {backend} backend...")
+
+            run_results = []
+            for run_num in range(config.num_runs):
+                seed = config.seed + run_num
+                result = profile_single_run(
+                    features,
+                    people,
+                    panel_size,
+                    algorithm,
+                    backend,
+                    seed,
+                    check_same_address_columns=check_same_address_columns,
+                    max_seconds=600,  # Longer timeout for real datasets
+                )
+                run_results.append(result)
+
+                status = "OK" if result.success else f"FAILED: {result.error}"
+                print(f"    Run {run_num + 1}: {result.elapsed_seconds:.3f}s, {result.peak_memory_mb:.1f}MB - {status}")
+
+            results.extend(run_results)
 
     return results
 
@@ -332,7 +461,23 @@ def print_summary_table(summary: dict) -> None:
 
 def main() -> None:
     """Main entry point for the profiling script."""
-    parser = argparse.ArgumentParser(description="Profile sortition algorithm solver performance")
+    parser = argparse.ArgumentParser(
+        description="Profile sortition algorithm solver performance",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    # Profile with generated fixtures
+    uv run python -m benchmarks.profile_solvers --backends highspy mip
+
+    # Profile with existing dataset
+    uv run python -m benchmarks.profile_solvers \\
+        --people-csv data/candidates.csv \\
+        --features-csv data/features.csv \\
+        --settings data/settings.toml \\
+        --panel-size 30 \\
+        --backends highspy mip
+""",
+    )
     parser.add_argument(
         "--backends",
         nargs="+",
@@ -350,7 +495,7 @@ def main() -> None:
         nargs="+",
         type=int,
         default=[150],
-        help="Pool sizes to test (default: 150)",
+        help="Pool sizes to test (default: 150). Ignored if --people-csv is provided.",
     )
     parser.add_argument(
         "--panel-size",
@@ -382,7 +527,32 @@ def main() -> None:
         help="Output directory for results",
     )
 
+    # External dataset options
+    parser.add_argument(
+        "--people-csv",
+        type=Path,
+        default=None,
+        help="Path to existing people/candidates CSV (use with --features-csv and --settings)",
+    )
+    parser.add_argument(
+        "--features-csv",
+        type=Path,
+        default=None,
+        help="Path to existing features/targets CSV (use with --people-csv and --settings)",
+    )
+    parser.add_argument(
+        "--settings",
+        type=Path,
+        default=None,
+        help="Path to settings TOML file (use with --people-csv and --features-csv)",
+    )
+
     args = parser.parse_args()
+
+    # Validate external dataset options
+    external_opts = [args.people_csv, args.features_csv, args.settings]
+    if any(external_opts) and not all(external_opts):
+        parser.error("--people-csv, --features-csv, and --settings must all be provided together")
 
     config = ProfileConfig(
         backends=args.backends,
@@ -392,15 +562,21 @@ def main() -> None:
         num_runs=args.runs,
         seed=args.seed,
         tight_constraints=args.tight_constraints,
+        people_csv=args.people_csv,
+        features_csv=args.features_csv,
+        settings_path=args.settings,
     )
 
     print("Sortition Algorithm Solver Profiling")
     print("=" * 40)
     print(f"Backends: {config.backends}")
     print(f"Algorithms: {config.algorithms}")
-    print(f"Pool sizes: {config.sizes}")
+    if config.people_csv:
+        print(f"External dataset: {config.people_csv}")
+    else:
+        print(f"Pool sizes: {config.sizes}")
+        print(f"Tight constraints: {config.tight_constraints}")
     print(f"Panel size: {config.panel_size or 'auto (~15% of pool)'}")
-    print(f"Tight constraints: {config.tight_constraints}")
     print(f"Runs per config: {config.num_runs}")
 
     results = run_profiling(config)
