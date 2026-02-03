@@ -51,7 +51,7 @@ class Solver(ABC):
         Returns:
             A variable object that can be used in constraints and objectives
         """
-        ...
+        pass
 
     @abstractmethod
     def add_integer_var(self, lb: float = 0.0, ub: float | None = None, name: str = "") -> Any:
@@ -65,7 +65,7 @@ class Solver(ABC):
         Returns:
             A variable object that can be used in constraints and objectives
         """
-        ...
+        pass
 
     @abstractmethod
     def add_continuous_var(self, lb: float = 0.0, ub: float = 1.0, name: str = "") -> Any:
@@ -79,7 +79,7 @@ class Solver(ABC):
         Returns:
             A variable object that can be used in constraints and objectives
         """
-        ...
+        pass
 
     @abstractmethod
     def add_constr(self, constraint: Any) -> None:
@@ -88,7 +88,7 @@ class Solver(ABC):
         Args:
             constraint: A constraint expression (e.g., var1 + var2 <= 5)
         """
-        ...
+        pass
 
     @abstractmethod
     def set_objective(self, expr: Any, sense: SolverSense) -> None:
@@ -98,7 +98,7 @@ class Solver(ABC):
             expr: The expression to optimize
             sense: MINIMIZE or MAXIMIZE
         """
-        ...
+        pass
 
     @abstractmethod
     def optimize(self) -> SolverStatus:
@@ -107,7 +107,7 @@ class Solver(ABC):
         Returns:
             The optimization status
         """
-        ...
+        pass
 
     @abstractmethod
     def get_value(self, var: Any) -> float:
@@ -119,7 +119,7 @@ class Solver(ABC):
         Returns:
             The optimal value of the variable
         """
-        ...
+        pass
 
     @abstractmethod
     def get_objective_value(self) -> float:
@@ -128,7 +128,7 @@ class Solver(ABC):
         Returns:
             The optimal objective value
         """
-        ...
+        pass
 
     @abstractmethod
     def get_var_by_name(self, name: str) -> Any:
@@ -140,7 +140,7 @@ class Solver(ABC):
         Returns:
             The variable object, or None if not found
         """
-        ...
+        pass
 
     @abstractmethod
     def get_gap(self) -> float:
@@ -149,7 +149,7 @@ class Solver(ABC):
         Returns:
             The optimality gap (0.0 for optimal, higher for feasible solutions)
         """
-        ...
+        pass
 
 
 class HighsSolver(Solver):
