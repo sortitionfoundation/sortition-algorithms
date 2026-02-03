@@ -170,7 +170,7 @@ def profile_single_run(
     start_time = time.perf_counter()
 
     try:
-        _committees, _report = find_random_sample(
+        find_random_sample(
             features,
             people,
             panel_size,
