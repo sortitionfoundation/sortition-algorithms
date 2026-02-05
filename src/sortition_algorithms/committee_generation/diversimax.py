@@ -7,8 +7,16 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 import numpy as np
-import pandas as pd
-from sklearn.preprocessing import OneHotEncoder  # type: ignore[import-untyped]
+
+try:
+    import pandas as pd
+    from sklearn.preprocessing import OneHotEncoder  # type: ignore[import-untyped]
+
+    DIVERSIMAX_AVAILABLE = True
+except ImportError:
+    DIVERSIMAX_AVAILABLE = False
+    pd = None  # type: ignore[assignment]
+    OneHotEncoder = None
 
 from sortition_algorithms import errors
 from sortition_algorithms.committee_generation.common import _relax_infeasible_quotas
@@ -55,6 +63,10 @@ def find_distribution_diversimax(
     Returns:
         tuple of (selected_ids, report)
     """
+    if not DIVERSIMAX_AVAILABLE:
+        msg = "Diversimax algorithm requires the optional 'diversimax' dependencies, which are not available"
+        raise RuntimeError(msg, "diversimax_not_available", {})
+
     report = RunReport()
     report.add_line_and_log("Using Diversimax algorithm.", log_level=logging.INFO)
     optimizer = DiversityOptimizer(people, features, number_people_wanted, check_same_address_columns, solver_backend)
@@ -96,6 +108,10 @@ class DiversityOptimizer:
         check_same_address_columns: list[str],
         solver_backend: str = "highspy",
     ):
+        if not DIVERSIMAX_AVAILABLE:
+            msg = "Diversimax algorithm requires the optional 'diversimax' dependencies, which are not available"
+            raise RuntimeError(msg, "diversimax_not_available", {})
+
         self.people = people
         # convert people to dataframe
         people_df = pd.DataFrame.from_dict(dict(people.items()), orient="index")

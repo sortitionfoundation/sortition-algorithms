@@ -72,6 +72,9 @@ ERROR_MESSAGES = {
     "columns_to_keep_not_strings": N_("columns_to_keep must be a list of STRINGS"),
     "invalid_selection_algorithm": N_("selection_algorithm %(algorithm)s is not one of: %(valid_algorithms)s"),
     # RuntimeError messages
+    "diversimax_not_available": N_(
+        "Diversimax algorithm requires the optional 'diversimax' dependencies, which are not available"
+    ),
     "gurobi_not_available": N_("Leximin algorithm requires Gurobi solver which is not available"),
     # ========================================================================
     # ParseTable error messages (for structured validation errors)

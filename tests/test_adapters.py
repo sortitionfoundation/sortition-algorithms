@@ -11,7 +11,7 @@ from sortition_algorithms.adapters import (
     SelectionData,
     generate_dupes,
 )
-from sortition_algorithms.committee_generation import GUROBI_AVAILABLE
+from sortition_algorithms.committee_generation import DIVERSIMAX_AVAILABLE, GUROBI_AVAILABLE
 from sortition_algorithms.core import run_stratification
 from sortition_algorithms.errors import (
     ParseTableErrorMsg,
@@ -31,8 +31,18 @@ from tests.helpers import (
     get_settings_for_fixtures,
 )
 
-# only test leximin if gurobipy is available
-ALGORITHMS = SELECTION_ALGORITHMS if GUROBI_AVAILABLE else [alg for alg in SELECTION_ALGORITHMS if alg != "leximin"]
+
+def _get_algorithms() -> list[str]:
+    """only test leximin if gurobipy is available, and likewise for diversimax"""
+    algorithms = [str(alg) for alg in SELECTION_ALGORITHMS]
+    if not GUROBI_AVAILABLE:
+        algorithms.remove("leximin")
+    if not DIVERSIMAX_AVAILABLE:
+        algorithms.remove("diversimax")
+    return algorithms
+
+
+ALGORITHMS = _get_algorithms()
 PEOPLE_TO_SELECT = 22
 
 features_content = features_csv_path.read_text("utf8")

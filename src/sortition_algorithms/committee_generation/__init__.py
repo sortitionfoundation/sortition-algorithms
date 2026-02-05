@@ -3,6 +3,7 @@ from sortition_algorithms.committee_generation.common import (
     ilp_results_to_committee,
     setup_committee_generation,
 )
+from sortition_algorithms.committee_generation.diversimax import DIVERSIMAX_AVAILABLE
 from sortition_algorithms.committee_generation.legacy import find_random_sample_legacy
 from sortition_algorithms.committee_generation.leximin import GUROBI_AVAILABLE, find_distribution_leximin
 from sortition_algorithms.committee_generation.maximin import find_distribution_maximin
@@ -69,6 +70,7 @@ def standardize_distribution(
 
 
 __all__ = (
+    "DIVERSIMAX_AVAILABLE",
     "GUROBI_AVAILABLE",
     "find_any_committee",
     "find_distribution_leximin",

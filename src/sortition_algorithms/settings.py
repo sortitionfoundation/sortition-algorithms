@@ -49,8 +49,8 @@ columns_to_keep = [
 # see https://sortitionfoundation.github.io/sortition-algorithms/concepts/#selection-algorithms
 selection_algorithm = "maximin"
 
-# solver_backend can be "highspy" (default) or "mip" (requires optional mip package)
-solver_backend = "highspy"
+# solver_backend can be "highspy" or "mip" (default)
+solver_backend = "mip"
 
 # random number seed - if this is NOT zero then it is used to set the random number generator seed
 random_number_seed = 0
@@ -88,7 +88,7 @@ class Settings:
     check_same_address_columns: list[str] = field(validator=check_columns_for_same_address, factory=list)
     max_attempts: int = field(validator=validators.instance_of(int), default=100)
     selection_algorithm: str = field(default="maximin")
-    solver_backend: str = field(default="highspy")
+    solver_backend: str = field(default="mip")
     random_number_seed: int = field(validator=validators.instance_of(int), default=0)
 
     @columns_to_keep.validator
