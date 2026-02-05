@@ -23,6 +23,7 @@ def create_test_settings(
     check_same_address_columns: list[str] | None = None,
     max_attempts: int = 100,
     selection_algorithm: str = "maximin",
+    solver_backend: str = "highspy",
     random_number_seed: int = 42,
     **kwargs,
 ) -> Settings:
@@ -35,6 +36,7 @@ def create_test_settings(
         check_same_address_columns: Columns to use for address checking
         max_attempts: Maximum retry attempts
         selection_algorithm: Selection algorithm to use
+        solver_backend: Solver backend to use ("highspy" or "mip")
         random_number_seed: Random seed for reproducible tests
         **kwargs: Additional arguments passed to Settings constructor
 
@@ -51,6 +53,7 @@ def create_test_settings(
         check_same_address_columns=check_same_address_columns,
         max_attempts=max_attempts,
         selection_algorithm=selection_algorithm,
+        solver_backend=solver_backend,
         random_number_seed=random_number_seed,
         **kwargs,
     )

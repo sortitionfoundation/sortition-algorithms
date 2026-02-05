@@ -1,16 +1,26 @@
+# ABOUTME: Diversimax algorithm for committee generation.
+# ABOUTME: Maximizes diversity across intersections of demographic features.
+
 import itertools
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-import mip
 import numpy as np
-import pandas as pd
-from mip import minimize, xsum
-from sklearn.preprocessing import OneHotEncoder  # type: ignore[import-untyped]
+
+try:
+    import pandas as pd
+    from sklearn.preprocessing import OneHotEncoder  # type: ignore[import-untyped]
+
+    DIVERSIMAX_AVAILABLE = True
+except ImportError:
+    DIVERSIMAX_AVAILABLE = False
+    pd = None  # type: ignore[assignment]
+    OneHotEncoder = None
 
 from sortition_algorithms import errors
 from sortition_algorithms.committee_generation.common import _relax_infeasible_quotas
+from sortition_algorithms.committee_generation.solver import SolverSense, SolverStatus, create_solver, solver_sum
 from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import RunReport, logger, random_provider
@@ -36,42 +46,56 @@ def find_distribution_diversimax(
     number_people_wanted: int,
     check_same_address_columns: list[str],
     max_seconds: int = 30,
+    solver_backend: str = "highspy",
 ) -> tuple[frozenset[str], RunReport]:
     """
     Find a committee using the Diversimax algorithm.
+
+    Args:
+        features: FeatureCollection with min/max quotas
+        people: People object with pool members
+        number_people_wanted: desired size of the panel
+        check_same_address_columns: columns to check for same address, or empty list if
+                                    not checking addresses.
+        max_seconds: maximum seconds to spend searching
+        solver_backend: solver backend to use ("highspy" or "mip")
+
+    Returns:
+        tuple of (selected_ids, report)
     """
+    if not DIVERSIMAX_AVAILABLE:
+        msg = "Diversimax algorithm requires the optional 'diversimax' dependencies, which are not available"
+        raise RuntimeError(msg, "diversimax_not_available", {})
+
     report = RunReport()
     report.add_line_and_log("Using Diversimax algorithm.", log_level=logging.INFO)
-    optimizer = DiversityOptimizer(people, features, number_people_wanted, check_same_address_columns)
+    optimizer = DiversityOptimizer(people, features, number_people_wanted, check_same_address_columns, solver_backend)
     optimizer.log_problem_stats()
 
-    model, selected_ids = optimizer.optimize(max_seconds=max_seconds)
+    status, selected_ids, gap = optimizer.optimize(max_seconds=max_seconds)
 
     # ===== HANDLE BOTH OPTIMAL AND FEASIBLE AS SUCCESS =====
-    if model.status in [mip.OptimizationStatus.OPTIMAL, mip.OptimizationStatus.FEASIBLE]:
-        if model.status == mip.OptimizationStatus.OPTIMAL:
+    if status in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
+        if status == SolverStatus.OPTIMAL:
             report.add_line_and_log(
                 f"Diversimax optimization successful (optimal). Selected {len(selected_ids)} participants.",
                 log_level=logging.INFO,
             )
         else:  # FEASIBLE
             report.add_line_and_log(
-                f"Diversimax optimization successful (feasible, gap {model.gap:.1%}). Selected {len(selected_ids)} participants.",
+                f"Diversimax optimization successful (feasible, gap {gap:.1%}). Selected {len(selected_ids)} participants.",
                 log_level=logging.INFO,
             )
         return selected_ids, report
 
-    elif model.status == mip.OptimizationStatus.INFEASIBLE:
+    elif status == SolverStatus.INFEASIBLE:
         relaxed_features, output_lines = _relax_infeasible_quotas(
-            features, people, number_people_wanted, check_same_address_columns
+            features, people, number_people_wanted, check_same_address_columns, solver_backend=solver_backend
         )
         raise errors.InfeasibleQuotasError(relaxed_features, output_lines)
 
     else:
-        msg = (
-            f"No feasible committees found, solver returns code {model.status} (see "
-            "https://docs.python-mip.com/en/latest/classes.html#optimizationstatus)."
-        )
+        msg = f"No feasible committees found, solver returns status {status}."
         raise errors.SelectionError(msg)
 
 
@@ -82,7 +106,12 @@ class DiversityOptimizer:
         features: FeatureCollection,
         panel_size: int,
         check_same_address_columns: list[str],
+        solver_backend: str = "highspy",
     ):
+        if not DIVERSIMAX_AVAILABLE:
+            msg = "Diversimax algorithm requires the optional 'diversimax' dependencies, which are not available"
+            raise RuntimeError(msg, "diversimax_not_available", {})
+
         self.people = people
         # convert people to dataframe
         people_df = pd.DataFrame.from_dict(dict(people.items()), orient="index")
@@ -93,6 +122,7 @@ class DiversityOptimizer:
         self.features = features
         self.panel_size = panel_size
         self.check_same_address_columns = check_same_address_columns
+        self.solver_backend = solver_backend
         self.intersections_data: AllIntersectionsData = self.prepare_all_data()
         self.all_ohe = self.create_all_one_hot_encodings()
 
@@ -166,9 +196,9 @@ class DiversityOptimizer:
             all_ohe.append(ohe_values)
         return all_ohe
 
-    def optimize(self, max_seconds: int = 30, accepted_gap: float = 0.1) -> tuple[mip.Model, frozenset[str]]:
+    def optimize(self, max_seconds: int = 30, accepted_gap: float = 0.1) -> tuple[SolverStatus, frozenset[str], float]:
         """
-        Uses MIP to optimize based on the categories constraints
+        Uses solver to optimize based on the categories constraints
 
         For the optimization goal, for every dims intersection:
         Take the one hot encoded of who is in which intersection for these dims
@@ -176,68 +206,77 @@ class DiversityOptimizer:
         Figure out the "best" value - if all intersections were of equal size
         Take the abs for each intersection from that value
         Minimize sum of abs
+
+        Returns:
+            tuple of (status, selected_ids, gap)
         """
         df = self.pool_members_df
-        m = mip.Model()
-        m.max_seconds = max_seconds
-        m.max_mip_gap = accepted_gap
+        solver = create_solver(backend=self.solver_backend, time_limit=max_seconds, mip_gap=accepted_gap)
 
         # binary variable for each person - if they are selected or not
-        model_variables = []
+        # We store them by name so we can look them up later
+        model_variables = {}
         for person_id in df.index:
-            var = m.add_var(var_type="B", name=str(person_id))
-            model_variables.append(var)
-        model_variables_series = pd.Series(model_variables, index=df.index)
+            model_variables[str(person_id)] = solver.add_binary_var(name=str(person_id))
+        model_variables_list = list(model_variables.values())
 
         # Household constraints: at most 1 person per household
         if self.check_same_address_columns:
             for housemates in self.people.households(self.check_same_address_columns).values():
                 if len(housemates) > 1:
-                    m.add_constr(mip.xsum(model_variables_series[member_id] for member_id in housemates) <= 1)
+                    solver.add_constr(solver_sum(model_variables[str(member_id)] for member_id in housemates) <= 1)
 
         # the sum of all people in each category must be between the min and max specified
         for feature_name, value_name, fv_minmax in iterate_feature_collection(self.features):
-            relevant_members = model_variables_series[df[feature_name.lower()] == value_name.lower()]
-            rel_sum = xsum(relevant_members)
-            m.add_constr(rel_sum >= fv_minmax.min)
-            m.add_constr(rel_sum <= fv_minmax.max)
-        m.add_constr(xsum(model_variables_series) == self.panel_size)  # cannot exceed panel size
+            relevant_member_vars = [
+                model_variables[str(person_id)]
+                for person_id in df.index
+                if df.loc[person_id, feature_name.lower()] == value_name.lower()
+            ]
+            rel_sum = solver_sum(relevant_member_vars)
+            solver.add_constr(rel_sum >= fv_minmax.min)
+            solver.add_constr(rel_sum <= fv_minmax.max)
+        solver.add_constr(solver_sum(model_variables_list) == self.panel_size)  # cannot exceed panel size
 
         # define the optimization goal
         all_objectives = []
         for ohe in self.all_ohe:  # for every set of intersections (one hot encoded) of features
-            vals = np.asarray(model_variables_series.values)  # ensures it's ndarray
             # how many selected to each intersection
-            intersection_sizes = (vals.reshape(-1, 1) * ohe).sum(axis=0)
-            # the best value is if all intersections were equal size
-            best_val = self.panel_size / ohe.shape[1]
+            # We need to build expressions for each intersection column
+            for col_idx in range(ohe.shape[1]):
+                # For this intersection column, sum up the binary vars weighted by ohe membership
+                intersection_size = solver_sum(
+                    model_variables_list[row_idx] * ohe[row_idx, col_idx]
+                    for row_idx in range(len(model_variables_list))
+                )
+                # the best value is if all intersections were equal size
+                best_val = self.panel_size / ohe.shape[1]
 
-            # set support variables that are the diffs from each intersection size to the best_val
-            diffs_from_best_val = [m.add_var(var_type="C") for x in intersection_sizes]
-            # constrain these support variables to be the abs diff from the intersection size
-            for abs_diff, intersection_size in zip(diffs_from_best_val, intersection_sizes, strict=False):
-                m.add_constr(abs_diff >= (intersection_size - best_val))
-                m.add_constr(abs_diff >= (best_val - intersection_size))
+                # set support variable that is the abs diff from intersection size to best_val
+                abs_diff = solver.add_continuous_var(lb=0.0, ub=float("inf"))
+                # constrain this support variable to be the abs diff from the intersection size
+                solver.add_constr(abs_diff >= (intersection_size - best_val))
+                solver.add_constr(abs_diff >= (best_val - intersection_size))
 
-            support_vars_sum = xsum(diffs_from_best_val)  # we will minimize the abs diffs
-            all_objectives.append(support_vars_sum)
+                all_objectives.append(abs_diff)
 
-        obj = xsum(all_objectives)
-        m.objective = minimize(obj)
+        obj = solver_sum(all_objectives)
+        solver.set_objective(obj, SolverSense.MINIMIZE)
 
-        logger.info(f"Constraints: {m.num_cols} variables, {m.num_rows} constraints")
-        logger.info(f"Binary vars: {m.num_int}, Continuous vars: {m.num_cols - m.num_int}")
+        logger.info(f"Diversimax: {len(model_variables)} binary vars, {len(all_objectives)} abs-diff vars")
 
-        status = m.optimize()
-        if status in [mip.OptimizationStatus.OPTIMAL, mip.OptimizationStatus.FEASIBLE]:
+        status = solver.optimize()
+        gap = solver.get_gap()
+
+        if status in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:
             selected_ids = []
             for person_id in df.index:
-                var = m.var_by_name(str(person_id))
-                if var.x >= 0.99:  # ==1, for numerical stability
+                var = solver.get_var_by_name(str(person_id))
+                if var is not None and solver.get_value(var) >= 0.99:  # ==1, for numerical stability
                     selected_ids.append(person_id)
             selected_ids_set = frozenset(selected_ids)
-            return m, selected_ids_set
-        return m, frozenset()
+            return status, selected_ids_set, gap
+        return status, frozenset(), gap
 
     def log_problem_stats(self) -> None:
         logger.info(f"Features: {len(self.pool_members_df.columns)}")

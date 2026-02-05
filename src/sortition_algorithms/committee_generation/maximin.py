@@ -1,14 +1,21 @@
+# ABOUTME: Maximin algorithm for committee generation.
+# ABOUTME: Maximizes the minimum selection probability across all agents.
+
 import logging
 from typing import Any
 
-import mip
-
 from sortition_algorithms.committee_generation.common import (
     EPS,
-    create_mip_model,
     generate_initial_committees,
     ilp_results_to_committee,
     setup_committee_generation,
+)
+from sortition_algorithms.committee_generation.solver import (
+    Solver,
+    SolverSense,
+    SolverStatus,
+    create_solver,
+    solver_sum,
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
@@ -18,20 +25,22 @@ from sortition_algorithms.utils import RunReport
 def _find_maximin_primal(
     committees: list[frozenset[str]],
     covered_agents: frozenset[str],
+    solver_backend: str = "highspy",
 ) -> list[float]:
     """Find the optimal probabilities for committees that maximize the minimum selection probability.
 
     Args:
         committees: list of feasible committees
         covered_agents: frozenset of agents who can be selected
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         list of probabilities for each committee (same order as input)
     """
-    model = create_mip_model(sense=mip.MAXIMIZE)
+    solver = create_solver(backend=solver_backend)
 
-    committee_variables = [model.add_var(var_type=mip.CONTINUOUS, lb=0.0, ub=1.0) for _ in committees]
-    model.add_constr(mip.xsum(committee_variables) == 1)
+    committee_variables = [solver.add_continuous_var(lb=0.0, ub=1.0) for _ in committees]
+    solver.add_constr(solver_sum(committee_variables) == 1)
 
     agent_panel_variables: dict[str, list[Any]] = {agent_id: [] for agent_id in covered_agents}
     for committee, var in zip(committees, committee_variables, strict=False):
@@ -39,14 +48,14 @@ def _find_maximin_primal(
             if agent_id in covered_agents:
                 agent_panel_variables[agent_id].append(var)
 
-    lower = model.add_var(var_type=mip.CONTINUOUS, lb=0.0, ub=1.0)
+    lower = solver.add_continuous_var(lb=0.0, ub=1.0)
 
     for agent_variables in agent_panel_variables.values():
-        model.add_constr(lower <= mip.xsum(agent_variables))
-    model.objective = lower
-    model.optimize()
+        solver.add_constr(lower <= solver_sum(agent_variables))
+    solver.set_objective(lower, SolverSense.MAXIMIZE)
+    solver.optimize()
 
-    probabilities = [var.x for var in committee_variables]
+    probabilities = [solver.get_value(var) for var in committee_variables]
     probabilities = [max(p, 0) for p in probabilities]
     sum_probabilities = sum(probabilities)
     return [p / sum_probabilities for p in probabilities]
@@ -55,7 +64,8 @@ def _find_maximin_primal(
 def _setup_maximin_incremental_model(
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
-) -> tuple[mip.model.Model, dict[str, mip.entities.Var], mip.entities.Var]:
+    solver_backend: str = "highspy",
+) -> tuple[Solver, dict[str, Any], Any]:
     """Set up the incremental LP model for maximin optimization.
 
     The incremental model is an LP with a variable y_e for each entitlement e and one more variable z.
@@ -71,41 +81,36 @@ def _setup_maximin_incremental_model(
     Args:
         committees: set of initial committees
         covered_agents: agents that can be included in some committee
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
-        tuple of (incremental_model, incr_agent_vars, upper_bound_var)
+        tuple of (incremental_solver, incr_agent_vars, upper_bound_var)
     """
-    incremental_model = create_mip_model(sense=mip.MINIMIZE)
+    incremental_solver = create_solver(backend=solver_backend)
 
-    upper_bound = incremental_model.add_var(
-        var_type=mip.CONTINUOUS,
-        lb=0.0,
-        ub=mip.INF,
-    )  # variable z
+    # variable z - upper bound, no upper limit
+    upper_bound = incremental_solver.add_continuous_var(lb=0.0, ub=float("inf"))
     # variables y_e
-    incr_agent_vars = {
-        agent_id: incremental_model.add_var(var_type=mip.CONTINUOUS, lb=0.0, ub=1.0) for agent_id in covered_agents
-    }
+    incr_agent_vars = {agent_id: incremental_solver.add_continuous_var(lb=0.0, ub=1.0) for agent_id in covered_agents}
 
     # Σ_e y_e = 1
-    incremental_model.add_constr(mip.xsum(incr_agent_vars.values()) == 1)
-    # minimize z
-    incremental_model.objective = upper_bound
+    incremental_solver.add_constr(solver_sum(incr_agent_vars.values()) == 1)
+    # minimize z (will be set when we optimize)
 
     for committee in committees:
-        committee_sum = mip.xsum([incr_agent_vars[agent_id] for agent_id in committee])
+        committee_sum = solver_sum([incr_agent_vars[agent_id] for agent_id in committee])
         # Σ_{i ∈ B} y_{e(i)} ≤ z   ∀ B ∈ `committees`
-        incremental_model.add_constr(committee_sum <= upper_bound)
+        incremental_solver.add_constr(committee_sum <= upper_bound)
 
-    return incremental_model, incr_agent_vars, upper_bound
+    return incremental_solver, incr_agent_vars, upper_bound
 
 
 def _run_maximin_heuristic_for_additional_committees(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
-    incremental_model: mip.model.Model,
-    incr_agent_vars: dict[str, mip.entities.Var],
-    upper_bound_var: mip.entities.Var,
+    new_committee_solver: Solver,
+    agent_vars: dict[str, Any],
+    incremental_solver: Solver,
+    incr_agent_vars: dict[str, Any],
+    upper_bound_var: Any,
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
     entitlement_weights: dict[str, float],
@@ -114,15 +119,15 @@ def _run_maximin_heuristic_for_additional_committees(
 ) -> int:
     """Run heuristic to find additional committees without re-optimizing the incremental model.
 
-    Because optimizing `incremental_model` takes a long time, we would like to get multiple committees out
-    of a single run of `incremental_model`. Rather than reoptimizing for optimal y_e and z, we find some
+    Because optimizing `incremental_solver` takes a long time, we would like to get multiple committees out
+    of a single run of `incremental_solver`. Rather than reoptimizing for optimal y_e and z, we find some
     feasible values y_e and z by modifying the old solution.
     This heuristic only adds more committees, and does not influence correctness.
 
     Args:
-        new_committee_model: MIP model for finding new committees
+        new_committee_solver: Solver for finding new committees
         agent_vars: agent variables in the committee model
-        incremental_model: the incremental LP model
+        incremental_solver: the incremental LP solver
         incr_agent_vars: agent variables in incremental model
         upper_bound_var: upper bound variable in incremental model
         committees: set of committees (modified in-place)
@@ -151,16 +156,17 @@ def _run_maximin_heuristic_for_additional_committees(
             entitlement_weights[agent_id] /= sum_weights
         upper /= sum_weights
 
-        new_committee_model.objective = mip.xsum(
-            entitlement_weights[agent_id] * agent_vars[agent_id] for agent_id in covered_agents
+        new_committee_solver.set_objective(
+            solver_sum(entitlement_weights[agent_id] * agent_vars[agent_id] for agent_id in covered_agents),
+            SolverSense.MAXIMIZE,
         )
-        new_committee_model.optimize()
-        new_set = ilp_results_to_committee(agent_vars)
+        new_committee_solver.optimize()
+        new_set = ilp_results_to_committee(new_committee_solver, agent_vars)
         value = sum(entitlement_weights[agent_id] for agent_id in new_set)
         if value <= upper + EPS or new_set in committees:
             break
         committees.add(new_set)
-        incremental_model.add_constr(mip.xsum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound_var)
+        incremental_solver.add_constr(solver_sum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound_var)
         counter += 1
 
     return counter
@@ -183,21 +189,22 @@ def _add_report_update(report: RunReport, value: float, upper: float, committees
 
 
 def _run_maximin_optimization_loop(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
-    incremental_model: mip.model.Model,
-    incr_agent_vars: dict[str, mip.entities.Var],
-    upper_bound_var: mip.entities.Var,
+    new_committee_solver: Solver,
+    agent_vars: dict[str, Any],
+    incremental_solver: Solver,
+    incr_agent_vars: dict[str, Any],
+    upper_bound_var: Any,
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
     report: RunReport,
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Run the main maximin optimization loop with column generation.
 
     Args:
-        new_committee_model: MIP model for finding new committees
+        new_committee_solver: Solver for finding new committees
         agent_vars: agent variables in the committee model
-        incremental_model: the incremental LP model
+        incremental_solver: the incremental LP solver
         incr_agent_vars: agent variables in incremental model
         upper_bound_var: upper bound variable in incremental model
         committees: set of committees (modified in-place)
@@ -208,19 +215,23 @@ def _run_maximin_optimization_loop(
         tuple of (committees, probabilities, output_lines)
     """
     while True:
-        status = incremental_model.optimize()
-        assert status == mip.OptimizationStatus.OPTIMAL
+        incremental_solver.set_objective(upper_bound_var, SolverSense.MINIMIZE)
+        status = incremental_solver.optimize()
+        assert status == SolverStatus.OPTIMAL
 
         # currently optimal values for y_e
-        entitlement_weights = {agent_id: incr_agent_vars[agent_id].x for agent_id in covered_agents}
-        upper = upper_bound_var.x  # currently optimal value for z
+        entitlement_weights = {
+            agent_id: incremental_solver.get_value(incr_agent_vars[agent_id]) for agent_id in covered_agents
+        }
+        upper = incremental_solver.get_value(upper_bound_var)  # currently optimal value for z
 
         # For these fixed y_e, find the feasible committee B with maximal Σ_{i ∈ B} y_{e(i)}
-        new_committee_model.objective = mip.xsum(
-            entitlement_weights[agent_id] * agent_vars[agent_id] for agent_id in covered_agents
+        new_committee_solver.set_objective(
+            solver_sum(entitlement_weights[agent_id] * agent_vars[agent_id] for agent_id in covered_agents),
+            SolverSense.MAXIMIZE,
         )
-        new_committee_model.optimize()
-        new_set = ilp_results_to_committee(agent_vars)
+        new_committee_solver.optimize()
+        new_set = ilp_results_to_committee(new_committee_solver, agent_vars)
         value = sum(entitlement_weights[agent_id] for agent_id in new_set)
 
         _add_report_update(report, value, upper, committees)
@@ -228,19 +239,19 @@ def _run_maximin_optimization_loop(
             # No feasible committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z (at least up to EPS, to prevent rounding errors)
             # Thus, we have enough committees
             committee_list = list(committees)
-            probabilities = _find_maximin_primal(committee_list, covered_agents)
+            probabilities = _find_maximin_primal(committee_list, covered_agents, solver_backend)
             return committee_list, probabilities, report
 
         # Some committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z. We add B to `committees` and recurse
         assert new_set not in committees
         committees.add(new_set)
-        incremental_model.add_constr(mip.xsum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound_var)
+        incremental_solver.add_constr(solver_sum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound_var)
 
         # Run heuristic to find additional committees
         counter = _run_maximin_heuristic_for_additional_committees(
-            new_committee_model,
+            new_committee_solver,
             agent_vars,
-            incremental_model,
+            incremental_solver,
             incr_agent_vars,
             upper_bound_var,
             committees,
@@ -258,6 +269,7 @@ def find_distribution_maximin(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected.
 
@@ -267,6 +279,7 @@ def find_distribution_maximin(
         number_people_wanted: desired size of the panel
         check_same_address_columns: Address columns for household identification, or empty
                                     if no address checking to be done.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (committees, probabilities, output_lines)
@@ -278,25 +291,30 @@ def find_distribution_maximin(
     report.add_message_and_log("using_maximin_algorithm", logging.INFO)
 
     # Set up an ILP that can be used for discovering new feasible committees
-    new_committee_model, agent_vars = setup_committee_generation(
-        features, people, number_people_wanted, check_same_address_columns
+    new_committee_solver, agent_vars = setup_committee_generation(
+        features, people, number_people_wanted, check_same_address_columns, solver_backend
     )
 
     # Find initial committees that cover every possible agent
-    committees, covered_agents, init_report = generate_initial_committees(new_committee_model, agent_vars, people.count)
+    committees, covered_agents, init_report = generate_initial_committees(
+        new_committee_solver, agent_vars, people.count
+    )
     report.add_report(init_report)
 
     # Set up the incremental LP model for column generation
-    incremental_model, incr_agent_vars, upper_bound_var = _setup_maximin_incremental_model(committees, covered_agents)
+    incremental_solver, incr_agent_vars, upper_bound_var = _setup_maximin_incremental_model(
+        committees, covered_agents, solver_backend
+    )
 
     # Run the main optimization loop
     return _run_maximin_optimization_loop(
-        new_committee_model,
+        new_committee_solver,
         agent_vars,
-        incremental_model,
+        incremental_solver,
         incr_agent_vars,
         upper_bound_var,
         committees,
         covered_agents,
         report,
+        solver_backend,
     )

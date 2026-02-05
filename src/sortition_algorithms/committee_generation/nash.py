@@ -1,9 +1,11 @@
+# ABOUTME: Nash welfare algorithm for committee generation.
+# ABOUTME: Maximizes the product of selection probabilities (Nash social welfare).
+
 import logging
 from math import log
 from typing import Any
 
 import cvxpy as cp
-import mip
 import numpy as np
 
 from sortition_algorithms.committee_generation.common import (
@@ -12,6 +14,7 @@ from sortition_algorithms.committee_generation.common import (
     ilp_results_to_committee,
     setup_committee_generation,
 )
+from sortition_algorithms.committee_generation.solver import Solver, SolverSense, solver_sum
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import RunReport, logger
@@ -130,8 +133,8 @@ def _solve_nash_welfare_optimization(
 
 
 def _find_best_new_committee_for_nash(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
+    solver: Solver,
+    agent_vars: dict[str, Any],
     entitled_reciprocals: np.ndarray,
     contributes_to_entitlement: dict[str, int],
     covered_agents: frozenset[str],
@@ -139,7 +142,7 @@ def _find_best_new_committee_for_nash(
     """Find the committee that maximizes the Nash welfare objective.
 
     Args:
-        new_committee_model: MIP model for finding committees
+        solver: Solver for finding committees
         agent_vars: agent variables in the committee model
         entitled_reciprocals: reciprocals of current utilities
         contributes_to_entitlement: mapping from agent_id to entitlement index
@@ -148,21 +151,21 @@ def _find_best_new_committee_for_nash(
     Returns:
         tuple of (new_committee, objective_value)
     """
-    obj = [
+    obj = solver_sum(
         entitled_reciprocals[contributes_to_entitlement[agent_id]] * agent_vars[agent_id] for agent_id in covered_agents
-    ]
-    new_committee_model.objective = mip.xsum(obj)
-    new_committee_model.optimize()
+    )
+    solver.set_objective(obj, SolverSense.MAXIMIZE)
+    solver.optimize()
 
-    new_set = ilp_results_to_committee(agent_vars)
+    new_set = ilp_results_to_committee(solver, agent_vars)
     value = sum(entitled_reciprocals[contributes_to_entitlement[agent_id]] for agent_id in new_set)
 
     return new_set, value
 
 
 def _run_nash_optimization_loop(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
+    solver: Solver,
+    agent_vars: dict[str, Any],
     committees: list[frozenset[str]],
     entitlements: list[str],
     contributes_to_entitlement: dict[str, int],
@@ -173,7 +176,7 @@ def _run_nash_optimization_loop(
     """Run the main Nash welfare optimization loop.
 
     Args:
-        new_committee_model: MIP model for finding committees
+        solver: Solver for finding committees
         agent_vars: agent variables in the committee model
         committees: list of committees (modified in-place)
         entitlements: list of agent entitlements
@@ -200,7 +203,7 @@ def _run_nash_optimization_loop(
 
         # Find the best new committee
         new_set, value = _find_best_new_committee_for_nash(
-            new_committee_model,
+            solver,
             agent_vars,
             entitled_reciprocals,
             contributes_to_entitlement,
@@ -228,6 +231,7 @@ def find_distribution_nash(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the Nash welfare, i.e., the product of
     selection probabilities over all persons.
@@ -238,6 +242,7 @@ def find_distribution_nash(
         number_people_wanted: desired size of the panel
         check_same_address_columns: Address columns for household identification, or empty
                                     if no address checking to be done.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (committees, probabilities, output_lines)
@@ -253,14 +258,12 @@ def find_distribution_nash(
     report.add_message_and_log("using_nash_algorithm", logging.INFO)
 
     # Set up an ILP used for discovering new feasible committees
-    new_committee_model, agent_vars = setup_committee_generation(
-        features, people, number_people_wanted, check_same_address_columns
+    solver, agent_vars = setup_committee_generation(
+        features, people, number_people_wanted, check_same_address_columns, solver_backend
     )
 
     # Find initial committees that include every possible agent
-    committee_set, covered_agents, initial_report = generate_initial_committees(
-        new_committee_model, agent_vars, 2 * people.count
-    )
+    committee_set, covered_agents, initial_report = generate_initial_committees(solver, agent_vars, 2 * people.count)
     committees = list(committee_set)
     report.add_report(initial_report)
 
@@ -269,7 +272,7 @@ def find_distribution_nash(
 
     # Run the main Nash welfare optimization loop
     return _run_nash_optimization_loop(
-        new_committee_model,
+        solver,
         agent_vars,
         committees,
         entitlements,

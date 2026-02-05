@@ -12,7 +12,7 @@ from sortition_algorithms.committee_generation import (
     find_distribution_maximin,
     find_distribution_nash,
 )
-from sortition_algorithms.committee_generation.diversimax import find_distribution_diversimax
+from sortition_algorithms.committee_generation.diversimax import DIVERSIMAX_AVAILABLE, find_distribution_diversimax
 from sortition_algorithms.core import _check_category_selected
 from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
 from sortition_algorithms.people import People
@@ -602,6 +602,7 @@ def test_nash_no_address_example6() -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(not DIVERSIMAX_AVAILABLE, reason="Skipped as optional dependencies for diversimax not installed")
 def test_diversimax_no_address_example1() -> None:
     """Test diversimax without address constraints on example1."""
     features = deepcopy(example1.features)
@@ -620,6 +621,7 @@ def test_diversimax_no_address_example1() -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(not DIVERSIMAX_AVAILABLE, reason="Skipped as optional dependencies for diversimax not installed")
 def test_diversimax_with_address_example1() -> None:
     """Test diversimax with address constraints on example1."""
     features = deepcopy(example1.features)
@@ -637,6 +639,7 @@ def test_diversimax_with_address_example1() -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(not DIVERSIMAX_AVAILABLE, reason="Skipped as optional dependencies for diversimax not installed")
 def test_diversimax_no_address_example3() -> None:
     """Test maximin without address constraints on example3."""
     features = deepcopy(example3.features)
@@ -654,6 +657,7 @@ def test_diversimax_no_address_example3() -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(not DIVERSIMAX_AVAILABLE, reason="Skipped as optional dependencies for diversimax not installed")
 def test_diversimax_no_address_example4_infeasible() -> None:
     """Test maximin on example4 which should be infeasible."""
     features = deepcopy(example4.features)
@@ -666,6 +670,7 @@ def test_diversimax_no_address_example4_infeasible() -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(not DIVERSIMAX_AVAILABLE, reason="Skipped as optional dependencies for diversimax not installed")
 def test_diversimax_no_address_example5() -> None:
     """Test maximin without address constraints on example5."""
     features = deepcopy(example5.features)
@@ -683,6 +688,7 @@ def test_diversimax_no_address_example5() -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(not DIVERSIMAX_AVAILABLE, reason="Skipped as optional dependencies for diversimax not installed")
 def test_diversimax_no_address_example6() -> None:
     """Test maximin without address constraints on example5."""
     features = deepcopy(example6.features)

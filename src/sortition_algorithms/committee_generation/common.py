@@ -1,10 +1,19 @@
+# ABOUTME: Common utilities for committee generation algorithms.
+# ABOUTME: Provides setup functions, constraint building, and multiplicative weights.
+
 import copy
 import logging
 from collections.abc import Collection, Iterable
-
-import mip
+from typing import Any
 
 from sortition_algorithms import errors
+from sortition_algorithms.committee_generation.solver import (
+    Solver,
+    SolverSense,
+    SolverStatus,
+    create_solver,
+    solver_sum,
+)
 from sortition_algorithms.features import FeatureCollection, feature_value_pairs, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import RunReport, logger, random_provider
@@ -14,22 +23,13 @@ EPS = 0.0005
 EPS2 = 0.00000001
 
 
-def create_mip_model(*, sense: str) -> mip.Model:
-    """
-    Creates a MIP model with a sense and verbose set to zero. Can also set the seed.
-
-    Args:
-        sense: the sense. Key values are mip.MINIMIZE and mip.MAXIMIZE
-    """
-    model = mip.Model(sense=sense)
-    model.verbose = 0  # TODO: get debug level from settings
-    model.seed = random_provider().randint()
-    return model
-
-
 def setup_committee_generation(
-    features: FeatureCollection, people: People, number_people_wanted: int, check_same_address_columns: list[str]
-) -> tuple[mip.model.Model, dict[str, mip.entities.Var]]:
+    features: FeatureCollection,
+    people: People,
+    number_people_wanted: int,
+    check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
+) -> tuple[Solver, dict[str, Any]]:
     """Set up the integer linear program for committee generation.
 
     Args:
@@ -38,56 +38,55 @@ def setup_committee_generation(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns to check for same address, or empty list if
                                     not checking addresses.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
-        tuple of (MIP model, dict mapping person_id to binary variables)
+        tuple of (Solver, dict mapping person_id to binary variables)
 
     Raises:
         InfeasibleQuotasError: If quotas are infeasible, includes suggested relaxations
         SelectionError: If solver fails for other reasons
     """
-    model = create_mip_model(sense=mip.MAXIMIZE)
+    solver = create_solver(backend=solver_backend)
 
     # Binary variable for each person (selected/not selected)
-    agent_vars = {person_id: model.add_var(var_type=mip.BINARY) for person_id in people}
+    agent_vars = {person_id: solver.add_binary_var() for person_id in people}
 
     # Must select exactly the desired number of people
-    model.add_constr(mip.xsum(agent_vars.values()) == number_people_wanted)
+    solver.add_constr(solver_sum(agent_vars.values()) == number_people_wanted)
 
     # Respect min/max quotas for each feature value
     for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(features):
         # Count people with this feature-value who are selected
-        number_feature_value_agents = mip.xsum(
+        number_feature_value_agents = solver_sum(
             agent_vars[person_id]
             for person_id, person_data in people.items()
             if person_data[feature_name].lower() == fvalue_name.lower()
         )
 
         # Add min/max constraints
-        model.add_constr(number_feature_value_agents >= fv_minmax.min)
-        model.add_constr(number_feature_value_agents <= fv_minmax.max)
+        solver.add_constr(number_feature_value_agents >= fv_minmax.min)
+        solver.add_constr(number_feature_value_agents <= fv_minmax.max)
 
     # Household constraints: at most 1 person per household
     if check_same_address_columns:
         for housemates in people.households(check_same_address_columns).values():
             if len(housemates) > 1:
-                model.add_constr(mip.xsum(agent_vars[member_id] for member_id in housemates) <= 1)
+                solver.add_constr(solver_sum(agent_vars[member_id] for member_id in housemates) <= 1)
 
-    # Test feasibility by optimizing once
-    status = model.optimize()
-    if status == mip.OptimizationStatus.INFEASIBLE:
+    # Test feasibility by optimizing once (objective doesn't matter for feasibility check)
+    solver.set_objective(solver_sum(agent_vars.values()), SolverSense.MAXIMIZE)
+    status = solver.optimize()
+    if status == SolverStatus.INFEASIBLE:
         relaxed_features, output_lines = _relax_infeasible_quotas(
-            features, people, number_people_wanted, check_same_address_columns
+            features, people, number_people_wanted, check_same_address_columns, solver_backend=solver_backend
         )
         raise errors.InfeasibleQuotasError(relaxed_features, output_lines)
-    if status != mip.OptimizationStatus.OPTIMAL:
-        msg = (
-            f"No feasible committees found, solver returns code {status} (see "
-            "https://docs.python-mip.com/en/latest/classes.html#optimizationstatus)."
-        )
+    if status != SolverStatus.OPTIMAL:
+        msg = f"No feasible committees found, solver returns status {status}."
         raise errors.SelectionError(msg)
 
-    return model, agent_vars
+    return solver, agent_vars
 
 
 def _relax_infeasible_quotas(
@@ -96,6 +95,7 @@ def _relax_infeasible_quotas(
     number_people_wanted: int,
     check_same_address_columns: list[str],
     ensure_inclusion: Collection[Iterable[str]] = ((),),
+    solver_backend: str = "highspy",
 ) -> tuple[FeatureCollection, list[str]]:
     """Assuming that the quotas are not satisfiable, suggest a minimal relaxation that would be.
 
@@ -109,6 +109,7 @@ def _relax_infeasible_quotas(
             passing `(("a",), ("b", "c"))` means that the quotas should be relaxed such that some valid panel contains
             agent "a" and some valid panel contains both agents "b" and "c". the default of `((),)` just requires
             a panel to exist, without further restrictions.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (relaxed FeatureCollection, list of output messages)
@@ -119,15 +120,15 @@ def _relax_infeasible_quotas(
     """
     assert len(ensure_inclusion) > 0  # otherwise, the existence of a panel is not required
 
-    model = create_mip_model(sense=mip.MINIMIZE)
+    solver = create_solver(backend=solver_backend)
 
     # Create relaxation variables and bounds constraints
-    min_vars, max_vars = _create_relaxation_variables_and_bounds(model, features)
+    min_vars, max_vars = _create_relaxation_variables_and_bounds(solver, features)
 
     # For each inclusion set, create constraints to ensure a valid committee exists
     for inclusion_set in ensure_inclusion:
         _add_committee_constraints_for_inclusion_set(
-            model,
+            solver,
             inclusion_set,
             people,
             number_people_wanted,
@@ -138,16 +139,17 @@ def _relax_infeasible_quotas(
         )
 
     # Objective: minimize weighted sum of relaxations
-    model.objective = mip.xsum(
+    objective_expr = solver_sum(
         [_reduction_weight(features, *fv) * min_vars[fv] for fv in feature_value_pairs(features)]
         + [max_vars[fv] for fv in feature_value_pairs(features)]
     )
+    solver.set_objective(objective_expr, SolverSense.MINIMIZE)
 
     # Solve the model and handle errors
-    _solve_relaxation_model_and_handle_errors(model)
+    _solve_relaxation_model_and_handle_errors(solver)
 
     # Extract results and generate messages
-    return _extract_relaxed_features_and_messages(features, min_vars, max_vars)
+    return _extract_relaxed_features_and_messages(solver, features, min_vars, max_vars)
 
 
 def _reduction_weight(features: FeatureCollection, feature_name: str, value_name: str) -> float:
@@ -165,49 +167,49 @@ def _reduction_weight(features: FeatureCollection, feature_name: str, value_name
 
 
 def _create_relaxation_variables_and_bounds(
-    model: mip.model.Model,
+    solver: Solver,
     features: FeatureCollection,
-) -> tuple[dict[tuple[str, str], mip.entities.Var], dict[tuple[str, str], mip.entities.Var]]:
+) -> tuple[dict[tuple[str, str], Any], dict[tuple[str, str], Any]]:
     """Create relaxation variables and add bounds constraints for quota relaxation.
 
     Args:
-        model: MIP model to add variables and constraints to
+        solver: Solver to add variables and constraints to
         features: FeatureCollection with min/max quotas and flex bounds
 
     Returns:
         tuple of (min_vars, max_vars) - dictionaries mapping feature-value pairs to relaxation variables
     """
     # Create relaxation variables for each feature-value pair
-    min_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in feature_value_pairs(features)}
-    max_vars = {fv: model.add_var(var_type=mip.INTEGER, lb=0.0) for fv in feature_value_pairs(features)}
+    min_vars = {fv: solver.add_integer_var(lb=0.0) for fv in feature_value_pairs(features)}
+    max_vars = {fv: solver.add_integer_var(lb=0.0) for fv in feature_value_pairs(features)}
 
     # Add constraints ensuring relaxations stay within min_flex/max_flex bounds
     for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(features):
         fv = (feature_name, fvalue_name)
 
         # Relaxed min cannot go below min_flex
-        model.add_constr(fv_minmax.min - min_vars[fv] >= fv_minmax.min_flex)
+        solver.add_constr(fv_minmax.min - min_vars[fv] >= fv_minmax.min_flex)
 
         # Relaxed max cannot go above max_flex
-        model.add_constr(fv_minmax.max + max_vars[fv] <= fv_minmax.max_flex)
+        solver.add_constr(fv_minmax.max + max_vars[fv] <= fv_minmax.max_flex)
 
     return min_vars, max_vars
 
 
 def _add_committee_constraints_for_inclusion_set(
-    model: mip.model.Model,
+    solver: Solver,
     inclusion_set: Iterable[str],
     people: People,
     number_people_wanted: int,
     features: FeatureCollection,
-    min_vars: dict[tuple[str, str], mip.entities.Var],
-    max_vars: dict[tuple[str, str], mip.entities.Var],
+    min_vars: dict[tuple[str, str], Any],
+    max_vars: dict[tuple[str, str], Any],
     check_same_address_columns: list[str],
 ) -> None:
     """Add constraints to ensure a valid committee exists that includes the specified agents.
 
     Args:
-        model: MIP model to add constraints to
+        solver: Solver to add constraints to
         inclusion_set: agents that must be included in this committee
         people: People object with pool members
         number_people_wanted: desired size of the panel
@@ -218,73 +220,71 @@ def _add_committee_constraints_for_inclusion_set(
                                     not checking addresses.
     """
     # Binary variables for each person (selected/not selected)
-    agent_vars = {person_id: model.add_var(var_type=mip.BINARY) for person_id in people}
+    agent_vars = {person_id: solver.add_binary_var() for person_id in people}
 
     # Force inclusion of specified agents
     for agent in inclusion_set:
-        model.add_constr(agent_vars[agent] == 1)
+        solver.add_constr(agent_vars[agent] == 1)
 
     # Must select exactly the desired number of people
-    model.add_constr(mip.xsum(agent_vars.values()) == number_people_wanted)
+    solver.add_constr(solver_sum(agent_vars.values()) == number_people_wanted)
 
     # Respect relaxed quotas for each feature-value
     for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(features):
         fv = (feature_name, fvalue_name)
 
         # Count people with this feature-value who are selected
-        number_feature_value_agents = mip.xsum(
+        number_feature_value_agents = solver_sum(
             agent_vars[person_id]
             for person_id, person_data in people.items()
             if person_data[feature_name].lower() == fvalue_name.lower()
         )
 
         # Apply relaxed min/max constraints
-        model.add_constr(number_feature_value_agents >= fv_minmax.min - min_vars[fv])
-        model.add_constr(number_feature_value_agents <= fv_minmax.max + max_vars[fv])
+        solver.add_constr(number_feature_value_agents >= fv_minmax.min - min_vars[fv])
+        solver.add_constr(number_feature_value_agents <= fv_minmax.max + max_vars[fv])
 
     # Household constraints: at most 1 person per household
     if check_same_address_columns:
         for housemates in people.households(check_same_address_columns).values():
             if len(housemates) > 1:
-                model.add_constr(mip.xsum(agent_vars[member_id] for member_id in housemates) <= 1)
+                solver.add_constr(solver_sum(agent_vars[member_id] for member_id in housemates) <= 1)
 
 
-def _solve_relaxation_model_and_handle_errors(model: mip.model.Model) -> None:
+def _solve_relaxation_model_and_handle_errors(solver: Solver) -> None:
     """Solve the relaxation model and handle any optimization errors.
 
     Args:
-        model: MIP model to solve
+        solver: Solver to solve
 
     Raises:
         InfeasibleQuotasCantRelaxError: If quotas cannot be relaxed within flex bounds
         SelectionError: If solver fails for other reasons
     """
-    status = model.optimize()
-    if status == mip.OptimizationStatus.INFEASIBLE:
+    status = solver.optimize()
+    if status == SolverStatus.INFEASIBLE:
         msg = (
             "No feasible committees found, even with relaxing the quotas. Most "
             "likely, quotas would have to be relaxed beyond what the 'min_flex' and "
             "'max_flex' columns allow."
         )
         raise errors.InfeasibleQuotasCantRelaxError(msg)
-    if status != mip.OptimizationStatus.OPTIMAL:
-        msg = (
-            f"No feasible committees found, solver returns code {status} (see "
-            f"https://docs.python-mip.com/en/latest/classes.html#optimizationstatus). Either the pool "
-            f"is very bad or something is wrong with the solver."
-        )
+    if status != SolverStatus.OPTIMAL:
+        msg = f"No feasible committees found, solver returns status {status}. Either the pool is very bad or something is wrong with the solver."
         raise errors.SelectionError(msg)
 
 
 def _extract_relaxed_features_and_messages(
+    solver: Solver,
     features: FeatureCollection,
-    min_vars: dict[tuple[str, str], mip.entities.Var],
-    max_vars: dict[tuple[str, str], mip.entities.Var],
+    min_vars: dict[tuple[str, str], Any],
+    max_vars: dict[tuple[str, str], Any],
 ) -> tuple[FeatureCollection, list[str]]:
     """
     Extract relaxed quotas from solved model and generate recommendation messages.
 
     Args:
+        solver: Solver with solved model
         features: Original FeatureCollection with quotas
         min_vars: solved relaxation variables for minimum quotas
         max_vars: solved relaxation variables for maximum quotas
@@ -298,8 +298,8 @@ def _extract_relaxed_features_and_messages(
 
     for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(relaxed_features):
         fv = (feature_name, fvalue_name)
-        min_relaxation = round(min_vars[fv].x)
-        max_relaxation = round(max_vars[fv].x)
+        min_relaxation = round(solver.get_value(min_vars[fv]))
+        max_relaxation = round(solver.get_value(max_vars[fv]))
 
         original_min = fv_minmax.min
         original_max = fv_minmax.max
@@ -320,11 +320,12 @@ def _extract_relaxed_features_and_messages(
     return relaxed_features, output_lines
 
 
-def ilp_results_to_committee(variables: dict[str, mip.entities.Var]) -> frozenset[str]:
+def ilp_results_to_committee(solver: Solver, variables: dict[str, Any]) -> frozenset[str]:
     """Extract the selected committee from ILP solver variables.
 
     Args:
-        variables: dict mapping person_id to binary MIP variables
+        solver: Solver with solved model
+        variables: dict mapping person_id to binary variables
 
     Returns:
         frozenset of person_ids who are selected (have variable value > 0.5)
@@ -333,8 +334,8 @@ def ilp_results_to_committee(variables: dict[str, mip.entities.Var]) -> frozense
         ValueError: If variables don't have values (solver failed)
     """
     try:
-        committee = frozenset(person_id for person_id in variables if variables[person_id].x > 0.5)
-    # unfortunately, MIP sometimes throws generic Exceptions rather than a subclass
+        committee = frozenset(person_id for person_id in variables if solver.get_value(variables[person_id]) > 0.5)
+    # unfortunately, solvers sometimes throw generic Exceptions rather than a subclass
     except Exception as error:
         msg = f"It seems like some variables do not have a value. Original exception: {error}."
         raise ValueError(msg, "variables_without_value", {"error": str(error)}) from error
@@ -345,7 +346,7 @@ def ilp_results_to_committee(variables: dict[str, mip.entities.Var]) -> frozense
 def _update_multiplicative_weights_after_committee_found(
     weights: dict[str, float],
     new_committee: frozenset[str],
-    agent_vars: dict[str, mip.entities.Var],
+    agent_vars: dict[str, Any],
     found_duplicate: bool,
 ) -> None:
     """Update multiplicative weights after finding a committee.
@@ -353,7 +354,7 @@ def _update_multiplicative_weights_after_committee_found(
     Args:
         weights: current weights for each agent (modified in-place)
         new_committee: the committee that was just found
-        agent_vars: dict mapping agent_id to binary MIP variables
+        agent_vars: dict mapping agent_id to binary variables
         found_duplicate: True if this committee was already found before
     """
     if not found_duplicate:
@@ -373,15 +374,15 @@ def _update_multiplicative_weights_after_committee_found(
 
 
 def _run_multiplicative_weights_phase(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
+    solver: Solver,
+    agent_vars: dict[str, Any],
     multiplicative_weights_rounds: int,
 ) -> tuple[set[frozenset[str]], set[str]]:
     """Run the multiplicative weights algorithm to find an initial diverse set of committees.
 
     Args:
-        new_committee_model: MIP model for finding committees
-        agent_vars: dict mapping agent_id to binary MIP variables
+        solver: Solver for finding committees
+        agent_vars: dict mapping agent_id to binary variables
         multiplicative_weights_rounds: number of rounds to run
 
     Returns:
@@ -396,9 +397,11 @@ def _run_multiplicative_weights_phase(
 
     for i in range(multiplicative_weights_rounds):
         # Find a feasible committee such that the sum of weights of its members is maximal
-        new_committee_model.objective = mip.xsum(weights[agent_id] * agent_vars[agent_id] for agent_id in agent_vars)
-        new_committee_model.optimize()
-        new_committee = ilp_results_to_committee(agent_vars)
+        solver.set_objective(
+            solver_sum(weights[agent_id] * agent_vars[agent_id] for agent_id in agent_vars), SolverSense.MAXIMIZE
+        )
+        solver.optimize()
+        new_committee = ilp_results_to_committee(solver, agent_vars)
 
         # Check if this is a new committee
         is_new_committee = new_committee not in committees
@@ -419,15 +422,15 @@ def _run_multiplicative_weights_phase(
 
 
 def _find_committees_for_uncovered_agents(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
+    solver: Solver,
+    agent_vars: dict[str, Any],
     covered_agents: set[str],
 ) -> tuple[set[frozenset[str]], set[str], RunReport]:
     """Find committees that include any agents not yet covered by existing committees.
 
     Args:
-        new_committee_model: MIP model for finding committees
-        agent_vars: dict mapping agent_id to binary MIP variables
+        solver: Solver for finding committees
+        agent_vars: dict mapping agent_id to binary variables
         covered_agents: agents already covered by existing committees (modified in-place)
 
     Returns:
@@ -439,9 +442,9 @@ def _find_committees_for_uncovered_agents(
     # Try to find a committee including each uncovered agent
     for agent_id, agent_var in agent_vars.items():
         if agent_id not in covered_agents:
-            new_committee_model.objective = agent_var  # only care about this specific agent being included
-            new_committee_model.optimize()
-            new_committee = ilp_results_to_committee(agent_vars)
+            solver.set_objective(agent_var, SolverSense.MAXIMIZE)  # only care about this specific agent being included
+            solver.optimize()
+            new_committee = ilp_results_to_committee(solver, agent_vars)
 
             if agent_id in new_committee:
                 new_committees.add(new_committee)
@@ -454,8 +457,8 @@ def _find_committees_for_uncovered_agents(
 
 
 def generate_initial_committees(
-    new_committee_model: mip.model.Model,
-    agent_vars: dict[str, mip.entities.Var],
+    solver: Solver,
+    agent_vars: dict[str, Any],
     multiplicative_weights_rounds: int,
 ) -> tuple[set[frozenset[str]], frozenset[str], RunReport]:
     """To speed up the main iteration of the maximin and Nash algorithms, start from a diverse set of feasible
@@ -463,8 +466,8 @@ def generate_initial_committees(
     these committees.
 
     Args:
-        new_committee_model: MIP model for finding committees
-        agent_vars: dict mapping agent_id to binary MIP variables
+        solver: Solver for finding committees
+        agent_vars: dict mapping agent_id to binary variables
         multiplicative_weights_rounds: number of rounds for the multiplicative weights phase
 
     Returns:
@@ -477,13 +480,11 @@ def generate_initial_committees(
     report = RunReport()
 
     # Phase 1: Use multiplicative weights algorithm to find diverse committees
-    committees, covered_agents = _run_multiplicative_weights_phase(
-        new_committee_model, agent_vars, multiplicative_weights_rounds
-    )
+    committees, covered_agents = _run_multiplicative_weights_phase(solver, agent_vars, multiplicative_weights_rounds)
 
     # Phase 2: Find committees for any agents not yet covered
     additional_committees, covered_agents, coverage_report = _find_committees_for_uncovered_agents(
-        new_committee_model, agent_vars, covered_agents
+        solver, agent_vars, covered_agents
     )
     committees.update(additional_committees)
     report.add_report(coverage_report)

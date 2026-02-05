@@ -3,6 +3,7 @@ from sortition_algorithms.committee_generation.common import (
     ilp_results_to_committee,
     setup_committee_generation,
 )
+from sortition_algorithms.committee_generation.diversimax import DIVERSIMAX_AVAILABLE
 from sortition_algorithms.committee_generation.legacy import find_random_sample_legacy
 from sortition_algorithms.committee_generation.leximin import GUROBI_AVAILABLE, find_distribution_leximin
 from sortition_algorithms.committee_generation.maximin import find_distribution_maximin
@@ -17,6 +18,7 @@ def find_any_committee(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], RunReport]:
     """Find any single feasible committee that satisfies the quotas.
 
@@ -26,6 +28,7 @@ def find_any_committee(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns to check for same address, or empty list if
                                     not checking addresses.
+        solver_backend: solver backend to use ("highspy" or "mip")
 
     Returns:
         tuple of (list containing one committee as frozenset of person_ids, empty report)
@@ -34,8 +37,10 @@ def find_any_committee(
         InfeasibleQuotasError: If quotas are infeasible
         SelectionError: If solver fails for other reasons
     """
-    _, agent_vars = setup_committee_generation(features, people, number_people_wanted, check_same_address_columns)
-    committee = ilp_results_to_committee(agent_vars)
+    solver, agent_vars = setup_committee_generation(
+        features, people, number_people_wanted, check_same_address_columns, solver_backend
+    )
+    committee = ilp_results_to_committee(solver, agent_vars)
     return [committee], RunReport()
 
 
@@ -65,6 +70,7 @@ def standardize_distribution(
 
 
 __all__ = (
+    "DIVERSIMAX_AVAILABLE",
     "GUROBI_AVAILABLE",
     "find_any_committee",
     "find_distribution_leximin",

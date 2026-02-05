@@ -209,6 +209,7 @@ class Settings:
         check_same_address: bool = False,
         check_same_address_columns: list[str] | None = None,
         selection_algorithm: str = "maximin",
+        solver_backend: str = "highspy",
         max_attempts: int = 10,
         columns_to_keep: list[str] | None = None,
         id_column: str = "id",
@@ -220,10 +221,16 @@ class Settings:
 - `random_number_seed`: Fixed seed for reproducible results (None or 0 = random)
 - `check_same_address`: Enable household diversity checking
 - `check_same_address_columns`: Columns that define an address
-- `selection_algorithm`: "maximin", "leximin", "nash", or "legacy"
+- `selection_algorithm`: "maximin", "leximin", "nash", "diversimax", or "legacy"
+- `solver_backend`: LP/MIP solver backend to use ("highspy" or "mip")
 - `max_attempts`: Maximum selection retry attempts
 - `columns_to_keep`: Additional columns to include in output
 - `id_column`: Name of the ID column in people data
+
+**Solver Backends:**
+
+- `"highspy"` (default): Uses the HiGHS solver via highspy. This is the recommended backend for most use cases.
+- `"mip"`: Uses python-mip, which requires the optional `mip` package to be installed (`pip install mip`).
 
 **Class Methods:**
 
@@ -247,6 +254,7 @@ random_number_seed = 0
 check_same_address = true
 check_same_address_columns = ["Address", "Postcode"]
 selection_algorithm = "maximin"
+solver_backend = "highspy"
 max_attempts = 10
 columns_to_keep = ["Name", "Email", "Phone"]
 ```
