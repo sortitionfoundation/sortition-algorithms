@@ -191,6 +191,8 @@ source = ["src"]
 
 [tool.deptry.package_module_name_map]
 gurobipy = "gurobipy"
+pandas = "pandas"
+scikit-learn = "sklearn"
 
 [tool.typos.default.extend-words]
 # used for 'strat select' - short for stratification
