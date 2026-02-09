@@ -123,28 +123,20 @@ python -m sortition_algorithms csv \
   --number-wanted 50
 ```
 
+[Learn more about the CLI](cli.md).
+
 ## Configuration with Settings
 
-Customize behavior with a settings file:
+Customize behavior with a settings file. [Learn more](api-reference.md#settings-file)
 
 **settings.toml**:
 
 ```toml
 id_column = "my_id"
 
-# Random seed for reproducible results (optional)
-# Set to zero to be properly random
-random_number_seed = 0
-
 # Ensure household diversity
 check_same_address = true
 check_same_address_columns = ["Address", "Postcode"]
-
-# Selection algorithm: "maximin", "leximin", "nash", "diversimax" or "legacy"
-selection_algorithm = "maximin"
-
-# Maximum selection attempts
-max_attempts = 10
 
 # Output columns to include
 columns_to_keep = ["Name", "Email", "Phone"]

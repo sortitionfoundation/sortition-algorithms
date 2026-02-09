@@ -105,21 +105,17 @@ p003,Carol Davis,carol@email.com,Female,51+,Urban,789 Pine Rd,12345
 **config.toml** (settings):
 
 ```toml
-# Set to zero for secure random results
-random_number_seed = 0
+id_column = "id"
+
+# Output customization
+columns_to_keep = ["Name", "Email", "Phone"]
 
 # Household diversity
 check_same_address = true
 check_same_address_columns = ["Address", "Postcode"]
-
-# Algorithm choice
-selection_algorithm = "maximin"
-max_attempts = 10
-
-# Output customization
-columns_to_keep = ["Name", "Email", "Phone"]
-id_column = "id"
 ```
+
+[Learn more about the settings file](api-reference.md#settings-file).
 
 ### Basic Selection
 

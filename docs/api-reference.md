@@ -205,36 +205,39 @@ Configuration object for customizing selection behavior.
 class Settings:
     def __init__(
         self,
+        id_column: str,
+        columns_to_keep: list[str],
         random_number_seed: int | None = None,
         check_same_address: bool = False,
         check_same_address_columns: list[str] | None = None,
         selection_algorithm: str = "maximin",
-        solver_backend: str = "highspy",
+        solver_backend: str = "mip",
         max_attempts: int = 10,
-        columns_to_keep: list[str] | None = None,
-        id_column: str = "id",
     ):
 ```
 
-**Parameters:**
+**Required Parameters:**
 
-- `random_number_seed`: Fixed seed for reproducible results (None or 0 = random)
-- `check_same_address`: Enable household diversity checking
-- `check_same_address_columns`: Columns that define an address
-- `selection_algorithm`: "maximin", "leximin", "nash", "diversimax", or "legacy"
-- `solver_backend`: LP/MIP solver backend to use ("highspy" or "mip")
-- `max_attempts`: Maximum selection retry attempts
-- `columns_to_keep`: Additional columns to include in output
 - `id_column`: Name of the ID column in people data
+- `columns_to_keep`: Additional columns to include in output
+
+**Optional Parameters with Defaults:**
+
+- `check_same_address`: Enable household diversity checking **Default:** False
+  - [Read more about address checking and household diversity](concepts.md##address-checking-and-household-diversity)
+- `check_same_address_columns`: Columns that define an address. Only used if `check_same_address` is `True` **Default:** `[]` (empty list).
+- `selection_algorithm`: "maximin", "leximin", "nash", "diversimax", or "legacy" **Default:** "maximin"
+  - [Read more about the algorithms](concepts.md#sortition-algorithms)
+- `solver_backend`: LP/MIP solver backend to use ("highspy" or "mip"). **Default:** "mip"
+- `max_attempts`: Maximum selection retry attempts for algorithms that can reasonably be retried (legacy). **Default:** 10
+- `random_number_seed`: Fixed seed for reproducible results (None or 0 = random) **Default:** 0
 
 **Solver Backends:**
 
 - `"highspy"` (default): Uses the HiGHS solver via highspy. This is the recommended backend for most use cases.
 - `"mip"`: Uses python-mip, which requires the optional `mip` package to be installed (`pip install mip`).
 
-**Class Methods:**
-
-#### Settings.load_from_file()
+### Settings.load_from_file()
 
 ```python
 @classmethod
@@ -244,20 +247,7 @@ def load_from_file(
 ) -> tuple[Settings, RunReport]:
 ```
 
-Load settings from a TOML file.
-
-**Example settings.toml:**
-
-```toml
-id_column = "my_id"
-random_number_seed = 0
-check_same_address = true
-check_same_address_columns = ["Address", "Postcode"]
-selection_algorithm = "maximin"
-solver_backend = "highspy"
-max_attempts = 10
-columns_to_keep = ["Name", "Email", "Phone"]
-```
+Load settings from a TOML file. See below for example files.
 
 **Returns:**
 
@@ -269,6 +259,30 @@ columns_to_keep = ["Name", "Email", "Phone"]
 ```python
 settings, report = Settings.load_from_file(Path("config.toml"))
 print(report.as_text())  # "Settings loaded from config.toml"
+```
+
+### Settings File
+
+**Example settings.toml with minimal settings:**
+
+```toml
+id_column = "my_id"
+columns_to_keep = ["Name", "Email", "Phone"]
+```
+
+This defines only what needs to be defined and leaves other values as defaults.
+
+**Example settings.toml with all settings:**
+
+```toml
+id_column = "my_id"
+random_number_seed = 0
+check_same_address = true
+check_same_address_columns = ["Address", "Postcode"]
+selection_algorithm = "maximin"
+solver_backend = "highspy"
+max_attempts = 10
+columns_to_keep = ["Name", "Email", "Phone"]
 ```
 
 ## RunReport Class
