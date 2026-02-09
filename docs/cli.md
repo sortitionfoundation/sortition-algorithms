@@ -282,9 +282,10 @@ All settings are optional and have sensible defaults:
 
 ```toml
 # config.toml
+id_column = "id"  # Column name containing unique IDs
 
-# Randomization
-random_number_seed = 0  # Set non-zero for reproducible results, omit for random
+# Output customization
+columns_to_keep = ["Name", "Email", "Phone", "Notes"]
 
 # Address checking for household diversity
 check_same_address = true
@@ -292,21 +293,9 @@ check_same_address_columns = ["Address", "Postcode", "City"]
 
 # Algorithm selection
 selection_algorithm = "maximin"  # "maximin", "nash", "leximin", "legacy"
-max_attempts = 10
-
-# Output customization
-columns_to_keep = ["Name", "Email", "Phone", "Notes"]
-id_column = "id"  # Column name containing unique IDs
 ```
 
-### Algorithm Comparison
-
-| Algorithm | Pros                 | Cons                     | Use Case               |
-| --------- | -------------------- | ------------------------ | ---------------------- |
-| `maximin` | Fair to minorities   | May not optimize overall | Default choice         |
-| `nash`    | Balanced overall     | Complex optimization     | Large diverse pools    |
-| `leximin` | Strongest fairness   | Requires Gurobi license  | Academic/research      |
-| `legacy`  | Backwards compatible | Less sophisticated       | Historical consistency |
+[Learn more about the settings file](api-reference.md#settings-file).
 
 ## Common Workflows
 

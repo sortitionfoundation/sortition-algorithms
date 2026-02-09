@@ -247,6 +247,17 @@ random_number_seed = 0
 - `max_attempts`: Maximum selection retry attempts for algorithms that can reasonably be retried (legacy). **Default:** 10
 - `random_number_seed`: Fixed seed for reproducible results (None or 0 = random) **Default:** 0
 
+**Algorithm Comparison:**
+
+| Algorithm | Pros                 | Cons                     | Use Case               |
+| --------- | -------------------- | ------------------------ | ---------------------- |
+| `maximin` | Fair to minorities   | May not optimize overall | Default choice         |
+| `nash`    | Balanced overall     | Complex optimization     | Large diverse pools    |
+| `leximin` | Strongest fairness   | Requires Gurobi license  | Academic/research      |
+| `legacy`  | Backwards compatible | Less sophisticated       | Historical consistency |
+
+[More details about algorithms](concepts.md#selection-algorithms)
+
 **Solver Backends:**
 
 - `"highspy"` (default): Uses the HiGHS solver via highspy. This is the recommended backend for most use cases.
