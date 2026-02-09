@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-01-29T11:00:12.625688755Z"
+exclude-newer = "2026-02-02T02:57:20.339691821Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -224,27 +224,28 @@ toml = [
 
 [[package]]
 name = "cvxpy"
-version = "1.7.5"
+version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "clarabel" },
+    { name = "highspy" },
     { name = "numpy" },
     { name = "osqp" },
     { name = "scipy" },
     { name = "scs" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9a/7f/2a13e0e7ee76c03bc11aae397572e82d8a8bd23c1c3ac020766f0e15da8e/cvxpy-1.7.5.tar.gz", hash = "sha256:4b512218001c27659e16fc914a2490038635874681032c3c3485ff1099b83f5d", size = 1651490, upload-time = "2025-12-05T03:48:49.127Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/cb/45e643e72eef40feecfef4a43c8affdd1804c841dd527e12268810665129/cvxpy-1.8.0.tar.gz", hash = "sha256:6c9f94af5a649e02a418bae565f1566cf731b43221713a558e9991fc0e011bd6", size = 1749642, upload-time = "2026-01-27T21:20:02.363Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/65/00/1d3c92ee50976ad8804b4526eceaba098f3455069e409cda39dfaadf6427/cvxpy-1.7.5-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:0df3bc1aee0431ee6419cfc77fb7543ad7588150b9bb5d8ef44da7a76770ba1d", size = 1548998, upload-time = "2025-12-05T03:42:14.7Z" },
-    { url = "https://files.pythonhosted.org/packages/a8/6f/052a0e80339f8080ca7788452efbb6164e9d543ed31e5ea23fb94882206f/cvxpy-1.7.5-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:86876084d1874c837b6dc9dad61ba1e873e979d06462fdc149a6ba0b067a8638", size = 1207819, upload-time = "2025-12-05T03:42:16.01Z" },
-    { url = "https://files.pythonhosted.org/packages/f0/71/b7282178f46a744d6acd6c45122a3a5600458ba1aaa89612d618cd8b9d60/cvxpy-1.7.5-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7633c2a369188aa0fa3df4a767267774257c9dba71ac8e5b9e8eefb17e2613f8", size = 1220587, upload-time = "2025-12-05T03:45:08.717Z" },
-    { url = "https://files.pythonhosted.org/packages/69/5a/168630f5aaaaf5d8be935369b8b7e7c8f9752921027679e9d79ac67305e8/cvxpy-1.7.5-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9f9d93892f0805a9fa1b0702ca4c6d3b8deb056ab0140a58f41b933fe8f28aae", size = 1249941, upload-time = "2025-12-05T03:45:09.961Z" },
-    { url = "https://files.pythonhosted.org/packages/21/25/bf0914023100d1ee3c4ccf04e1638cc6b70b8c623f56a431051bc40d2540/cvxpy-1.7.5-cp311-cp311-win_amd64.whl", hash = "sha256:911575f28ecd3fd913165354aad24ebfe264a59a1d86a2c0e296177c6a13092f", size = 1148858, upload-time = "2025-12-05T03:36:16.144Z" },
-    { url = "https://files.pythonhosted.org/packages/53/f3/d96f535bd3820b3c1d4aeeb664921c4b1414bcdada8be6e9d7ee5a3d5714/cvxpy-1.7.5-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:6c397b86ef2109b99ec10d4fb144a826af840e1111167d307c52c96719ac5f57", size = 1556519, upload-time = "2025-12-05T03:42:14.895Z" },
-    { url = "https://files.pythonhosted.org/packages/33/e5/142e5b659fdba2e243d2ffb5da93b2cc5f1ce52a58568625f32443aa2994/cvxpy-1.7.5-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:20bacc1781b5b168e0272688d8652cef7433a4d07dea2482e790e1bdcee4f46e", size = 1212257, upload-time = "2025-12-05T03:42:16.896Z" },
-    { url = "https://files.pythonhosted.org/packages/6c/bc/f54aec4ce417d3aa71ed48ee822cd319d4abd2bff45f4ecd432991c3f23f/cvxpy-1.7.5-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:573396b116cff9c46952c885d9c06db1fc7a6e4838feb2fcba2982d521140205", size = 1222707, upload-time = "2025-12-05T03:48:46.624Z" },
-    { url = "https://files.pythonhosted.org/packages/af/58/aae05f3749c85a8910367982546891f6ac29abddcf4943bb599a858b3030/cvxpy-1.7.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5926ca62e6998f160ecf4c4acc139eb0fe8c28453c904e1c3d7b93b5b40e4303", size = 1251680, upload-time = "2025-12-05T03:48:47.798Z" },
-    { url = "https://files.pythonhosted.org/packages/5d/77/05f1bb03743610771cf4d784bda2855d63470ec21f315521bc0c944c67f5/cvxpy-1.7.5-cp312-cp312-win_amd64.whl", hash = "sha256:e8308b88b515567d7a5a5762c8e7c971692e1022a924613d808648916c20834b", size = 1150457, upload-time = "2025-12-05T03:39:32.385Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/5e/000bdfea7951c636bdd941e86cfc557d0bf867c36b1a5fa2aa940416d3ce/cvxpy-1.8.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:c54b299de19fbb306939eeaa2d951527aa153eb890867e4bf0bc184038645b59", size = 1671487, upload-time = "2026-01-27T21:14:07.645Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/33/c73ebd442f0c089ad7df3f222d15f35d14aa3f66a77069c9ac69f4237414/cvxpy-1.8.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:333858c0df3c4167886e96536fcad037b3746d50b6480a337f2ed8b309017b91", size = 1330310, upload-time = "2026-01-27T21:14:09.242Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/60/8aa125f14e520066c5d1f8e13878bf1144c5f9fb0f29aadff86e16f74f9a/cvxpy-1.8.0-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f1ec08ab85368ae8dd4e2dded86db4a891aeb37d549322e7f43d83e4be6c32e9", size = 1343072, upload-time = "2026-01-27T21:23:53.223Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/a7/847ce8f229fe30f770f752556d885c122bb2f29184667ad4e9cbe5cc3bf0/cvxpy-1.8.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c244a4a80092893cbdda8318ed420c0dc68960cf230ab15dc80903149765f6fb", size = 1372429, upload-time = "2026-01-27T21:23:54.389Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/fb/a447dca35f016bf38d1143af3eb25af474831f19893eb5c123d7bd668c04/cvxpy-1.8.0-cp311-cp311-win_amd64.whl", hash = "sha256:7e04bea5dab8a28c25c47625e380a9094215ef9a5264c9df80674a172bf2d00c", size = 1272177, upload-time = "2026-01-27T21:10:11.56Z" },
+    { url = "https://files.pythonhosted.org/packages/86/3f/56a2b0fab089a1b36d23ef4fd09d3532b0c2beac63d25eaae102cda58462/cvxpy-1.8.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:82e0b8ba765eafd39fe3f9429a95107cb900612d89e2e202186efa5bb3f18fba", size = 1679010, upload-time = "2026-01-27T21:11:49.237Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/e5/076f7119c2e294dc5536e9bba791d72f55deb7b97f853d0d298d12403192/cvxpy-1.8.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:b62f8cb12ee67eea4fe298d3aff8f104cbdd123884d673cc2e18681bd1cf9185", size = 1334745, upload-time = "2026-01-27T21:11:50.588Z" },
+    { url = "https://files.pythonhosted.org/packages/81/e0/fa36523cc39e16e4b10e937d52d5db1b2b46b79cc0d2f374c79fafbbf45c/cvxpy-1.8.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a95e2426147410564accc4a180085ac2c3e3c8b6721ba0ffca72598938676db5", size = 1345196, upload-time = "2026-01-27T21:19:58.768Z" },
+    { url = "https://files.pythonhosted.org/packages/02/3c/5bdbfa75c88747f7de0e72d3c0d934511895167d11809e65c1eedbeb1f27/cvxpy-1.8.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0571f451ccb98943d89977b25be4205735f90cb2d536c5eadc3f166107ec474f", size = 1374166, upload-time = "2026-01-27T21:20:00.292Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/fc/c3afd7299bf46b8239639735a924c35b3c34842f291f5f20af2c4ac547ea/cvxpy-1.8.0-cp312-cp312-win_amd64.whl", hash = "sha256:25dd0f7c64abde257fa20af3b90b1923f77a38aa86f8a5a5f1497fea0bc357fb", size = 1273945, upload-time = "2026-01-27T21:11:27.584Z" },
 ]
 
 [[package]]
