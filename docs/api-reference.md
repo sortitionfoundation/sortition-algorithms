@@ -197,7 +197,62 @@ p002,Bob,Male,31-50,bob@example.com
 people = read_in_people("candidates.csv", settings, features)
 ```
 
-## Settings Class
+## Settings File and Class
+
+### Settings File
+
+**Example settings.toml with minimal settings:**
+
+```toml
+id_column = "my_id"
+columns_to_keep = ["Name", "Email", "Phone"]
+```
+
+This defines only what needs to be defined and leaves other values as defaults.
+
+**Example settings.toml with all settings:**
+
+```toml
+# required settings
+id_column = "my_id"
+columns_to_keep = ["Name", "Email", "Phone"]
+
+# commonly used settings
+check_same_address = true
+check_same_address_columns = ["Address", "Postcode"]
+
+# rarely altered settings - can normally be omitted
+selection_algorithm = "maximin"
+solver_backend = "highspy"
+max_attempts = 10
+random_number_seed = 0
+```
+
+**Required Settings:**
+
+- `id_column`: Name of the ID column in people data
+- `columns_to_keep`: Additional columns to include in output
+
+**Optional Settings with Defaults, Commonly Used:**
+
+- `check_same_address`: Enable household diversity checking **Default:** False
+  - [Read more about address checking and household diversity](concepts.md##address-checking-and-household-diversity)
+- `check_same_address_columns`: Columns that define an address. Only used if `check_same_address` is `True` **Default:** `[]` (empty list).
+
+**Optional Settings with Defaults, Rarely Used:**
+
+- `selection_algorithm`: "maximin", "leximin", "nash", "diversimax", or "legacy" **Default:** "maximin"
+  - [Read more about the algorithms](concepts.md#sortition-algorithms)
+- `solver_backend`: LP/MIP solver backend to use ("highspy" or "mip"). **Default:** "mip"
+- `max_attempts`: Maximum selection retry attempts for algorithms that can reasonably be retried (legacy). **Default:** 10
+- `random_number_seed`: Fixed seed for reproducible results (None or 0 = random) **Default:** 0
+
+**Solver Backends:**
+
+- `"highspy"` (default): Uses the HiGHS solver via highspy. This is the recommended backend for most use cases.
+- `"mip"`: Uses python-mip, which requires the optional `mip` package to be installed (`pip install mip`).
+
+### Settings Class
 
 Configuration object for customizing selection behavior.
 
@@ -216,28 +271,9 @@ class Settings:
     ):
 ```
 
-**Required Parameters:**
+See [Settings File](#settings-file) above for more information about what the individual settings do.
 
-- `id_column`: Name of the ID column in people data
-- `columns_to_keep`: Additional columns to include in output
-
-**Optional Parameters with Defaults:**
-
-- `check_same_address`: Enable household diversity checking **Default:** False
-  - [Read more about address checking and household diversity](concepts.md##address-checking-and-household-diversity)
-- `check_same_address_columns`: Columns that define an address. Only used if `check_same_address` is `True` **Default:** `[]` (empty list).
-- `selection_algorithm`: "maximin", "leximin", "nash", "diversimax", or "legacy" **Default:** "maximin"
-  - [Read more about the algorithms](concepts.md#sortition-algorithms)
-- `solver_backend`: LP/MIP solver backend to use ("highspy" or "mip"). **Default:** "mip"
-- `max_attempts`: Maximum selection retry attempts for algorithms that can reasonably be retried (legacy). **Default:** 10
-- `random_number_seed`: Fixed seed for reproducible results (None or 0 = random) **Default:** 0
-
-**Solver Backends:**
-
-- `"highspy"` (default): Uses the HiGHS solver via highspy. This is the recommended backend for most use cases.
-- `"mip"`: Uses python-mip, which requires the optional `mip` package to be installed (`pip install mip`).
-
-### Settings.load_from_file()
+#### Settings.load_from_file()
 
 ```python
 @classmethod
@@ -247,7 +283,7 @@ def load_from_file(
 ) -> tuple[Settings, RunReport]:
 ```
 
-Load settings from a TOML file. See below for example files.
+Load settings from a TOML file. See above for example files.
 
 **Returns:**
 
@@ -259,30 +295,6 @@ Load settings from a TOML file. See below for example files.
 ```python
 settings, report = Settings.load_from_file(Path("config.toml"))
 print(report.as_text())  # "Settings loaded from config.toml"
-```
-
-### Settings File
-
-**Example settings.toml with minimal settings:**
-
-```toml
-id_column = "my_id"
-columns_to_keep = ["Name", "Email", "Phone"]
-```
-
-This defines only what needs to be defined and leaves other values as defaults.
-
-**Example settings.toml with all settings:**
-
-```toml
-id_column = "my_id"
-random_number_seed = 0
-check_same_address = true
-check_same_address_columns = ["Address", "Postcode"]
-selection_algorithm = "maximin"
-solver_backend = "highspy"
-max_attempts = 10
-columns_to_keep = ["Name", "Email", "Phone"]
 ```
 
 ## RunReport Class
