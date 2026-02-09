@@ -278,7 +278,7 @@ This creates a CSV with realistic synthetic data that matches your feature defin
 
 ### Settings File Format
 
-All settings are optional and have sensible defaults:
+All settings apart from `id_column` and `columns_to_keep` are optional and have sensible defaults:
 
 ```toml
 # config.toml

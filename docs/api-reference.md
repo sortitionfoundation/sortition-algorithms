@@ -249,12 +249,13 @@ random_number_seed = 0
 
 **Algorithm Comparison:**
 
-| Algorithm | Pros                 | Cons                     | Use Case               |
-| --------- | -------------------- | ------------------------ | ---------------------- |
-| `maximin` | Fair to minorities   | May not optimize overall | Default choice         |
-| `nash`    | Balanced overall     | Complex optimization     | Large diverse pools    |
-| `leximin` | Strongest fairness   | Requires Gurobi license  | Academic/research      |
-| `legacy`  | Backwards compatible | Less sophisticated       | Historical consistency |
+| Algorithm    | Pros                   | Cons                     | Use Case                      |
+| ------------ | ---------------------- | ------------------------ | ----------------------------- |
+| `maximin`    | Fair to minorities     | May not optimize overall | Default choice                |
+| `nash`       | Balanced overall       | Complex optimization     | Large diverse pools           |
+| `leximin`    | Strongest fairness     | Requires Gurobi license  | Academic/research             |
+| `diversimax` | Optimizes intersection | No randomness in output  | Maximize diverse perspectives |
+| `legacy`     | Backwards compatible   | Less sophisticated       | Historical consistency        |
 
 [More details about algorithms](concepts.md#selection-algorithms)
 

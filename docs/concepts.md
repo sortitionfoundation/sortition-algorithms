@@ -160,7 +160,7 @@ Different algorithms optimize for different fairness criteria:
 
 **Example scenario**: Government-sponsored citizen assembly where mathematical proof of fairness is required.
 
-### Diverimax
+### Diversimax
 
 **Objective**: Maximize the diversity of the panel, preferring as many unique profiles as possible
 
