@@ -12,7 +12,7 @@ from sortition_algorithms.core import (
     run_stratification,
     selected_remaining_tables,
 )
-from sortition_algorithms.features import read_in_features
+from sortition_algorithms.features import read_in_features, write_features
 from sortition_algorithms.people import read_in_people
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport
@@ -30,4 +30,5 @@ __all__ = [
     "read_in_people",
     "run_stratification",
     "selected_remaining_tables",
+    "write_features",
 ]

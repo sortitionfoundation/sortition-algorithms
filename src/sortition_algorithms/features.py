@@ -443,3 +443,71 @@ def read_in_features(
     # this only changes the max_flex value if these (optional) flex values are NOT set already
     set_default_max_flex(features)
     return CaseInsensitiveDict(features), feature_column_name, feature_value_column_name
+
+
+def _has_non_default_flex(fc: FeatureCollection) -> bool:
+    """
+    Check if any feature value has non-default flex values.
+
+    Default flex values are:
+    - min_flex = 0
+    - max_flex = the default value set by set_default_max_flex()
+
+    Returns True if any flex value differs from defaults.
+    """
+    if not fc:
+        return False
+
+    # Get the default max_flex value that would be set
+    default_max_flex = _safe_max_flex_val(fc)
+
+    for feature_values in fc.values():
+        for fv_minmax in feature_values.values():
+            # If min_flex is non-zero, it's non-default
+            if fv_minmax.min_flex != 0:
+                return True
+            # If max_flex differs from the default value (and is not unset), it's non-default
+            if fv_minmax.max_flex != default_max_flex and fv_minmax.max_flex != MAX_FLEX_UNSET:
+                return True
+
+    return False
+
+
+def write_features(fc: FeatureCollection) -> tuple[list[str], list[dict[str, str]]]:
+    """
+    Convert a FeatureCollection back to tabular format (inverse of read_in_features).
+
+    Args:
+        fc: The FeatureCollection to convert
+
+    Returns:
+        A tuple of (headers, body) where:
+        - headers is a list of column names
+        - body is a list of dicts, each representing a row
+
+    The output format uses modern column names ("feature", "value", "min", "max").
+    Flex columns ("min_flex", "max_flex") are included only if any feature value
+    has non-default flex values.
+    """
+    # Determine if we need flex columns
+    include_flex = _has_non_default_flex(fc)
+
+    # Build headers
+    headers = list(FEATURE_FILE_FIELD_NAMES_FLEX) if include_flex else list(FEATURE_FILE_FIELD_NAMES)
+
+    # Build body
+    body: list[dict[str, str]] = []
+    for feature_name, feature_values in fc.items():
+        for value_name, fv_minmax in feature_values.items():
+            row = {
+                "feature": str(feature_name),
+                "value": str(value_name),
+                "min": str(fv_minmax.min),
+                "max": str(fv_minmax.max),
+            }
+            if include_flex:
+                row["min_flex"] = str(fv_minmax.min_flex)
+                row["max_flex"] = str(fv_minmax.max_flex)
+            body.append(row)
+
+    return headers, body

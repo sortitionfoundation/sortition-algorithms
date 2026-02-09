@@ -1,4 +1,5 @@
 import pytest
+from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms.errors import ParseTableMultiError, SelectionMultilineError
 from sortition_algorithms.features import (
@@ -10,6 +11,7 @@ from sortition_algorithms.features import (
     maximum_selection,
     minimum_selection,
     read_in_features,
+    write_features,
 )
 
 
@@ -674,3 +676,184 @@ class TestCaseInsensitiveMatching:
         assert "White British" in features["ethnicity"]
         assert "WHITE BRITISH" in features["ethnicity"]
         assert "asian" in features["ethnicity"]
+
+
+class TestWriteFeatures:
+    """Test writing FeatureCollection back to tabular format."""
+
+    def test_write_features_without_flex(self):
+        """Test writing a simple FeatureCollection without flex columns."""
+        # Manually construct a FeatureCollection with default flex values
+        # Default max_flex is max of all feature max selections: 6+6+1=13
+        fc = CaseInsensitiveDict()
+        fc["gender"] = CaseInsensitiveDict()
+        fc["gender"]["male"] = FeatureValueMinMax(min=4, max=6, min_flex=0, max_flex=13)
+        fc["gender"]["female"] = FeatureValueMinMax(min=4, max=6, min_flex=0, max_flex=13)
+        fc["gender"]["non-binary"] = FeatureValueMinMax(min=0, max=1, min_flex=0, max_flex=13)
+
+        headers, body = write_features(fc)
+
+        # Check headers (should not include flex since all values are defaults)
+        assert headers == ["feature", "value", "min", "max"]
+
+        # Check body has correct number of rows
+        assert len(body) == 3
+
+        # Check the content (order may vary, so we'll check each row exists)
+        expected_rows = [
+            {"feature": "gender", "value": "male", "min": "4", "max": "6"},
+            {"feature": "gender", "value": "female", "min": "4", "max": "6"},
+            {"feature": "gender", "value": "non-binary", "min": "0", "max": "1"},
+        ]
+
+        for expected in expected_rows:
+            assert expected in body
+
+    def test_write_features_with_flex(self):
+        """Test writing a FeatureCollection with non-default flex columns."""
+        # Manually construct a FeatureCollection with explicit flex values
+        fc = CaseInsensitiveDict()
+        fc["gender"] = CaseInsensitiveDict()
+        fc["gender"]["male"] = FeatureValueMinMax(min=4, max=6, min_flex=2, max_flex=8)
+        fc["gender"]["female"] = FeatureValueMinMax(min=4, max=6, min_flex=3, max_flex=7)
+
+        headers, body = write_features(fc)
+
+        # Check headers include flex columns
+        assert headers == ["feature", "value", "min", "max", "min_flex", "max_flex"]
+
+        # Check body
+        assert len(body) == 2
+
+        expected_rows = [
+            {"feature": "gender", "value": "male", "min": "4", "max": "6", "min_flex": "2", "max_flex": "8"},
+            {"feature": "gender", "value": "female", "min": "4", "max": "6", "min_flex": "3", "max_flex": "7"},
+        ]
+
+        for expected in expected_rows:
+            assert expected in body
+
+    def test_write_features_multiple_features(self):
+        """Test writing multiple features."""
+        # Default max_flex is max of all feature max selections
+        # gender: 4+4=8, age: 3+3=6, so max is 8
+        fc = CaseInsensitiveDict()
+        fc["gender"] = CaseInsensitiveDict()
+        fc["gender"]["male"] = FeatureValueMinMax(min=2, max=4, min_flex=0, max_flex=8)
+        fc["gender"]["female"] = FeatureValueMinMax(min=2, max=4, min_flex=0, max_flex=8)
+
+        fc["age"] = CaseInsensitiveDict()
+        fc["age"]["18-30"] = FeatureValueMinMax(min=1, max=3, min_flex=0, max_flex=8)
+        fc["age"]["31-50"] = FeatureValueMinMax(min=2, max=3, min_flex=0, max_flex=8)
+
+        headers, body = write_features(fc)
+
+        # Check we got all rows
+        assert len(body) == 4
+
+        # Check all features are present
+        features_in_body = {row["feature"] for row in body}
+        assert features_in_body == {"gender", "age"}
+
+        # Check gender values
+        gender_rows = [row for row in body if row["feature"] == "gender"]
+        assert len(gender_rows) == 2
+        gender_values = {row["value"] for row in gender_rows}
+        assert gender_values == {"male", "female"}
+
+        # Check age values
+        age_rows = [row for row in body if row["feature"] == "age"]
+        assert len(age_rows) == 2
+        age_values = {row["value"] for row in age_rows}
+        assert age_values == {"18-30", "31-50"}
+
+    def test_write_features_empty_collection(self):
+        """Test writing an empty FeatureCollection."""
+        fc = CaseInsensitiveDict()
+        headers, body = write_features(fc)
+
+        assert headers == ["feature", "value", "min", "max"]
+        assert body == []
+
+
+class TestWriteFeaturesRoundTrip:
+    """Test round-trip conversion: tabular -> FeatureCollection -> tabular."""
+
+    def test_roundtrip_without_flex(self):
+        """Test that data without flex columns survives a round trip."""
+        # Start with tabular data
+        head = FEATURE_FILE_FIELD_NAMES
+        body_in = [
+            {"feature": "gender", "value": "male", "min": "4", "max": "6"},
+            {"feature": "gender", "value": "female", "min": "4", "max": "6"},
+            {"feature": "gender", "value": "non-binary", "min": "0", "max": "1"},
+        ]
+
+        # Convert to FeatureCollection
+        features, _, _ = read_in_features(head, body_in)
+
+        # Convert back to tabular
+        headers_out, body_out = write_features(features)
+
+        # Check headers (should not include flex if input didn't have it)
+        assert headers_out == list(FEATURE_FILE_FIELD_NAMES)
+
+        # Check body matches (order may vary)
+        assert len(body_out) == len(body_in)
+        for row in body_in:
+            assert row in body_out
+
+    def test_roundtrip_with_flex(self):
+        """Test that data with flex columns survives a round trip."""
+        head = FEATURE_FILE_FIELD_NAMES_FLEX
+        body_in = [
+            {
+                "feature": "gender",
+                "value": "male",
+                "min": "4",
+                "max": "6",
+                "min_flex": "2",
+                "max_flex": "8",
+            },
+            {
+                "feature": "gender",
+                "value": "female",
+                "min": "4",
+                "max": "6",
+                "min_flex": "3",
+                "max_flex": "7",
+            },
+        ]
+
+        # Convert to FeatureCollection
+        features, _, _ = read_in_features(head, body_in)
+
+        # Convert back to tabular
+        headers_out, body_out = write_features(features)
+
+        # Check headers include flex
+        assert headers_out == list(FEATURE_FILE_FIELD_NAMES_FLEX)
+
+        # Check body matches
+        assert len(body_out) == len(body_in)
+        for row in body_in:
+            assert row in body_out
+
+    def test_roundtrip_multiple_features(self):
+        """Test round trip with multiple features."""
+        head = FEATURE_FILE_FIELD_NAMES
+        body_in = [
+            {"feature": "gender", "value": "male", "min": "2", "max": "4"},
+            {"feature": "gender", "value": "female", "min": "2", "max": "4"},
+            {"feature": "age", "value": "18-30", "min": "1", "max": "3"},
+            {"feature": "age", "value": "31-50", "min": "2", "max": "3"},
+        ]
+
+        features, _, _ = read_in_features(head, body_in)
+
+        headers_out, body_out = write_features(features)
+
+        assert headers_out == list(FEATURE_FILE_FIELD_NAMES)
+        assert len(body_out) == len(body_in)
+        for row in body_in:
+            assert row in body_out
