@@ -95,7 +95,9 @@ REPORT_MESSAGES = {
     "writing_remaining_csv": N_("Writing remaining rows to %(file_path)s"),
     "writing_selected_tab": N_("Writing selected people to tab: %(tab_name)s"),
     "writing_remaining_tab": N_("Writing remaining people to tab: %(tab_name)s"),
-    "finished_writing_selected_only": N_("Finished writing selected (only)"),
+    "finished_writing_selected_only": N_(
+        "Finished writing selected (only, because writing remaining is deselected in the configuration)"
+    ),
     "finished_writing_selected_and_remaining": N_("Finished writing both selected and remaining"),
     # ========================================================================
     # Validation and warnings

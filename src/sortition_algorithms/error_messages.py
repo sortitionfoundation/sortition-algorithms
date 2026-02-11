@@ -117,7 +117,9 @@ ERROR_MESSAGES = {
         "[%(min)s, %(max)s]."
     ),
     # InfeasibleQuotasError
-    "infeasible_quotas_header": N_("The quotas are infeasible:"),
+    "infeasible_quotas_header": N_(
+        "It is not possible to hit all the targets with the current set of people. I suggest the following steps:"
+    ),
     # Min/max error details
     "inconsistent_min_max_header": N_("Inconsistent numbers in min and max in the %(feature_column_name)s input:"),
     "smallest_maximum_detail": N_("The smallest maximum is %(max_val)s for %(feature_column_name)s '%(max_feature)s'"),
