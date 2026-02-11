@@ -236,13 +236,13 @@ random_number_seed = 0
 **Optional Settings with Defaults, Commonly Used:**
 
 - `check_same_address`: Enable household diversity checking **Default:** False
-  - [Read more about address checking and household diversity](concepts.md##address-checking-and-household-diversity)
+  - [Read more about address checking and household diversity](concepts.md#address-checking-and-household-diversity)
 - `check_same_address_columns`: Columns that define an address. Only used if `check_same_address` is `True` **Default:** `[]` (empty list).
 
 **Optional Settings with Defaults, Rarely Used:**
 
 - `selection_algorithm`: "maximin", "leximin", "nash", "diversimax", or "legacy" **Default:** "maximin"
-  - [Read more about the algorithms](concepts.md#sortition-algorithms)
+  - [Read more about the algorithms](concepts.md#selection-algorithms)
 - `solver_backend`: LP/MIP solver backend to use ("highspy" or "mip"). **Default:** "mip"
 - `max_attempts`: Maximum selection retry attempts for algorithms that can reasonably be retried (legacy). **Default:** 10
 - `random_number_seed`: Fixed seed for reproducible results (None or 0 = random) **Default:** 0
