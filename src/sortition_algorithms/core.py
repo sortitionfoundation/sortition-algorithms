@@ -14,6 +14,7 @@ from sortition_algorithms.committee_generation import (
     standardize_distribution,
 )
 from sortition_algorithms.committee_generation.diversimax import find_distribution_diversimax
+from sortition_algorithms.errors import ConfigurationError
 from sortition_algorithms.features import FeatureCollection, check_desired
 from sortition_algorithms.people import (
     People,
@@ -290,20 +291,20 @@ def find_random_sample(
             "Running the test selection does not support generating a transparent lottery, so, if "
             "`test_selection` is true, `number_selections` must be 1."
         )
-        raise ValueError(msg, "test_selection_multiple_selections", {})
+        raise ConfigurationError(message=msg, error_code="test_selection_multiple_selections", error_params={})
 
     if selection_algorithm == "legacy" and number_selections != 1:
         msg = (
             "Currently, the legacy algorithm does not support generating a transparent lottery, "
             "so `number_selections` must be set to 1."
         )
-        raise ValueError(msg, "legacy_multiple_selections", {})
+        raise ConfigurationError(message=msg, error_code="legacy_multiple_selections", error_params={})
     if selection_algorithm == "diversimax" and number_selections != 1:
         msg = (
             "The diversimax algorithm does not support generating multiple committees, "
             "so `number_selections` must be set to 1."
         )
-        raise ValueError(msg, "diversimax_multiple_selections", {})
+        raise ConfigurationError(message=msg, error_code="diversimax_multiple_selections", error_params={})
 
     # Quick test selection using find_any_committee
     if test_selection:
@@ -353,7 +354,9 @@ def find_random_sample(
             f"Unknown selection algorithm {selection_algorithm!r}, must be either 'legacy', 'leximin', "
             f"'maximin', 'diversimax', or 'nash'."
         )
-        raise ValueError(msg, "unknown_selection_algorithm", {"algorithm": selection_algorithm})
+        raise ConfigurationError(
+            message=msg, error_code="unknown_selection_algorithm", error_params={"algorithm": selection_algorithm}
+        )
 
     report.add_report(new_report)
 

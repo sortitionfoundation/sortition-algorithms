@@ -6,6 +6,7 @@ from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms import utils
 from sortition_algorithms.errors import (
+    ConfigurationError,
     ParseErrorsCollector,
     ParseTableMultiError,
     SelectionMultilineError,
@@ -198,10 +199,10 @@ def _get_feature_from_row(row: Mapping[str, str]) -> tuple[str, str]:
         if key in row:
             return row[key], key
     column_names_str = " ".join(feature_column_names)
-    raise ValueError(
-        f"Could not find feature column, looked for column headers: {column_names_str}",
-        "feature_column_not_found",
-        {"column_names": column_names_str},
+    raise ConfigurationError(
+        message=f"Could not find feature column, looked for column headers: {column_names_str}",
+        error_code="feature_column_not_found",
+        error_params={"column_names": column_names_str},
     )
 
 
@@ -211,10 +212,10 @@ def _get_feature_value_from_row(row: Mapping[str, str]) -> tuple[str, str]:
         if key in row:
             return row[key], key
     column_names_str = " ".join(feature_value_column_names)
-    raise ValueError(
-        f"Could not find feature value column, looked for column headers: {column_names_str}",
-        "feature_value_column_not_found",
-        {"column_names": column_names_str},
+    raise ConfigurationError(
+        message=f"Could not find feature value column, looked for column headers: {column_names_str}",
+        error_code="feature_value_column_not_found",
+        error_params={"column_names": column_names_str},
     )
 
 
@@ -254,11 +255,13 @@ def _feature_headers_flex(headers: list[str]) -> tuple[bool, list[str]]:
     if messages:
         msg = "\n".join(messages)
         # Multi-line error - no single error code applies
-        raise ValueError(msg)
+        raise ConfigurationError(message=msg)
     else:
         headers_str = str(headers)
         msg = f"Unexpected error in set of column names: {headers_str}"
-        raise ValueError(msg, "unexpected_column_error", {"headers": headers_str})
+        raise ConfigurationError(
+            message=msg, error_code="unexpected_column_error", error_params={"headers": headers_str}
+        )
 
 
 def _row_val_to_int(row: MutableMapping, key: str) -> tuple[int, str, str, dict[str, str | int]]:

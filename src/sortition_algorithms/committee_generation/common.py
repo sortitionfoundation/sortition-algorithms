@@ -14,6 +14,7 @@ from sortition_algorithms.committee_generation.solver import (
     create_solver,
     solver_sum,
 )
+from sortition_algorithms.errors import SelectionError
 from sortition_algorithms.features import FeatureCollection, feature_value_pairs, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import RunReport, logger, random_provider
@@ -342,7 +343,9 @@ def ilp_results_to_committee(solver: Solver, variables: dict[str, Any]) -> froze
     # unfortunately, solvers sometimes throw generic Exceptions rather than a subclass
     except Exception as error:
         msg = f"It seems like some variables do not have a value. Original exception: {error}."
-        raise ValueError(msg, "variables_without_value", {"error": str(error)}) from error
+        raise SelectionError(
+            message=msg, error_code="variables_without_value", error_params={"error": str(error)}
+        ) from error
 
     return committee
 

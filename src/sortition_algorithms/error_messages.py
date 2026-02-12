@@ -43,7 +43,7 @@ ERROR_MESSAGES = {
     "already_selected_duplicate_headers": N_(
         "the header row in the %(tab_name)s tab contains duplicates: %(duplicates)s"
     ),
-    # ValueError messages
+    # ConfigurationError messages
     "test_selection_multiple_selections": N_(
         "Running the test selection does not support generating a transparent lottery, so, if "
         "`test_selection` is true, `number_selections` must be 1."
@@ -52,9 +52,15 @@ ERROR_MESSAGES = {
         "Currently, the legacy algorithm does not support generating a transparent lottery, "
         "so `number_selections` must be set to 1."
     ),
-    "unknown_selection_algorithm": N_(
-        "Unknown selection algorithm %(algorithm)r, must be either 'legacy', 'leximin', 'maximin', or 'nash'."
+    "diversimax_multiple_selections": N_(
+        "The diversimax algorithm does not support generating multiple committees, "
+        "so `number_selections` must be set to 1."
     ),
+    "unknown_selection_algorithm": N_(
+        "Unknown selection algorithm %(algorithm)r, must be either 'legacy', 'leximin', 'maximin', 'diversimax', or 'nash'."
+    ),
+    "invalid_solver_backend": N_("solver_backend %(backend)s is not one of: %(valid_backends)s"),
+    "unknown_solver_backend": N_("Unknown solver backend: %(backend)s"),
     "feature_column_not_found": N_("Could not find feature column, looked for column headers: %(column_names)s"),
     "feature_value_column_not_found": N_(
         "Could not find feature value column, looked for column headers: %(column_names)s"

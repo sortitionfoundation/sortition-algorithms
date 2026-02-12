@@ -13,6 +13,7 @@ from sortition_algorithms.committee_generation.solver import (
     create_solver,
     solver_sum,
 )
+from sortition_algorithms.errors import ConfigurationError
 
 # Backends to test - only include mip if it's available
 SOLVER_BACKENDS = ["highspy", "mip"] if MIP_AVAILABLE else ["highspy"]
@@ -39,8 +40,8 @@ class TestSolverFactory:
             create_solver(backend="mip")
 
     def test_create_unknown_solver_raises(self) -> None:
-        """Test that an unknown backend raises ValueError."""
-        with pytest.raises(ValueError, match="Unknown solver backend"):
+        """Test that an unknown backend raises ConfigurationError."""
+        with pytest.raises(ConfigurationError, match="Unknown solver backend"):
             create_solver(backend="unknown")
 
     def test_create_solver_with_options(self) -> None:

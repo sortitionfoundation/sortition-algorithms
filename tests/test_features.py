@@ -1,7 +1,7 @@
 import pytest
 from requests.structures import CaseInsensitiveDict
 
-from sortition_algorithms.errors import ParseTableMultiError, SelectionMultilineError
+from sortition_algorithms.errors import ConfigurationError, ParseTableMultiError, SelectionMultilineError
 from sortition_algorithms.features import (
     FEATURE_FILE_FIELD_NAMES,
     FEATURE_FILE_FIELD_NAMES_FLEX,
@@ -210,7 +210,7 @@ class TestReadInFeaturesErrorHandling:
         head = ["feature", "value", "min"]  # missing "max"
         body = [{"feature": "gender", "value": "male", "min": "1"}]
 
-        with pytest.raises(ValueError, match="Did not find required column name 'max'"):
+        with pytest.raises(ConfigurationError, match="Did not find required column name 'max'"):
             read_in_features(head, body)
 
     def test_invalid_headers_duplicate_field(self):
@@ -218,7 +218,7 @@ class TestReadInFeaturesErrorHandling:
         head = ["feature", "value", "min", "max", "min"]  # duplicate "min"
         body = [{"feature": "gender", "value": "male", "min": "1", "max": "2"}]
 
-        with pytest.raises(ValueError, match="Found MORE THAN 1 column named 'min'"):
+        with pytest.raises(ConfigurationError, match="Found MORE THAN 1 column named 'min'"):
             read_in_features(head, body)
 
     def test_extra_headers_ignored(self):

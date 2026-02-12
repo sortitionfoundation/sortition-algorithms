@@ -33,6 +33,10 @@ class BadDataError(SortitionBaseError):
     """Error for when bad data is found while reading things in"""
 
 
+class ConfigurationError(SortitionBaseError):
+    """Error for invalid configuration or settings"""
+
+
 class SelectionError(SortitionBaseError):
     """Generic error for things that happen in selection"""
 

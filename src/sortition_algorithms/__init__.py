@@ -12,6 +12,14 @@ from sortition_algorithms.core import (
     run_stratification,
     selected_remaining_tables,
 )
+from sortition_algorithms.errors import (
+    BadDataError,
+    ConfigurationError,
+    InfeasibleQuotasCantRelaxError,
+    InfeasibleQuotasError,
+    SelectionError,
+    SortitionBaseError,
+)
 from sortition_algorithms.features import read_in_features, write_features
 from sortition_algorithms.people import read_in_people
 from sortition_algorithms.settings import Settings
@@ -19,12 +27,18 @@ from sortition_algorithms.utils import RunReport
 
 __all__ = [
     "AbstractDataSource",
+    "BadDataError",
     "CSVFileDataSource",
     "CSVStringDataSource",
+    "ConfigurationError",
     "GSheetDataSource",
+    "InfeasibleQuotasCantRelaxError",
+    "InfeasibleQuotasError",
     "RunReport",
     "SelectionData",
+    "SelectionError",
     "Settings",
+    "SortitionBaseError",
     "find_random_sample",
     "read_in_features",
     "read_in_people",

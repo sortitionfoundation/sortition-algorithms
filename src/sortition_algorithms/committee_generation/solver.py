@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any
 
+from sortition_algorithms.errors import ConfigurationError
 from sortition_algorithms.utils import random_provider
 
 # Check if python-mip is available (optional dependency)
@@ -400,7 +401,11 @@ def create_solver(
     elif backend == "mip":
         return MipSolver(verbose=verbose, seed=seed, time_limit=time_limit, mip_gap=mip_gap)
     else:
-        raise ValueError(f"Unknown solver backend: {backend}")
+        raise ConfigurationError(
+            message=f"Unknown solver backend: {backend}",
+            error_code="unknown_solver_backend",
+            error_params={"backend": backend},
+        )
 
 
 def solver_sum(terms: Any) -> Any:

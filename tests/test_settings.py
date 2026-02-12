@@ -4,6 +4,7 @@ import pytest
 from cattrs import ClassValidationError
 
 from sortition_algorithms import settings
+from sortition_algorithms.errors import ConfigurationError
 from tests.helpers import create_test_settings
 
 
@@ -16,7 +17,7 @@ class TestSettingsConstructor:
         assert settings_obj.selection_algorithm == alg
 
     def test_selection_algorithms_blocked_for_unknown(self):
-        with pytest.raises(ValueError, match="selection_algorithm unknown is not one of"):
+        with pytest.raises(ConfigurationError, match="selection_algorithm unknown is not one of"):
             create_test_settings(selection_algorithm="unknown")
 
     @pytest.mark.parametrize("backend", settings.SOLVER_BACKENDS)
@@ -25,7 +26,7 @@ class TestSettingsConstructor:
         assert settings_obj.solver_backend == backend
 
     def test_solver_backend_blocked_for_unknown(self):
-        with pytest.raises(ValueError, match="solver_backend unknown is not one of"):
+        with pytest.raises(ConfigurationError, match="solver_backend unknown is not one of"):
             create_test_settings(solver_backend="unknown")
 
     def test_solver_backend_default_is_mip(self):
@@ -88,7 +89,7 @@ class TestSettingsConstructor:
     def test_check_same_address_true_requires_columns(self):
         """Test that check_same_address=True requires columns to be specified."""
         with pytest.raises(
-            ValueError,
+            ConfigurationError,
             match="check_same_address is TRUE but there are no columns listed",
         ):
             create_test_settings(check_same_address=True, check_same_address_columns=[])
@@ -221,7 +222,7 @@ random_number_seed = 0
         ) as excinfo:
             settings.Settings.load_from_file(settings_file_path)
         assert excinfo.group_contains(
-            ValueError,
+            ConfigurationError,
             match="check_same_address is TRUE but",
         )
 

@@ -5,6 +5,7 @@ from typing import Any
 from attrs import define, field, validators
 from cattrs import structure, unstructure
 
+from sortition_algorithms.errors import ConfigurationError
 from sortition_algorithms.utils import ReportLevel, RunReport
 
 SELECTION_ALGORITHMS = ("legacy", "maximin", "nash", "leximin", "diversimax")
@@ -63,10 +64,10 @@ def check_columns_for_same_address(instance: "Settings", attribute: Any, value: 
     if not all(isinstance(element, str) for element in value):
         raise TypeError("check_same_address_columns must be a list of STRINGS", "check_same_address_not_strings", {})
     if len(value) == 0 and instance.check_same_address:
-        raise ValueError(
-            "check_same_address is TRUE but there are no columns listed to check! FIX THIS and RESTART this program!",
-            "check_same_address_empty",
-            {},
+        raise ConfigurationError(
+            message="check_same_address is TRUE but there are no columns listed to check! FIX THIS and RESTART this program!",
+            error_code="check_same_address_empty",
+            error_params={},
         )
 
 
@@ -102,20 +103,20 @@ class Settings:
     def check_selection_algorithm(self, attribute: Any, value: str) -> None:
         if value not in SELECTION_ALGORITHMS:
             algorithms_str = ", ".join(SELECTION_ALGORITHMS)
-            raise ValueError(
-                f"selection_algorithm {value} is not one of: {algorithms_str}",
-                "invalid_selection_algorithm",
-                {"algorithm": value, "valid_algorithms": algorithms_str},
+            raise ConfigurationError(
+                message=f"selection_algorithm {value} is not one of: {algorithms_str}",
+                error_code="invalid_selection_algorithm",
+                error_params={"algorithm": value, "valid_algorithms": algorithms_str},
             )
 
     @solver_backend.validator
     def check_solver_backend(self, attribute: Any, value: str) -> None:
         if value not in SOLVER_BACKENDS:
             backends_str = ", ".join(SOLVER_BACKENDS)
-            raise ValueError(
-                f"solver_backend {value} is not one of: {backends_str}",
-                "invalid_solver_backend",
-                {"backend": value, "valid_backends": backends_str},
+            raise ConfigurationError(
+                message=f"solver_backend {value} is not one of: {backends_str}",
+                error_code="invalid_solver_backend",
+                error_params={"backend": value, "valid_backends": backends_str},
             )
 
     @property
