@@ -580,7 +580,10 @@ class TestRunReportSerialisation:
         # Check the error is preserved with all lines and features
         deserialised_error = deserialised_report.last_error()
         assert isinstance(deserialised_error, InfeasibleQuotasError)
-        assert str(deserialised_error) == "The quotas are infeasible:\nline1\nline2"
+        assert (
+            str(deserialised_error)
+            == "It is not possible to hit all the targets with the current set of people. I suggest the following steps:\nline1\nline2"
+        )
         assert deserialised_error.features == {"feat1": {"value1": FeatureValueMinMax(min=2, max=4)}}
 
     def test_run_report_with_mixed_content_serialisation_deserialisation(self):

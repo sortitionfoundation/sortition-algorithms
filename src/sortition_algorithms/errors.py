@@ -209,11 +209,16 @@ class InfeasibleQuotasError(SelectionMultilineError):
 
     def __init__(self, features: "FeatureCollection", output: list[str]) -> None:
         self.features = features
-        super().__init__(lines=["The quotas are infeasible:", *output])
+        super().__init__(
+            lines=[
+                "It is not possible to hit all the targets with the current set of people. I suggest the following steps:",
+                *output,
+            ]
+        )
 
     def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
         """Support pickling by returning constructor and arguments."""
-        # Extract output from all_lines (skip first line "The quotas are infeasible:")
+        # Extract output from all_lines (skip first line "It is not possible ...")
         output = self.all_lines[1:] if len(self.all_lines) > 1 else []
         return (self.__class__, (self.features, output))
 

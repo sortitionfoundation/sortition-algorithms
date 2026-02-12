@@ -275,8 +275,11 @@ class TestInfeasibleQuotasErrorPickle:
 
         assert_exception_equal(error, unpickled)
         assert unpickled.features is not None
-        assert len(unpickled.all_lines) == 3  # "The quotas are infeasible:" + 2 output lines
-        assert unpickled.all_lines[0] == "The quotas are infeasible:"
+        assert len(unpickled.all_lines) == 3  # "It is not possible ..." + 2 output lines
+        assert (
+            unpickled.all_lines[0]
+            == "It is not possible to hit all the targets with the current set of people. I suggest the following steps:"
+        )
         assert unpickled.all_lines[1] == "Gender quota cannot be met"
         assert unpickled.all_lines[2] == "Suggested relaxation: male 3-12"
 
