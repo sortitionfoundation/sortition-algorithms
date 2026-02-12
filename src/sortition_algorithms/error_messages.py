@@ -71,9 +71,7 @@ ERROR_MESSAGES = {
     # TypeError messages
     "check_same_address_not_list": N_("check_same_address_columns must be a LIST of strings"),
     "check_same_address_not_strings": N_("check_same_address_columns must be a list of STRINGS"),
-    "check_same_address_empty": N_(
-        "check_same_address is TRUE but there are no columns listed to check! FIX THIS and RESTART this program!"
-    ),
+    "check_same_address_empty": N_("check_same_address is TRUE but there are no columns listed to check."),
     "columns_to_keep_not_list": N_("columns_to_keep must be a LIST of strings"),
     "columns_to_keep_not_strings": N_("columns_to_keep must be a list of STRINGS"),
     "invalid_selection_algorithm": N_("selection_algorithm %(algorithm)s is not one of: %(valid_algorithms)s"),

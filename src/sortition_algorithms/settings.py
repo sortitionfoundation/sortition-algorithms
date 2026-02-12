@@ -65,7 +65,7 @@ def check_columns_for_same_address(instance: "Settings", attribute: Any, value: 
         raise TypeError("check_same_address_columns must be a list of STRINGS", "check_same_address_not_strings", {})
     if len(value) == 0 and instance.check_same_address:
         raise ConfigurationError(
-            message="check_same_address is TRUE but there are no columns listed to check! FIX THIS and RESTART this program!",
+            message="check_same_address is TRUE but there are no columns listed to check.",
             error_code="check_same_address_empty",
             error_params={},
         )
