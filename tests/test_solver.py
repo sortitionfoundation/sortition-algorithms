@@ -131,11 +131,6 @@ class TestSolverBasicOperations:
 
     def test_infeasible_problem(self, solver: Solver) -> None:
         """Test detection of infeasible problems."""
-        # Skip for MipSolver - it hangs intermittently when proving infeasibility
-        # in the context of running the full test suite
-        if isinstance(solver, MipSolver):
-            pytest.skip("MipSolver hangs intermittently on infeasibility detection")
-
         x = solver.add_continuous_var(lb=0.0, ub=5.0, name="x")
 
         # x <= 5 (from bounds) and x >= 10 is infeasible
