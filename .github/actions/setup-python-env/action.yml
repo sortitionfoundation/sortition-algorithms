@@ -26,5 +26,5 @@ runs:
         cache-suffix: ${{ matrix.python-version }}
 
     - name: Install Python dependencies
-      run: uv sync --extra=diversimax --frozen
+      run: uv sync --extra=diversimax --extra=cli --frozen
       shell: bash
