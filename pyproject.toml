@@ -10,13 +10,15 @@ authors = [
 ]
 readme = "README.md"
 keywords = ['python']
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11"
 classifiers = [
   "Intended Audience :: Developers",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
@@ -25,7 +27,7 @@ dependencies = [
   "cvxpy>=1.6.5",
   "gspread>=6.2.1",
   "highspy>=1.7.0",
-  "mip>=1.15.0",
+  "mip>=1.17.0",
   "numpy>=2.3.4",
   "oauth2client>=4.1.3",
   "requests>=2.32.0",
@@ -77,9 +79,15 @@ packages = ["src/sortition_algorithms"]
 # this is for "cooldown" - insulating us from supply chain issues.
 # Read https://blog.yossarian.net/2025/11/21/We-should-all-be-using-dependency-cooldowns for more.
 exclude-newer = "1 week"
+
 # this is how to get newer versions into uv.lock, eg for security issue
 # don't need any for now, so commented out
-# exclude-newer-package = { uv = "0 days" }
+[tool.uv.exclude-newer-package]
+# we control this package, and frequently release it and want it straight in opendlp
+mip = "0 days"
+# for security update flask 3.1.3 released 2026-02-23 - so can remove after 2026-03-02
+cbcbox = "0 days"
+
 
 [tool.mypy]
 files = ["src"]
