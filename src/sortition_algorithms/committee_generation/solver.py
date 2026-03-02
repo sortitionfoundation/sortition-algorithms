@@ -299,6 +299,11 @@ class MipSolver(Solver):
         self._mip = _mip_module
         # Default to MAXIMIZE, will be changed when set_objective is called
         self._model = self._mip.Model()
+
+        # As of mip 1.17, we can choose the HIGHS solver instead of the default CBC
+        # To do that, we would replace the above line with:
+        # self._model = self._mip.Model(solver_name="HIGHS")
+
         self._model.verbose = 1 if verbose else 0
 
         if seed is not None:
