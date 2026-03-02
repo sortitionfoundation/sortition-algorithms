@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Animated step-by-step visualisation of the Legacy sortition algorithm. -->
+<!-- ABOUTME: Uses candidates and features from tests/fixtures/ to select 23 people. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legacy Algorithm — Step-by-Step Animation</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222638;
+    --border: #2e3350;
+    --text: #e0e3f0;
+    --muted: #7a7f9a;
+    --accent: #5b7fff;
+    --green: #3ecf8e;
+    --red: #ff5b5b;
+    --yellow: #ffd166;
+    --orange: #ff9a3c;
+    --winner-bg: #162812;
+    --winner-border: #3ecf8e;
+    --selected-bg: #1a2a3d;
+    --selected-border: #5b7fff;
+    --full-bg: #2d1a1a;
+    --full-border: #ff5b5b;
+    --c-min: #ff8b8b;
+    --c-sel: #7ecfff;
+    --c-rem: #ffd166;
+    --radius: 8px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  #header {
+    padding: 10px 20px 8px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  #header h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  #step-info {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  #step-label { color: var(--yellow); font-weight: 600; }
+
+  /* ── Controls ────────────────────────────────────────────── */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius);
+    padding: 4px 13px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font);
+    transition: background 0.12s, border-color 0.12s;
+  }
+  button:hover:not(:disabled) { background: var(--border); }
+  button:disabled { opacity: 0.35; cursor: default; }
+
+  #btn-play {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    min-width: 88px;
+  }
+  #btn-play:hover:not(:disabled) { background: #7090ff; border-color: #7090ff; }
+  #btn-play.playing { background: var(--orange); border-color: var(--orange); }
+  #btn-play.playing:hover { background: #ffb060; }
+
+  #btn-log { font-size: 12px; padding: 4px 10px; color: var(--muted); }
+  #btn-log.active { color: var(--text); border-color: var(--muted); }
+
+  .speed-group {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: 6px;
+  }
+  .speed-group label { color: var(--muted); font-size: 12px; }
+  #speed-slider {
+    -webkit-appearance: none;
+    width: 110px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    outline: none;
+  }
+  #speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 13px;
+    height: 13px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  #speed-label { color: var(--text); font-size: 12px; min-width: 40px; }
+
+  .step-counter { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .step-counter span { color: var(--text); font-weight: 600; }
+
+  /* ── Main layout ─────────────────────────────────────────── */
+  #main {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    flex: 1;
+    min-height: 0;       /* allow flex child to shrink below content height */
+    overflow: hidden;
+  }
+
+  /* ── Left: Feature/Value Table ───────────────────────────── */
+  #feature-table-panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+  #feature-table-panel h2 {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 7px 16px 6px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #feature-table-wrap {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  table.ft {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  /* Sticky header */
+  table.ft thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 14px;
+    text-align: right;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  table.ft thead th:first-child { text-align: left; padding-left: 16px; }
+
+  /* Feature group header rows */
+  table.ft tr.fg-header td {
+    background: var(--surface);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 16px 4px;
+    border-top: 1px solid var(--border);
+  }
+  table.ft tr.fg-header:first-of-type td { border-top: none; }
+
+  /* Value rows */
+  table.ft tr.fv-row td {
+    padding: 5px 14px;
+    text-align: right;
+    border-bottom: 1px solid rgba(46,51,80,0.5);
+    font-family: var(--mono);
+    font-size: 12px;
+    transition: background 0.25s, color 0.25s, opacity 0.25s;
+  }
+  table.ft tr.fv-row td:first-child {
+    text-align: left;
+    padding-left: 24px;
+    font-family: var(--font);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  /* Min column — colored to match ratio formula */
+  td.td-min { color: var(--c-min); }
+
+  /* Selected column — colored to match ratio formula */
+  td.td-sel { color: var(--text); }
+  td.td-sel .sel-num { font-weight: 700; color: var(--c-sel); }
+  td.td-sel .sel-min { color: var(--muted); font-size: 11px; }
+
+  /* Remaining column — colored to match ratio formula */
+  td.td-rem { text-align: center; }
+  td.td-rem .rem-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--c-rem);
+  }
+
+  /* Ratio column — shows full color-coded calculation */
+  td.td-ratio {
+    white-space: nowrap;
+  }
+  .ratio-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .ratio-formula {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .ratio-formula .c-min { color: var(--c-min); }
+  .ratio-formula .c-sel { color: var(--c-sel); }
+  .ratio-formula .c-rem { color: var(--c-rem); }
+  .ratio-formula .c-res { color: var(--text); font-weight: 600; }
+  .ratio-track {
+    width: 50px;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .ratio-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.35s ease;
+  }
+
+  /* ── Row state classes ───────────────────────────────────── */
+
+  /* Winner: bright green */
+  tr.fv-row.is-winner {
+    background: var(--winner-bg) !important;
+  }
+  tr.fv-row.is-winner td:first-child { color: var(--green) !important; font-weight: 700; }
+  tr.fv-row.is-winner td:first-child::before { content: '★ '; }
+  tr.fv-row.is-winner td.td-max { color: var(--green) !important; }
+  tr.fv-row.is-winner .ratio-formula .c-res { color: var(--green); }
+  tr.fv-row.is-winner .ratio-fill { background: var(--green); }
+
+  /* Category full: red highlight */
+  tr.fv-row.is-full-event {
+    background: var(--full-bg) !important;
+  }
+  tr.fv-row.is-full-event td:first-child { color: var(--red) !important; }
+  tr.fv-row.is-full-event td:first-child::before { content: '✕ '; }
+  tr.fv-row.is-full-event td.td-max { color: var(--red) !important; }
+
+  /* Max reached (but not full-event): orange selected count */
+  tr.fv-row.is-maxed td.td-sel .sel-num { color: var(--orange); }
+  tr.fv-row.is-maxed td:first-child { color: var(--muted); }
+
+  /* Inactive: nothing more to contribute */
+  tr.fv-row.is-inactive { opacity: 0.35; }
+  tr.fv-row.is-inactive td:first-child::before { content: ''; }
+
+  /* ── Right panel ─────────────────────────────────────────── */
+  #right-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── Step detail ─────────────────────────────────────────── */
+  #step-detail {
+    flex: 1 1 auto;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    overflow-y: auto;
+    min-height: 0;
+  }
+  #step-detail h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .detail-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    margin-bottom: 7px;
+    background: var(--surface2);
+  }
+  .detail-card.dc-winner { border-color: var(--winner-border); background: var(--winner-bg); }
+  .detail-card.dc-person { border-color: var(--selected-border); background: var(--selected-bg); }
+  .detail-card.dc-full   { border-color: var(--full-border);   background: var(--full-bg); }
+  .detail-card.dc-done   { border-color: var(--green); background: var(--winner-bg); }
+
+  .detail-card h3 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .dc-winner h3 { color: var(--green); }
+  .dc-person h3 { color: var(--accent); }
+  .dc-full h3   { color: var(--red); }
+  .dc-done h3   { color: var(--green); }
+
+  .dr {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 1px 0;
+    font-family: var(--mono);
+  }
+  .dr .k { color: var(--muted); }
+  .dr .v { color: var(--text); font-weight: 600; }
+  .dr .v.hl { color: var(--yellow); }
+
+  .formula {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin-top: 5px;
+    color: var(--yellow);
+  }
+  .person-id {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--accent);
+    font-family: var(--mono);
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  /* ── Selected panel ──────────────────────────────────────── */
+  #selected-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 14px;
+  }
+  #selected-panel h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 7px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    padding-bottom: 3px;
+  }
+  .sel-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .sel-chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    background: var(--selected-bg);
+    border: 1px solid var(--selected-border);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .sel-chip.is-new {
+    background: var(--accent);
+    color: #fff;
+    animation: chip-pop 0.4s ease-out;
+  }
+  .empty-slot {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    background: transparent;
+    border: 1px dashed rgba(46,51,80,0.7);
+    color: rgba(46,51,80,0.9);
+  }
+
+  /* ── Event log (hidden by default) ──────────────────────── */
+  #event-log {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    display: none;         /* hidden until toggled */
+    flex-direction: column;
+    max-height: 160px;
+    overflow: hidden;
+  }
+  #event-log.visible { display: flex; }
+  #event-log h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 5px 14px 4px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #log-entries {
+    overflow-y: auto;
+    padding: 5px 14px;
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(46,51,80,0.3); color: var(--muted); }
+  .log-entry.current { color: var(--text); }
+  .log-entry.type-ratio .tag    { color: var(--yellow); }
+  .log-entry.type-selection .tag { color: var(--green); }
+  .log-entry.type-category_full .tag { color: var(--red); }
+  .log-entry.type-complete .tag { color: var(--accent); }
+  .tag { font-weight: 700; margin-right: 5px; }
+
+  /* ── Progress bar ────────────────────────────────────────── */
+  #progress-bar-wrap {
+    padding: 5px 20px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #progress-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.15s;
+  }
+
+  /* ── Animations ──────────────────────────────────────────── */
+  @keyframes row-flash-green {
+    0%   { background: rgba(62,207,142,0.4); }
+    100% { background: var(--winner-bg); }
+  }
+  @keyframes row-flash-red {
+    0%   { background: rgba(255,91,91,0.45); }
+    100% { background: var(--full-bg); }
+  }
+  @keyframes chip-pop {
+    0%   { transform: scale(1.25); background: #fff; color: var(--accent); }
+    100% { transform: scale(1);    background: var(--accent); color: #fff; }
+  }
+
+  tr.fv-row.is-winner    { animation: row-flash-green 0.45s ease-out; }
+  tr.fv-row.is-full-event { animation: row-flash-red  0.45s ease-out; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Legacy Sortition Algorithm</h1>
+  <div id="step-info">
+    <span id="step-label">Step 1</span>
+    <span id="step-desc"> — Initial state: 150 candidates, selecting 23</span>
+  </div>
+</div>
+
+<div id="controls">
+  <button id="btn-prev" title="Previous step (←)">◀ Prev</button>
+  <button id="btn-play">▶ Play</button>
+  <button id="btn-next" title="Next step (→)">Next ▶</button>
+  <div class="speed-group">
+    <label>Speed:</label>
+    <input type="range" id="speed-slider" min="1" max="10" value="5">
+    <span id="speed-label">1.0s</span>
+  </div>
+  <button id="btn-log" title="Toggle event log">Log</button>
+  <div class="step-counter">Step <span id="ctr-cur">1</span> / <span id="ctr-tot">?</span></div>
+</div>
+
+<div id="main">
+  <div id="feature-table-panel">
+    <h2>Feature quotas &amp; urgency ratios — ratio = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span></h2>
+    <div id="feature-table-wrap">
+      <table class="ft">
+        <thead>
+          <tr>
+            <th>Value</th>
+            <th title="Minimum required" style="color:var(--c-min)">Min</th>
+            <th title="Maximum allowed">Max</th>
+            <th title="Selected so far" style="color:var(--c-sel)">Selected</th>
+            <th title="Remaining candidates in pool with this value" style="color:var(--c-rem)">Remaining</th>
+            <th title="Urgency ratio = (min − selected) / remaining">Ratio</th>
+          </tr>
+        </thead>
+        <tbody id="ft-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="right-panel">
+    <div id="step-detail">
+      <div class="detail-card" id="counts-card">
+        <h3>Counts</h3>
+        <div class="dr"><span class="k">Candidates in pool</span><span class="v" id="count-pool">—</span></div>
+        <div class="dr"><span class="k">Selected</span><span class="v" id="count-selected">—</span></div>
+        <div class="dr"><span class="k">Features</span><span class="v" id="count-features">—</span></div>
+      </div>
+      <div class="detail-card" id="how-card">
+        <h3>How it works</h3>
+        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:16px">
+          <li>Each round, compute <em>ratio = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span></em> for every feature value</li>
+          <li>Pick a random person from the value with the highest ratio</li>
+          <li>When a value hits its max, remove all remaining candidates with that value from the pool</li>
+        </ul>
+      </div>
+      <h2>Step detail</h2>
+      <div id="detail-content"></div>
+    </div>
+    <div id="selected-panel">
+      <h2 id="selected-title">Selected (0 / 23)</h2>
+      <div class="sel-grid" id="selected-grid"></div>
+    </div>
+  </div>
+</div>
+
+<div id="event-log">
+  <h2>Event Log</h2>
+  <div id="log-entries"></div>
+</div>
+
+<div id="progress-bar-wrap">
+  <div id="progress-track">
+    <div id="progress-fill" style="width:0%"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// DATA — from tests/fixtures/candidates.csv and features.csv
+// ─────────────────────────────────────────────────────────────────
+
+const FEATURES = {
+  Gender: {
+    Female: { min: 11, max: 12 },
+    Male:   { min: 10, max: 11 },
+    "Non-binary or other": { min: 0, max: 1 },
+  },
+  age_bracket: {
+    "0-15":  { min: 0, max: 0 },
+    "16-29": { min: 5, max: 7 },
+    "30-44": { min: 5, max: 7 },
+    "45-59": { min: 5, max: 6 },
+    "60+":   { min: 5, max: 6 },
+  },
+  edu_level: {
+    "No qualifications":  { min: 5, max: 7 },
+    "Level 1":            { min: 5, max: 7 },
+    "Level 2 or 3":       { min: 5, max: 6 },
+    "Level 4 and above":  { min: 5, max: 6 },
+  },
+  geo_bucket: {
+    "Central Scotland":      { min: 3, max: 5 },
+    "Glasgow":               { min: 3, max: 5 },
+    "Highlands and Islands": { min: 2, max: 5 },
+    "Lothian":               { min: 3, max: 5 },
+    "Mid Scotland and Fife": { min: 3, max: 5 },
+    "North East Scotland":   { min: 2, max: 5 },
+    "South Scotland":        { min: 3, max: 5 },
+    "West Scotland":         { min: 3, max: 5 },
+  },
+};
+
+// Candidates: [id, Gender, age_bracket, geo_bucket, edu_level]
+const RAW_CANDIDATES = [
+  ["p0","Male","30-44","South Scotland","Level 4 and above"],
+  ["p1","Female","16-29","Lothian","Level 1"],
+  ["p2","Female","45-59","West Scotland","Level 2 or 3"],
+  ["p3","Male","30-44","Glasgow","Level 4 and above"],
+  ["p4","Female","45-59","South Scotland","Level 1"],
+  ["p5","Male","16-29","Mid Scotland and Fife","Level 2 or 3"],
+  ["p6","Female","30-44","Lothian","Level 1"],
+  ["p7","Male","30-44","Mid Scotland and Fife","Level 4 and above"],
+  ["p8","Female","45-59","Mid Scotland and Fife","Level 1"],
+  ["p9","Male","60+","North East Scotland","Level 1"],
+  ["p10","Male","45-59","Mid Scotland and Fife","Level 4 and above"],
+  ["p11","Male","16-29","Central Scotland","Level 2 or 3"],
+  ["p12","Male","45-59","Mid Scotland and Fife","No qualifications"],
+  ["p13","Male","16-29","Highlands and Islands","No qualifications"],
+  ["p14","Female","60+","Lothian","Level 1"],
+  ["p15","Female","45-59","Mid Scotland and Fife","Level 1"],
+  ["p16","Male","16-29","North East Scotland","Level 1"],
+  ["p17","Female","45-59","Lothian","No qualifications"],
+  ["p18","Female","45-59","Mid Scotland and Fife","Level 2 or 3"],
+  ["p19","Female","16-29","Glasgow","Level 4 and above"],
+  ["p20","Male","60+","Highlands and Islands","No qualifications"],
+  ["p21","Female","30-44","West Scotland","Level 2 or 3"],
+  ["p22","Female","16-29","North East Scotland","Level 2 or 3"],
+  ["p23","Female","16-29","Highlands and Islands","Level 1"],
+  ["p24","Male","30-44","Glasgow","Level 4 and above"],
+  ["p25","Female","45-59","Highlands and Islands","No qualifications"],
+  ["p26","Male","45-59","South Scotland","Level 4 and above"],
+  ["p27","Male","16-29","Glasgow","Level 4 and above"],
+  ["p28","Male","16-29","Mid Scotland and Fife","No qualifications"],
+  ["p29","Male","60+","North East Scotland","Level 4 and above"],
+  ["p30","Female","60+","North East Scotland","Level 1"],
+  ["p31","Female","60+","Glasgow","Level 4 and above"],
+  ["p32","Male","60+","Highlands and Islands","Level 4 and above"],
+  ["p33","Male","16-29","West Scotland","Level 2 or 3"],
+  ["p34","Male","60+","Mid Scotland and Fife","No qualifications"],
+  ["p35","Female","60+","North East Scotland","Level 4 and above"],
+  ["p36","Male","60+","North East Scotland","Level 1"],
+  ["p37","Male","30-44","Mid Scotland and Fife","No qualifications"],
+  ["p38","Female","60+","South Scotland","Level 1"],
+  ["p39","Female","45-59","Highlands and Islands","Level 1"],
+  ["p40","Male","16-29","Highlands and Islands","Level 1"],
+  ["p41","Male","16-29","Highlands and Islands","No qualifications"],
+  ["p42","Female","45-59","Highlands and Islands","Level 1"],
+  ["p43","Male","60+","Mid Scotland and Fife","No qualifications"],
+  ["p44","Male","16-29","Lothian","Level 1"],
+  ["p45","Female","60+","West Scotland","No qualifications"],
+  ["p46","Female","60+","Mid Scotland and Fife","No qualifications"],
+  ["p47","Female","45-59","South Scotland","No qualifications"],
+  ["p48","Female","16-29","South Scotland","No qualifications"],
+  ["p49","Female","30-44","Mid Scotland and Fife","No qualifications"],
+  ["p50","Male","60+","Mid Scotland and Fife","No qualifications"],
+  ["p51","Male","60+","Mid Scotland and Fife","Level 2 or 3"],
+  ["p52","Female","30-44","Central Scotland","Level 2 or 3"],
+  ["p53","Female","60+","North East Scotland","Level 4 and above"],
+  ["p54","Male","60+","Highlands and Islands","Level 1"],
+  ["p55","Male","16-29","Highlands and Islands","Level 2 or 3"],
+  ["p56","Male","16-29","West Scotland","No qualifications"],
+  ["p57","Female","60+","Highlands and Islands","Level 2 or 3"],
+  ["p58","Male","45-59","West Scotland","Level 2 or 3"],
+  ["p59","Male","16-29","West Scotland","No qualifications"],
+  ["p60","Male","16-29","North East Scotland","Level 4 and above"],
+  ["p61","Male","16-29","Highlands and Islands","No qualifications"],
+  ["p62","Male","16-29","Highlands and Islands","Level 2 or 3"],
+  ["p63","Male","45-59","South Scotland","No qualifications"],
+  ["p64","Female","45-59","South Scotland","No qualifications"],
+  ["p65","Male","30-44","Central Scotland","Level 4 and above"],
+  ["p66","Female","30-44","South Scotland","No qualifications"],
+  ["p67","Male","45-59","Mid Scotland and Fife","Level 4 and above"],
+  ["p68","Female","60+","Mid Scotland and Fife","No qualifications"],
+  ["p69","Male","16-29","South Scotland","Level 4 and above"],
+  ["p70","Male","45-59","Lothian","Level 2 or 3"],
+  ["p71","Male","30-44","Highlands and Islands","No qualifications"],
+  ["p72","Male","60+","West Scotland","Level 4 and above"],
+  ["p73","Male","60+","Mid Scotland and Fife","Level 1"],
+  ["p74","Male","45-59","West Scotland","Level 1"],
+  ["p75","Female","30-44","Central Scotland","Level 4 and above"],
+  ["p76","Male","16-29","Central Scotland","Level 2 or 3"],
+  ["p77","Female","60+","West Scotland","Level 2 or 3"],
+  ["p78","Female","45-59","Mid Scotland and Fife","Level 4 and above"],
+  ["p79","Male","30-44","Highlands and Islands","Level 1"],
+  ["p80","Male","30-44","West Scotland","No qualifications"],
+  ["p81","Male","30-44","Central Scotland","No qualifications"],
+  ["p82","Female","16-29","Glasgow","Level 2 or 3"],
+  ["p83","Male","16-29","Mid Scotland and Fife","Level 1"],
+  ["p84","Female","45-59","Glasgow","Level 1"],
+  ["p85","Female","45-59","Lothian","Level 4 and above"],
+  ["p86","Female","60+","Glasgow","Level 1"],
+  ["p87","Male","45-59","Glasgow","Level 1"],
+  ["p88","Female","45-59","Lothian","No qualifications"],
+  ["p89","Female","30-44","West Scotland","Level 1"],
+  ["p90","Male","60+","Central Scotland","No qualifications"],
+  ["p91","Male","30-44","Highlands and Islands","Level 4 and above"],
+  ["p92","Male","45-59","South Scotland","Level 1"],
+  ["p93","Female","45-59","North East Scotland","Level 1"],
+  ["p94","Male","16-29","West Scotland","Level 2 or 3"],
+  ["p95","Female","30-44","Lothian","No qualifications"],
+  ["p96","Male","45-59","Lothian","No qualifications"],
+  ["p97","Male","16-29","Mid Scotland and Fife","Level 1"],
+  ["p98","Male","16-29","Glasgow","Level 1"],
+  ["p99","Female","16-29","Lothian","Level 4 and above"],
+  ["p100","Male","60+","Glasgow","Level 1"],
+  ["p101","Female","60+","Highlands and Islands","Level 4 and above"],
+  ["p102","Female","60+","Glasgow","No qualifications"],
+  ["p103","Female","16-29","North East Scotland","Level 4 and above"],
+  ["p104","Male","60+","South Scotland","No qualifications"],
+  ["p105","Female","30-44","Central Scotland","Level 1"],
+  ["p106","Female","45-59","Highlands and Islands","Level 4 and above"],
+  ["p107","Female","45-59","West Scotland","Level 4 and above"],
+  ["p108","Female","30-44","West Scotland","Level 2 or 3"],
+  ["p109","Male","60+","Central Scotland","Level 4 and above"],
+  ["p110","Male","30-44","North East Scotland","No qualifications"],
+  ["p111","Female","60+","Lothian","Level 2 or 3"],
+  ["p112","Male","16-29","Mid Scotland and Fife","Level 4 and above"],
+  ["p113","Female","16-29","Mid Scotland and Fife","Level 1"],
+  ["p114","Female","30-44","Glasgow","No qualifications"],
+  ["p115","Male","16-29","Lothian","Level 4 and above"],
+  ["p116","Female","60+","North East Scotland","Level 4 and above"],
+  ["p117","Female","60+","West Scotland","Level 4 and above"],
+  ["p118","Male","16-29","Central Scotland","Level 2 or 3"],
+  ["p119","Male","60+","North East Scotland","Level 4 and above"],
+  ["p120","Male","30-44","Lothian","Level 4 and above"],
+  ["p121","Female","60+","Glasgow","Level 1"],
+  ["p122","Female","30-44","Mid Scotland and Fife","Level 4 and above"],
+  ["p123","Female","45-59","North East Scotland","Level 4 and above"],
+  ["p124","Male","30-44","Mid Scotland and Fife","Level 4 and above"],
+  ["p125","Female","45-59","Highlands and Islands","Level 1"],
+  ["p126","Female","30-44","South Scotland","Level 1"],
+  ["p127","Female","16-29","Lothian","Level 2 or 3"],
+  ["p128","Male","30-44","Glasgow","No qualifications"],
+  ["p129","Female","60+","Central Scotland","Level 1"],
+  ["p130","Female","60+","Lothian","No qualifications"],
+  ["p131","Female","30-44","South Scotland","Level 4 and above"],
+  ["p132","Female","45-59","Central Scotland","Level 1"],
+  ["p133","Female","45-59","Lothian","Level 2 or 3"],
+  ["p134","Female","45-59","Lothian","Level 1"],
+  ["p135","Female","60+","Glasgow","Level 2 or 3"],
+  ["p136","Female","45-59","Glasgow","No qualifications"],
+  ["p137","Male","45-59","Central Scotland","Level 2 or 3"],
+  ["p138","Female","16-29","Glasgow","Level 2 or 3"],
+  ["p139","Female","60+","Central Scotland","Level 4 and above"],
+  ["p140","Female","60+","South Scotland","Level 2 or 3"],
+  ["p141","Female","45-59","South Scotland","Level 2 or 3"],
+  ["p142","Male","16-29","Central Scotland","Level 4 and above"],
+  ["p143","Male","45-59","Glasgow","Level 2 or 3"],
+  ["p144","Female","16-29","Central Scotland","Level 4 and above"],
+  ["p145","Female","60+","Highlands and Islands","Level 1"],
+  ["p146","Female","16-29","North East Scotland","Level 2 or 3"],
+  ["p147","Female","60+","Highlands and Islands","No qualifications"],
+  ["p148","Male","16-29","Mid Scotland and Fife","Level 1"],
+  ["p149","Male","45-59","West Scotland","Level 4 and above"],
+];
+
+const CANDIDATES = RAW_CANDIDATES.map(([id, Gender, age_bracket, geo_bucket, edu_level]) =>
+  ({ id, Gender, age_bracket, geo_bucket, edu_level })
+);
+
+const NUM_WANTED = 23;
+const FEATURE_NAMES = Object.keys(FEATURES);
+
+// ─────────────────────────────────────────────────────────────────
+// SEEDED PRNG (mulberry32)
+// ─────────────────────────────────────────────────────────────────
+function makePrng(seed) {
+  let s = seed >>> 0;
+  return {
+    next() {
+      s = (s + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    },
+    randbelow(n) {
+      return Math.floor(this.next() * n);
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SIMULATION
+// ─────────────────────────────────────────────────────────────────
+function deepCloneCounts(counts) {
+  const c = {};
+  for (const [f, vals] of Object.entries(counts)) {
+    c[f] = {};
+    for (const [v, sc] of Object.entries(vals)) {
+      c[f][v] = { ...sc };
+    }
+  }
+  return c;
+}
+
+function initCounts() {
+  const counts = {};
+  for (const [f, vals] of Object.entries(FEATURES)) {
+    counts[f] = {};
+    for (const [v, { min, max }] of Object.entries(vals)) {
+      counts[f][v] = { min, max, selected: 0, remaining: 0 };
+    }
+  }
+  return counts;
+}
+
+function updateRemaining(pool, counts) {
+  for (const person of pool) {
+    for (const f of FEATURE_NAMES) {
+      const v = person[f];
+      if (counts[f][v] !== undefined) counts[f][v].remaining++;
+    }
+  }
+}
+
+function deleteAllWithValue(pool, counts, feature, value) {
+  const toDelete = pool.filter(p => p[feature] === value).map(p => p.id);
+  const deleted = [];
+  for (const id of toDelete) {
+    const idx = pool.findIndex(p => p.id === id);
+    if (idx === -1) continue;
+    const person = pool[idx];
+    pool.splice(idx, 1);
+    deleted.push(person);
+    // decrement remaining counts for all features of this person
+    for (const f of FEATURE_NAMES) {
+      const fv = person[f];
+      if (counts[f][fv] !== undefined && counts[f][fv].remaining > 0) {
+        counts[f][fv].remaining--;
+      }
+    }
+  }
+  return deleted;
+}
+
+function selectPerson(pool, counts, person) {
+  const idx = pool.findIndex(p => p.id === person.id);
+  if (idx !== -1) pool.splice(idx, 1);
+  for (const f of FEATURE_NAMES) {
+    const v = person[f];
+    if (counts[f][v] !== undefined) {
+      if (counts[f][v].remaining > 0) counts[f][v].remaining--;
+      counts[f][v].selected++;
+    }
+  }
+}
+
+function peopleStillNeeded(sc) {
+  return Math.max(sc.min - sc.selected, 0);
+}
+
+function calcRatios(counts) {
+  const ratios = [];
+  for (const f of FEATURE_NAMES) {
+    for (const [v, sc] of Object.entries(counts[f])) {
+      const needed = peopleStillNeeded(sc);
+      const ratio = sc.remaining > 0 && sc.max > 0 ? needed / sc.remaining : -1;
+      ratios.push({ feature: f, value: v, selected: sc.selected, remaining: sc.remaining, min: sc.min, max: sc.max, needed, ratio });
+    }
+  }
+  return ratios;
+}
+
+function findWinner(ratios) {
+  let best = null;
+  for (const r of ratios) {
+    if (r.remaining <= 0 || r.max <= 0) continue;
+    if (best === null || r.ratio > best.ratio) best = r;
+  }
+  return best;
+}
+
+function findPersonByPosition(pool, feature, value, position) {
+  // position is 1-indexed
+  let count = 0;
+  for (const person of pool) {
+    if (person[feature] === value) {
+      count++;
+      if (count === position) return person;
+    }
+  }
+  return null;
+}
+
+function getFullCategories(counts, person) {
+  const full = [];
+  for (const f of FEATURE_NAMES) {
+    const v = person[f];
+    const sc = counts[f][v];
+    if (sc && sc.selected === sc.max && sc.max > 0) {
+      full.push({ feature: f, value: v, selected: sc.selected, max: sc.max });
+    }
+  }
+  return full;
+}
+
+function runSimulation(seed) {
+  const rng = makePrng(seed);
+  const pool = CANDIDATES.map(c => ({ ...c }));
+  const counts = initCounts();
+  const selected = [];
+  const steps = [];
+
+  updateRemaining(pool, counts);
+
+  // Prune for max=0
+  const pruneEvents = [];
+  for (const f of FEATURE_NAMES) {
+    for (const [v, { max }] of Object.entries(FEATURES[f])) {
+      if (max === 0 && counts[f][v].remaining > 0) {
+        const deleted = deleteAllWithValue(pool, counts, f, v);
+        if (deleted.length > 0) {
+          pruneEvents.push(`Pruned ${deleted.length} people with ${f}=${v} (max=0)`);
+        }
+      }
+    }
+  }
+
+  steps.push({
+    type: 'initial',
+    description: 'Initial state',
+    pool: pool.map(p => p.id),
+    selected: [],
+    counts: deepCloneCounts(counts),
+    winner: null,
+    selectedPerson: null,
+    fullCats: [],
+    events: [`Loaded ${CANDIDATES.length} candidates. Target: ${NUM_WANTED} people.`, ...pruneEvents],
+    ratios: calcRatios(counts),
+    iteration: 0,
+  });
+
+  for (let iter = 0; iter < NUM_WANTED; iter++) {
+    // ── Ratio calculation step ──────────────────────────────
+    const ratios = calcRatios(counts);
+    const winner = findWinner(ratios);
+
+    if (!winner) break; // should not happen
+
+    steps.push({
+      type: 'ratio',
+      description: `Iteration ${iter + 1}: Computing urgency ratios`,
+      pool: pool.map(p => p.id),
+      selected: selected.map(p => p.id),
+      counts: deepCloneCounts(counts),
+      winner,
+      selectedPerson: null,
+      fullCats: [],
+      ratios,
+      iteration: iter + 1,
+      events: [
+        `Iteration ${iter + 1}: Calculating urgency ratios for all ${pool.length} remaining candidates`,
+        `Winner: ${winner.feature} / ${winner.value}  →  ratio = ${winner.needed} / ${winner.remaining} = ${winner.ratio.toFixed(4)}`,
+      ],
+    });
+
+    // ── Selection step ──────────────────────────────────────
+    const position = rng.randbelow(winner.remaining) + 1;
+    const person = findPersonByPosition(pool, winner.feature, winner.value, position);
+
+    selectPerson(pool, counts, person);
+    selected.push(person);
+
+    steps.push({
+      type: 'selection',
+      description: `Iteration ${iter + 1}: Selected ${person.id}`,
+      pool: pool.map(p => p.id),
+      selected: selected.map(p => p.id),
+      counts: deepCloneCounts(counts),
+      winner,
+      selectedPerson: person,
+      fullCats: [],
+      ratios: calcRatios(counts),
+      iteration: iter + 1,
+      position,
+      events: [
+        `Selected position ${position} of ${winner.remaining} in ${winner.feature}/${winner.value}`,
+        `→ ${person.id}: Gender=${person.Gender}, age=${person.age_bracket}, geo=${person.geo_bucket}, edu=${person.edu_level}`,
+      ],
+    });
+
+    // ── Category-full steps ─────────────────────────────────
+    const fullCats = getFullCategories(counts, person);
+    for (const fc of fullCats) {
+      const before = pool.length;
+      const deleted = deleteAllWithValue(pool, counts, fc.feature, fc.value);
+      if (deleted.length > 0) {
+        steps.push({
+          type: 'category_full',
+          description: `Category ${fc.feature}/${fc.value} is full`,
+          pool: pool.map(p => p.id),
+          selected: selected.map(p => p.id),
+          counts: deepCloneCounts(counts),
+          winner,
+          selectedPerson: person,
+          fullCat: fc,
+          fullCats: [fc],
+          ratios: calcRatios(counts),
+          iteration: iter + 1,
+          position,
+          removedIds: deleted.map(p => p.id),
+          events: [
+            `Category ${fc.feature}/${fc.value} FULL: selected=${fc.selected} = max=${fc.max}`,
+            `Removed ${deleted.length} remaining candidates from pool  (${pool.length} left)`,
+          ],
+        });
+      }
+    }
+  }
+
+  steps.push({
+    type: 'complete',
+    description: 'Selection complete!',
+    pool: pool.map(p => p.id),
+    selected: selected.map(p => p.id),
+    counts: deepCloneCounts(counts),
+    winner: null,
+    selectedPerson: null,
+    fullCats: [],
+    ratios: calcRatios(counts),
+    iteration: NUM_WANTED,
+    events: [
+      `Selection complete! ${selected.length} people chosen from ${CANDIDATES.length} candidates.`,
+      `Remaining pool size: ${pool.length}`,
+    ],
+  });
+
+  return steps;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BUILD LOG (accumulate all events across steps)
+// ─────────────────────────────────────────────────────────────────
+function buildLog(steps) {
+  const log = [];
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    for (const e of s.events) {
+      log.push({ stepIdx: i, type: s.type, text: e });
+    }
+  }
+  return log;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — feature/value table
+// ─────────────────────────────────────────────────────────────────
+
+// Map from "feature||value" → tr element, populated by buildTableSkeleton().
+const FV_ROW_MAP = new Map();
+
+// Build the static skeleton once; thereafter only cell values change.
+// Row order is fixed to the order features/values appear in FEATURES.
+function buildTableSkeleton() {
+  const tbody = document.getElementById('ft-tbody');
+  FV_ROW_MAP.clear();
+  let html = '';
+  let idx = 0;
+  for (const f of FEATURE_NAMES) {
+    html += `<tr class="fg-header"><td colspan="6">${f}</td></tr>`;
+    for (const v of Object.keys(FEATURES[f])) {
+      html += `<tr class="fv-row" data-rowidx="${idx}">
+        <td class="td-val">${v}</td>
+        <td class="td-min">${FEATURES[f][v].min}</td>
+        <td class="td-max">${FEATURES[f][v].max}</td>
+        <td class="td-sel"><span class="sel-num">0</span><span class="sel-min"> / ${FEATURES[f][v].min}</span></td>
+        <td class="td-rem"><span class="rem-num">—</span></td>
+        <td class="td-ratio">
+          <div class="ratio-cell">
+            <span class="ratio-formula">—</span>
+            <div class="ratio-track"><div class="ratio-fill" style="width:0%"></div></div>
+          </div>
+        </td>
+      </tr>`;
+      FV_ROW_MAP.set(`${f}||${v}`, idx);
+      idx++;
+    }
+  }
+  tbody.innerHTML = html;
+  // Replace index values with actual element references
+  const rows = tbody.querySelectorAll('tr.fv-row');
+  for (const [key, i] of FV_ROW_MAP) {
+    FV_ROW_MAP.set(key, rows[i]);
+  }
+}
+
+function renderCounts(step) {
+  document.getElementById('count-pool').textContent = step.pool.length;
+  document.getElementById('count-selected').textContent = `${step.selected.length} / ${NUM_WANTED}`;
+  document.getElementById('count-features').textContent = FEATURE_NAMES.length;
+}
+
+function renderFeatureTable(step) {
+  const { ratios, winner, type, fullCat } = step;
+
+  // Find max ratio among active rows to scale the bars
+  let maxRatio = 0;
+  for (const r of ratios) {
+    if (r.ratio > maxRatio) maxRatio = r.ratio;
+  }
+  if (maxRatio === 0) maxRatio = 1;
+
+  for (const r of ratios) {
+    const row = FV_ROW_MAP.get(`${r.feature}||${r.value}`);
+    if (!row) continue;
+
+    // Determine row state
+    const isWinner  = winner && r.feature === winner.feature && r.value === winner.value;
+    const isFullEvt = type === 'category_full' && fullCat &&
+                      r.feature === fullCat.feature && r.value === fullCat.value;
+    const isMaxed   = !isWinner && r.selected >= r.max && r.max > 0;
+    const isInactive = r.max === 0;
+
+    row.className = 'fv-row' +
+      (isWinner   ? ' is-winner'     : '') +
+      (isFullEvt  ? ' is-full-event' : '') +
+      (isMaxed    ? ' is-maxed'      : '') +
+      (isInactive ? ' is-inactive'   : '');
+
+    // Update selected count
+    row.querySelector('.sel-num').textContent = r.selected;
+
+    // Update remaining count
+    row.querySelector('.rem-num').textContent = r.remaining;
+
+    // Update ratio display — full color-coded formula
+    const formulaEl = row.querySelector('.ratio-formula');
+    let barPct;
+    if (r.max === 0 || r.remaining === 0) {
+      formulaEl.textContent = '—';
+      barPct = 0;
+    } else {
+      formulaEl.innerHTML =
+        `(<span class="c-min">${r.min}</span> − <span class="c-sel">${r.selected}</span>) / <span class="c-rem">${r.remaining}</span> = <span class="c-res">${r.ratio.toFixed(3)}</span>`;
+      barPct = Math.round((r.ratio / maxRatio) * 100);
+    }
+    row.querySelector('.ratio-fill').style.width = `${barPct}%`;
+  }
+
+  // Scroll the winner row into view smoothly
+  if (winner) {
+    const row = FV_ROW_MAP.get(`${winner.feature}||${winner.value}`);
+    if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — step detail card (right panel)
+// ─────────────────────────────────────────────────────────────────
+function personCard(person, iteration, position, categoryRemaining) {
+  // Show the person with all their feature values
+  const rows = FEATURE_NAMES.map(f =>
+    `<div class="dr"><span class="k">${f}</span><span class="v">${person[f]}</span></div>`
+  ).join('');
+  return `<div class="detail-card dc-person">
+    <h3>Person selected — iteration ${iteration}</h3>
+    <div class="person-id">${person.id}</div>
+    <div class="dr"><span class="k">position in category</span><span class="v">${position} of ${categoryRemaining}</span></div>
+    ${rows}
+  </div>`;
+}
+
+function renderDetail(step) {
+  const { type, winner, selectedPerson, fullCat, position, ratios, iteration } = step;
+  const el = document.getElementById('detail-content');
+  let html = '';
+
+  if (type === 'initial') {
+    html = '';
+
+  } else if (type === 'ratio' && winner) {
+    html = `<div class="detail-card dc-winner">
+      <h3>Highest urgency — iteration ${iteration}</h3>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${winner.feature}</span></div>
+      <div class="dr"><span class="k">Value</span><span class="v hl">${winner.value}</span></div>
+      <div class="dr"><span class="k">Selected / min</span><span class="v">${winner.selected} / ${winner.min}</span></div>
+      <div class="dr"><span class="k">Still needed</span><span class="v">${winner.needed}</span></div>
+      <div class="dr"><span class="k">Remaining in pool</span><span class="v">${winner.remaining}</span></div>
+      <div class="formula">ratio = ${winner.needed} / ${winner.remaining} = ${winner.ratio.toFixed(4)}</div>
+    </div>`;
+
+  } else if (type === 'selection' && selectedPerson) {
+    html = `<div class="detail-card dc-winner">
+      <h3>Category chosen — iteration ${iteration}</h3>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${winner.feature}</span></div>
+      <div class="dr"><span class="k">Value</span><span class="v hl">${winner.value}</span></div>
+      <div class="formula">ratio = ${winner.ratio.toFixed(4)}</div>
+    </div>
+    ${personCard(selectedPerson, iteration, position, winner.remaining + 1)}`;
+
+  } else if (type === 'category_full' && fullCat) {
+    html = `<div class="detail-card dc-full">
+      <h3>Category full — iteration ${iteration}</h3>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${fullCat.feature}</span></div>
+      <div class="dr"><span class="k">Value</span><span class="v hl">${fullCat.value}</span></div>
+      <div class="dr"><span class="k">Selected = max</span><span class="v">${fullCat.selected}</span></div>
+      <div class="dr"><span class="k">Candidates removed</span><span class="v">${step.removedIds ? step.removedIds.length : 0}</span></div>
+      <div class="dr"><span class="k">Pool size now</span><span class="v">${step.pool.length}</span></div>
+    </div>
+    ${selectedPerson ? personCard(selectedPerson, iteration, step.position, winner ? winner.remaining + 1 : '?') : ''}`;
+
+  } else if (type === 'complete') {
+    html = `<div class="detail-card dc-done">
+      <h3>Selection complete!</h3>
+      <div class="dr"><span class="k">People selected</span><span class="v">${step.selected.length} / ${NUM_WANTED}</span></div>
+      <div class="dr"><span class="k">Remaining pool</span><span class="v">${step.pool.length}</span></div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — selected chips
+// ─────────────────────────────────────────────────────────────────
+function renderSelected(step) {
+  const { selected, selectedPerson } = step;
+  const grid = document.getElementById('selected-grid');
+  document.getElementById('selected-title').textContent =
+    `Selected (${selected.length} / ${NUM_WANTED})`;
+
+  let html = '';
+  for (const id of selected) {
+    const isNew = selectedPerson && id === selectedPerson.id;
+    html += `<span class="sel-chip${isNew ? ' is-new' : ''}">${id}</span>`;
+  }
+  for (let i = selected.length; i < NUM_WANTED; i++) {
+    html += `<span class="empty-slot">—</span>`;
+  }
+  grid.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — event log
+// ─────────────────────────────────────────────────────────────────
+function renderLog(stepIdx, allLog) {
+  const el = document.getElementById('log-entries');
+  let html = '';
+  for (const entry of allLog) {
+    const isCurrent = entry.stepIdx === stepIdx;
+    const tag = { initial:'[INIT]', ratio:'[RATIO]', selection:'[SELECT]',
+                  category_full:'[FULL]', complete:'[DONE]' }[entry.type] || '[?]';
+    html = `<div class="log-entry type-${entry.type}${isCurrent ? ' current' : ''}">` +
+           `<span class="tag">${tag}</span>${entry.text}</div>` + html;
+  }
+  el.innerHTML = html;
+  el.scrollTop = 0;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — step info + progress bar
+// ─────────────────────────────────────────────────────────────────
+function renderStepInfo(step, stepIdx, totalSteps) {
+  document.getElementById('step-label').textContent = `Step ${stepIdx + 1}`;
+  document.getElementById('step-desc').textContent  = ` — ${step.description}`;
+  document.getElementById('ctr-cur').textContent    = stepIdx + 1;
+  document.getElementById('ctr-tot').textContent    = totalSteps;
+  document.getElementById('progress-fill').style.width =
+    `${((stepIdx + 1) / totalSteps) * 100}%`;
+}
+
+function renderStep(stepIdx) {
+  const step = STEPS[stepIdx];
+  renderStepInfo(step, stepIdx, STEPS.length);
+  renderCounts(step);
+  renderFeatureTable(step);
+  renderDetail(step);
+  renderSelected(step);
+  renderLog(stepIdx, ALL_LOG);
+  document.getElementById('btn-prev').disabled = stepIdx === 0;
+  document.getElementById('btn-next').disabled = stepIdx === STEPS.length - 1;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PLAYBACK CONTROLS
+// ─────────────────────────────────────────────────────────────────
+let currentStep = 0;
+let isPlaying = false;
+let playTimer = null;
+
+function getDelay() {
+  const val = parseInt(document.getElementById('speed-slider').value, 10);
+  // slider 1=slowest (3000ms) to 10=fastest (150ms)
+  return Math.round(3000 - (val - 1) * (3000 - 150) / 9);
+}
+
+function updateSpeedLabel() {
+  const ms = getDelay();
+  document.getElementById('speed-label').textContent = ms >= 1000
+    ? `${(ms / 1000).toFixed(1)}s`
+    : `${ms}ms`;
+}
+
+function play() {
+  if (currentStep >= STEPS.length - 1) { pause(); return; }
+  isPlaying = true;
+  document.getElementById('btn-play').textContent = '⏸ Pause';
+  document.getElementById('btn-play').classList.add('playing');
+  function tick() {
+    if (!isPlaying) return;
+    currentStep++;
+    renderStep(currentStep);
+    if (currentStep >= STEPS.length - 1) {
+      pause();
+    } else {
+      playTimer = setTimeout(tick, getDelay());
+    }
+  }
+  playTimer = setTimeout(tick, getDelay());
+}
+
+function pause() {
+  isPlaying = false;
+  if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+  document.getElementById('btn-play').textContent = '▶ Play';
+  document.getElementById('btn-play').classList.remove('playing');
+}
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (isPlaying) pause(); else play();
+});
+document.getElementById('btn-prev').addEventListener('click', () => {
+  pause();
+  if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  pause();
+  if (currentStep < STEPS.length - 1) { currentStep++; renderStep(currentStep); }
+});
+document.getElementById('btn-log').addEventListener('click', () => {
+  document.getElementById('event-log').classList.toggle('visible');
+  document.getElementById('btn-log').classList.toggle('active');
+});
+
+document.getElementById('speed-slider').addEventListener('input', () => {
+  updateSpeedLabel();
+  if (isPlaying) { pause(); play(); }
+});
+
+document.getElementById('progress-track').addEventListener('click', (e) => {
+  pause();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const frac = (e.clientX - rect.left) / rect.width;
+  currentStep = Math.round(frac * (STEPS.length - 1));
+  currentStep = Math.max(0, Math.min(STEPS.length - 1, currentStep));
+  renderStep(currentStep);
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === 'l') {
+    pause();
+    if (currentStep < STEPS.length - 1) { currentStep++; renderStep(currentStep); }
+  } else if (e.key === 'ArrowLeft' || e.key === 'h') {
+    pause();
+    if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+  } else if (e.key === ' ') {
+    e.preventDefault();
+    if (isPlaying) pause(); else play();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────
+const STEPS = runSimulation(12);
+const ALL_LOG = buildLog(STEPS);
+
+buildTableSkeleton();
+updateSpeedLabel();
+renderStep(0);
+</script>
+</body>
+</html>

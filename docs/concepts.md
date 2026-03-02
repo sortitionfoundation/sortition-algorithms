@@ -229,6 +229,16 @@ This is inspired by Swedish Selection, using the same distance measure. But inst
 
 The code can be seen on [github](https://github.com/ogtal/automatic-sortition) and it is developed by [Analyse og Tal](https://www.ogtal.dk/).
 
+### Code Walk Through
+
+You can read a more detailed [walk through of the algorithms and code here](walkthrough.md).
+
+### Animations
+
+We are trying out some animations to help understand how the algorithms work. So far we have:
+
+- [legacy algorithm animation](animated-legacy-algorithm.html)
+
 ### Research Background
 
 The algorithms are described in [this paper (open access)](https://www.nature.com/articles/s41586-021-03788-6).

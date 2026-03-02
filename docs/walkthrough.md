@@ -269,6 +269,8 @@ def _run_multiplicative_weights_phase(
 
 This greedy approach is fast but produces no fairness guarantees — the same people are likely to be selected every time.
 
+To see an example of the algorithm working, try playing with the [legacy algorithm animation](animated-legacy-algorithm.html).
+
 ```python
 def find_random_sample_legacy(
     people: People,
