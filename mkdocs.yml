@@ -11,6 +11,7 @@ nav:
   - Home: index.md
   - Quick Start: quickstart.md
   - Concepts: concepts.md
+  - Algorithm Walk Through: walkthrough.md
   - CLI: cli.md
   - Adapters: adapters.md
   - Internationalisation: i18n.md
