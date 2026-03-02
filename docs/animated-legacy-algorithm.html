@@ -2,11 +2,11 @@
 <!-- ABOUTME: Animated step-by-step visualisation of the Legacy sortition algorithm. -->
 <!-- ABOUTME: Uses candidates and features from tests/fixtures/ to select 23 people. -->
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Legacy Algorithm — Step-by-Step Animation</title>
-<style>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Legacy Algorithm — Step-by-Step Animation</title>
+        <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
@@ -380,8 +380,8 @@
 
   /* ── Selected panel ──────────────────────────────────────── */
   #selected-panel {
-    flex: 1;
-    overflow-y: auto;
+    /* flex: 1;
+    overflow-y: auto; */
     padding: 10px 14px;
   }
   #selected-panel h2 {
@@ -498,89 +498,99 @@
 
   tr.fv-row.is-winner    { animation: row-flash-green 0.45s ease-out; }
   tr.fv-row.is-full-event { animation: row-flash-red  0.45s ease-out; }
-</style>
-</head>
-<body>
-
-<div id="header">
-  <h1>Legacy Sortition Algorithm</h1>
-  <div id="step-info">
-    <span id="step-label">Step 1</span>
-    <span id="step-desc"> — Initial state: 150 candidates, selecting 23</span>
-  </div>
-</div>
-
-<div id="controls">
-  <button id="btn-prev" title="Previous step (←)">◀ Prev</button>
-  <button id="btn-play">▶ Play</button>
-  <button id="btn-next" title="Next step (→)">Next ▶</button>
-  <div class="speed-group">
-    <label>Speed:</label>
-    <input type="range" id="speed-slider" min="1" max="10" value="5">
-    <span id="speed-label">1.0s</span>
-  </div>
-  <button id="btn-log" title="Toggle event log">Log</button>
-  <div class="step-counter">Step <span id="ctr-cur">1</span> / <span id="ctr-tot">?</span></div>
-</div>
-
-<div id="main">
-  <div id="feature-table-panel">
-    <h2>Feature quotas &amp; urgency ratios — ratio = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span></h2>
-    <div id="feature-table-wrap">
-      <table class="ft">
-        <thead>
-          <tr>
-            <th>Value</th>
-            <th title="Minimum required" style="color:var(--c-min)">Min</th>
-            <th title="Maximum allowed">Max</th>
-            <th title="Selected so far" style="color:var(--c-sel)">Selected</th>
-            <th title="Remaining candidates in pool with this value" style="color:var(--c-rem)">Remaining</th>
-            <th title="Urgency ratio = (min − selected) / remaining">Ratio</th>
-          </tr>
-        </thead>
-        <tbody id="ft-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div id="right-panel">
-    <div id="step-detail">
-      <div class="detail-card" id="counts-card">
-        <h3>Counts</h3>
-        <div class="dr"><span class="k">Candidates in pool</span><span class="v" id="count-pool">—</span></div>
-        <div class="dr"><span class="k">Selected</span><span class="v" id="count-selected">—</span></div>
-        <div class="dr"><span class="k">Features</span><span class="v" id="count-features">—</span></div>
-      </div>
-      <div class="detail-card" id="how-card">
-        <h3>How it works</h3>
-        <ul style="font-size:13px;color:var(--text);line-height:1.7;padding-left:16px">
-          <li>Each round, compute <em>ratio = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span></em> for every feature value</li>
-          <li>Pick a random person from the value with the highest ratio</li>
-          <li>When a value hits its max, remove all remaining candidates with that value from the pool</li>
-        </ul>
-      </div>
-      <h2>Step detail</h2>
-      <div id="detail-content"></div>
-    </div>
-    <div id="selected-panel">
-      <h2 id="selected-title">Selected (0 / 23)</h2>
-      <div class="sel-grid" id="selected-grid"></div>
-    </div>
-  </div>
-</div>
-
-<div id="event-log">
-  <h2>Event Log</h2>
-  <div id="log-entries"></div>
-</div>
-
-<div id="progress-bar-wrap">
-  <div id="progress-track">
-    <div id="progress-fill" style="width:0%"></div>
-  </div>
-</div>
-
-<script>
+        </style>
+    </head>
+    <body>
+        <div id="header">
+            <h1>Legacy Sortition Algorithm</h1>
+            <div id="step-info">
+                <span id="step-label">Step 1</span>
+                <span id="step-desc">— Initial state: 150 candidates, selecting 23</span>
+            </div>
+        </div>
+        <div id="controls">
+            <button id="btn-prev" title="Previous step (←)">◀ Prev</button>
+            <button id="btn-play">▶ Play</button>
+            <button id="btn-next" title="Next step (→)">Next ▶</button>
+            <div class="speed-group">
+                <label>Speed:</label>
+                <input type="range" id="speed-slider" min="1" max="10" value="5">
+                <span id="speed-label">1.0s</span>
+            </div>
+            <button id="btn-log" title="Toggle event log">Log</button>
+            <div class="step-counter">
+                Step <span id="ctr-cur">1</span> / <span id="ctr-tot">?</span>
+            </div>
+        </div>
+        <div id="main">
+            <div id="feature-table-panel">
+                <h2>
+                    Feature quotas &amp; urgency ratios — ratio = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span>
+                </h2>
+                <div id="feature-table-wrap">
+                    <table class="ft">
+                        <thead>
+                            <tr>
+                                <th>Value</th>
+                                <th title="Minimum required" style="color:var(--c-min)">Min</th>
+                                <th title="Maximum allowed">Max</th>
+                                <th title="Selected so far" style="color:var(--c-sel)">Selected</th>
+                                <th title="Remaining candidates in pool with this value"
+                                    style="color:var(--c-rem)">Remaining</th>
+                                <th title="Urgency ratio = (min − selected) / remaining">Ratio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ft-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="right-panel">
+                <div id="step-detail">
+                    <div class="detail-card" id="how-card">
+                        <h3>How it works</h3>
+                        <ul style="font-size:13px;
+                                   color:var(--text);
+                                   line-height:1.7;
+                                   padding-left:16px">
+                            <li>
+                                Each round, compute <em>ratio = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span></em> for every feature value
+                            </li>
+                            <li>Pick a random person from the value with the highest ratio</li>
+                            <li>When a value hits its max, remove all remaining candidates with that value from the pool</li>
+                        </ul>
+                    </div>
+                    <div class="detail-card" id="counts-card">
+                        <h3>Counts</h3>
+                        <div class="dr">
+                            <span class="k">Candidates in pool</span><span class="v" id="count-pool">—</span>
+                        </div>
+                        <div class="dr">
+                            <span class="k">Selected</span><span class="v" id="count-selected">—</span>
+                        </div>
+                        <div class="dr">
+                            <span class="k">Features</span><span class="v" id="count-features">—</span>
+                        </div>
+                    </div>
+                    <div id="selected-panel">
+                        <h2 id="selected-title">Selected (0 / 23)</h2>
+                        <div class="sel-grid" id="selected-grid"></div>
+                    </div>
+                    <h2>Step detail</h2>
+                    <div id="detail-content"></div>
+                </div>
+            </div>
+        </div>
+        <div id="event-log">
+            <h2>Event Log</h2>
+            <div id="log-entries"></div>
+        </div>
+        <div id="progress-bar-wrap">
+            <div id="progress-track">
+                <div id="progress-fill" style="width:0%"></div>
+            </div>
+        </div>
+        <script>
 // ─────────────────────────────────────────────────────────────────
 // DATA — from tests/fixtures/candidates.csv and features.csv
 // ─────────────────────────────────────────────────────────────────
@@ -1386,6 +1396,6 @@ const ALL_LOG = buildLog(STEPS);
 buildTableSkeleton();
 updateSpeedLabel();
 renderStep(0);
-</script>
-</body>
+        </script>
+    </body>
 </html>
