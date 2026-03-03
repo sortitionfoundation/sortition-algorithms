@@ -204,6 +204,8 @@ Before the main optimization loop of the probabilistic algorithms, `generate_ini
 
 **Phase 2: Covering Uncovered Agents.** After Phase 1, some agents may still not appear in any discovered committee. For each such agent, the solver runs once more with the single objective of including that agent. If no feasible committee can include them, a warning is logged (they will have probability 0 in the final distribution).
 
+To see an example of the initial committee algorithm working, try playing with the [common algorithm animation](animated-common-algorithm.html).
+
 ```python
 def _run_multiplicative_weights_phase(
     solver: Solver,
@@ -362,6 +364,8 @@ def find_random_sample_legacy(
 ## Algorithm 2: Maximin
 
 `maximin.py` uses **column generation** to find a probability distribution over feasible committees that maximises the minimum selection probability across all agents. If there are `n` agents with probabilities `p_1, ..., p_n`, maximin maximises `min(p_1, ..., p_n)`.
+
+To see an example of the maximin algorithm working, try playing with the [maximin algorithm animation](animated-maximin-algorithm.html).
 
 ### The Dual Formulation
 
