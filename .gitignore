@@ -121,6 +121,9 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
+# Rodney - files related to using rodney for debugging web stuff
+.rodney/
+
 # mkdocs documentation
 /site
 
