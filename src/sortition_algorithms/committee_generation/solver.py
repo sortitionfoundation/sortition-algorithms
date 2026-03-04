@@ -280,6 +280,7 @@ class MipSolver(Solver):
         seed: int | None = None,
         time_limit: float | None = None,
         mip_gap: float | None = None,
+        solver_name: str = "CBC",
     ):
         """Create a new python-mip solver instance.
 
@@ -288,6 +289,7 @@ class MipSolver(Solver):
             seed: Random seed for reproducibility
             time_limit: Maximum solve time in seconds
             mip_gap: Acceptable MIP gap (e.g., 0.1 for 10%)
+            solver_name: switch solver - options "CBC" or "HIGHS" or "GUROBI"
 
         Raises:
             RuntimeError: If python-mip is not installed
@@ -298,7 +300,8 @@ class MipSolver(Solver):
 
         self._mip = _mip_module
         # Default to MAXIMIZE, will be changed when set_objective is called
-        self._model = self._mip.Model()
+        # As of mip 1.17, we can choose the HIGHS solver instead of the default CBC - solver name sets this
+        self._model = self._mip.Model(solver_name=solver_name)
 
         # As of mip 1.17, we can choose the HIGHS solver instead of the default CBC
         # To do that, we would replace the above line with:
@@ -380,7 +383,7 @@ class MipSolver(Solver):
 
 
 def create_solver(
-    backend: str = "highspy",
+    backend: str = "mip",
     verbose: bool = False,
     seed: int | None = None,
     time_limit: float | None = None,
@@ -389,7 +392,7 @@ def create_solver(
     """Create a solver instance with the specified backend.
 
     Args:
-        backend: Solver backend to use ("highspy" or "mip")
+        backend: Solver backend to use ("highspy", "mip", "mip-cbc", "mip-highs" or "mip-gurobi")
         verbose: If True, enable solver output
         seed: Random seed for reproducibility
         time_limit: Maximum solve time in seconds
@@ -403,8 +406,12 @@ def create_solver(
     """
     if backend == "highspy":
         return HighsSolver(verbose=verbose, seed=seed, time_limit=time_limit, mip_gap=mip_gap)
-    elif backend == "mip":
-        return MipSolver(verbose=verbose, seed=seed, time_limit=time_limit, mip_gap=mip_gap)
+    elif backend in ("mip", "mip-cbc"):
+        return MipSolver(verbose=verbose, seed=seed, time_limit=time_limit, mip_gap=mip_gap, solver_name="CBC")
+    elif backend == "mip-highs":
+        return MipSolver(verbose=verbose, seed=seed, time_limit=time_limit, mip_gap=mip_gap, solver_name="HIGHS")
+    elif backend == "mip-gurobi":
+        return MipSolver(verbose=verbose, seed=seed, time_limit=time_limit, mip_gap=mip_gap, solver_name="GUROBI")
     else:
         raise ConfigurationError(
             message=f"Unknown solver backend: {backend}",

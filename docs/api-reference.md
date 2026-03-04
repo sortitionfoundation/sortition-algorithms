@@ -243,7 +243,7 @@ random_number_seed = 0
 
 - `selection_algorithm`: "maximin", "leximin", "nash", "diversimax", or "legacy" **Default:** "maximin"
   - [Read more about the algorithms](concepts.md#selection-algorithms)
-- `solver_backend`: LP/MIP solver backend to use ("highspy" or "mip"). **Default:** "mip"
+- `solver_backend`: LP/MIP solver backend to use ("highspy", "mip", "mip-cbc", "mip-highs" or "mip-gurobi"). **Default:** "mip"
 - `max_attempts`: Maximum selection retry attempts for algorithms that can reasonably be retried (legacy). **Default:** 10
 - `random_number_seed`: Fixed seed for reproducible results (None or 0 = random) **Default:** 0
 
@@ -261,8 +261,11 @@ random_number_seed = 0
 
 **Solver Backends:**
 
-- `"highspy"` (default): Uses the HiGHS solver via highspy. This is the recommended backend for most use cases.
-- `"mip"`: Uses python-mip, which requires the optional `mip` package to be installed (`pip install mip`).
+- `"mip"`: (default): Uses python-mip with the CBC backend.
+- `"mip-cbc"`: This is the same as `"mip"`
+- `"mip-gurobi"`: Uses python-mip with the gurobi library backend. Requires installing `mip[gurobi]`
+- `"mip-highs"`: Uses python-mip with the HIGHS library backend. Requires installing `mip[highs]`
+- `"highspy"` Uses the HiGHS solver via highspy. This is the recommended backend for most use cases.
 
 ### Settings Class
 
