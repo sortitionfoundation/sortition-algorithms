@@ -1,5 +1,3 @@
-::: sortition_algorithms
-::: sortition_algorithms.**main**
 ::: sortition_algorithms.adapters
 ::: sortition_algorithms.committee_generation
 ::: sortition_algorithms.committee_generation.common
