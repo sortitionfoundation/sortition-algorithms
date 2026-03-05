@@ -6,6 +6,7 @@ from enum import Enum, auto
 from typing import Any
 
 from sortition_algorithms.errors import ConfigurationError
+from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import random_provider
 
 # Check if python-mip is available (optional dependency)
@@ -383,7 +384,7 @@ class MipSolver(Solver):
 
 
 def create_solver(
-    backend: str = "mip",
+    backend: str = DEFAULT_BACKEND,
     verbose: bool = False,
     seed: int | None = None,
     time_limit: float | None = None,
@@ -392,7 +393,7 @@ def create_solver(
     """Create a solver instance with the specified backend.
 
     Args:
-        backend: Solver backend to use ("highspy", "mip", "mip-cbc", "mip-highs" or "mip-gurobi")
+        backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
         verbose: If True, enable solver output
         seed: Random seed for reproducibility
         time_limit: Maximum solve time in seconds

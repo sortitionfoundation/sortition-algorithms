@@ -31,7 +31,7 @@ class TestSettingsConstructor:
 
     def test_solver_backend_default_is_mip(self):
         settings_obj = settings.Settings(id_column="test", columns_to_keep=[])
-        assert settings_obj.solver_backend == "mip"
+        assert settings_obj.solver_backend == settings.DEFAULT_BACKEND
 
     def test_valid_settings_creation(self):
         """Test creating a valid Settings object."""

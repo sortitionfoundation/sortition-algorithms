@@ -10,6 +10,7 @@ from sortition_algorithms.committee_generation.maximin import find_distribution_
 from sortition_algorithms.committee_generation.nash import find_distribution_nash
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
+from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport
 
 
@@ -18,7 +19,7 @@ def find_any_committee(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[list[frozenset[str]], RunReport]:
     """Find any single feasible committee that satisfies the quotas.
 
@@ -28,7 +29,7 @@ def find_any_committee(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns to check for same address, or empty list if
                                     not checking addresses.
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (list containing one committee as frozenset of person_ids, empty report)

@@ -17,6 +17,7 @@ from sortition_algorithms.committee_generation.common import (
 from sortition_algorithms.committee_generation.solver import Solver, SolverSense, solver_sum
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
+from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger
 
 # Tolerance for numerical comparisons
@@ -231,7 +232,7 @@ def find_distribution_nash(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the Nash welfare, i.e., the product of
     selection probabilities over all persons.
@@ -242,7 +243,7 @@ def find_distribution_nash(
         number_people_wanted: desired size of the panel
         check_same_address_columns: Address columns for household identification, or empty
                                     if no address checking to be done.
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (committees, probabilities, output_lines)

@@ -8,7 +8,7 @@ import tomli_w
 
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
-from sortition_algorithms.settings import Settings
+from sortition_algorithms.settings import DEFAULT_ALGORITHM, DEFAULT_BACKEND, Settings
 
 test_path = Path(__file__).parent
 features_csv_path = test_path / "fixtures/features.csv"
@@ -22,8 +22,8 @@ def create_test_settings(
     check_same_address: bool = False,
     check_same_address_columns: list[str] | None = None,
     max_attempts: int = 100,
-    selection_algorithm: str = "maximin",
-    solver_backend: str = "highspy",
+    selection_algorithm: str = DEFAULT_ALGORITHM,
+    solver_backend: str = DEFAULT_BACKEND,
     random_number_seed: int = 42,
     **kwargs,
 ) -> Settings:
@@ -36,7 +36,7 @@ def create_test_settings(
         check_same_address_columns: Columns to use for address checking
         max_attempts: Maximum retry attempts
         selection_algorithm: Selection algorithm to use
-        solver_backend: Solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
         random_number_seed: Random seed for reproducible tests
         **kwargs: Additional arguments passed to Settings constructor
 
@@ -83,7 +83,7 @@ def get_settings_for_fixtures(algorithm="legacy"):
     )
 
 
-def create_settings_file_for_fixtures(file_path: Path, algorithm="maximin") -> None:
+def create_settings_file_for_fixtures(file_path: Path, algorithm=DEFAULT_ALGORITHM) -> None:
     settings = get_settings_for_fixtures(algorithm)
     with file_path.open("wb") as file:
         tomli_w.dump(settings.as_dict(), file)

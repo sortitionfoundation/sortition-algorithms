@@ -9,9 +9,12 @@ from sortition_algorithms.errors import ConfigurationError
 from sortition_algorithms.utils import ReportLevel, RunReport
 
 SELECTION_ALGORITHMS = ("legacy", "maximin", "nash", "leximin", "diversimax")
-SOLVER_BACKENDS = ("highspy", "mip")
+DEFAULT_ALGORITHM = "maximin"
 
-DEFAULT_SETTINGS = """
+SOLVER_BACKENDS = ("highspy", "mip", "mip-cbc", "mip-highs", "mip-gurobi")
+DEFAULT_BACKEND = "highspy"
+
+DEFAULT_SETTINGS = f"""
 # #####################################################################
 #
 # IF YOU EDIT THIS FILE YOU NEED TO RESTART THE APPLICATION
@@ -48,10 +51,10 @@ columns_to_keep = [
 
 # selection_algorithm can either be "legacy", "maximin", "leximin", or "nash"
 # see https://sortitionfoundation.github.io/sortition-algorithms/concepts/#selection-algorithms
-selection_algorithm = "maximin"
+selection_algorithm = "{DEFAULT_ALGORITHM}"
 
-# solver_backend can be "highspy" or "mip" (default)
-solver_backend = "mip"
+# solver_backend can be "highspy" "mip" (default), "mip-cbc", "mip-highs", "mip-gurobi"
+solver_backend = "{DEFAULT_BACKEND}"
 
 # random number seed - if this is NOT zero then it is used to set the random number generator seed
 random_number_seed = 0
@@ -88,8 +91,8 @@ class Settings:
     check_same_address: bool = field(validator=validators.instance_of(bool), default=False)
     check_same_address_columns: list[str] = field(validator=check_columns_for_same_address, factory=list)
     max_attempts: int = field(validator=validators.instance_of(int), default=100)
-    selection_algorithm: str = field(default="maximin")
-    solver_backend: str = field(default="mip")
+    selection_algorithm: str = field(default=DEFAULT_ALGORITHM)
+    solver_backend: str = field(default=DEFAULT_BACKEND)
     random_number_seed: int = field(validator=validators.instance_of(int), default=0)
 
     @columns_to_keep.validator

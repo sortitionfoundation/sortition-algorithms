@@ -46,7 +46,7 @@ class Solver(ABC):
 
 ```python
 def create_solver(
-    backend: str = "highspy",
+    backend: str = DEFAULT_BACKEND,
     verbose: bool = False,
     seed: int | None = None,
     time_limit: float | None = None,
@@ -55,7 +55,7 @@ def create_solver(
     """Create a solver instance with the specified backend.
 
     Args:
-        backend: Solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
         verbose: If True, enable solver output
         seed: Random seed for reproducibility
         time_limit: Maximum solve time in seconds
@@ -113,7 +113,7 @@ def setup_committee_generation(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[Solver, dict[str, Any]]:
     """Set up the integer linear program for committee generation.
 
@@ -123,7 +123,7 @@ def setup_committee_generation(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns to check for same address, or empty list if
                                     not checking addresses.
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (Solver, dict mapping person_id to binary variables)
@@ -394,7 +394,7 @@ A heuristic also runs after each new committee is found: it tweaks the current `
 def _setup_maximin_incremental_model(
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[Solver, dict[str, Any], Any]:
     """Set up the incremental LP model for maximin optimization.
 
@@ -411,7 +411,7 @@ def _setup_maximin_incremental_model(
     Args:
         committees: set of initial committees
         covered_agents: agents that can be included in some committee
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (incremental_solver, incr_agent_vars, upper_bound_var)
@@ -445,7 +445,7 @@ def _run_maximin_optimization_loop(
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
     report: RunReport,
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Run the main maximin optimization loop with column generation.
 
@@ -956,7 +956,7 @@ def find_any_committee(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[list[frozenset[str]], RunReport]:
     """Find any single feasible committee that satisfies the quotas.
 
@@ -966,7 +966,7 @@ def find_any_committee(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns to check for same address, or empty list if
                                     not checking addresses.
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (list containing one committee as frozenset of person_ids, empty report)

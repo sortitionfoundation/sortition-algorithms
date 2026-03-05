@@ -23,6 +23,7 @@ from sortition_algorithms.committee_generation.common import _relax_infeasible_q
 from sortition_algorithms.committee_generation.solver import SolverSense, SolverStatus, create_solver, solver_sum
 from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.people import People
+from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger, random_provider
 
 InteractionNamesTuple = tuple[str, ...]
@@ -46,7 +47,7 @@ def find_distribution_diversimax(
     number_people_wanted: int,
     check_same_address_columns: list[str],
     max_seconds: int = 30,
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[frozenset[str], RunReport]:
     """
     Find a committee using the Diversimax algorithm.
@@ -58,7 +59,7 @@ def find_distribution_diversimax(
         check_same_address_columns: columns to check for same address, or empty list if
                                     not checking addresses.
         max_seconds: maximum seconds to spend searching
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (selected_ids, report)
@@ -106,7 +107,7 @@ class DiversityOptimizer:
         features: FeatureCollection,
         panel_size: int,
         check_same_address_columns: list[str],
-        solver_backend: str = "highspy",
+        solver_backend: str = DEFAULT_BACKEND,
     ):
         if not DIVERSIMAX_AVAILABLE:
             msg = "Diversimax algorithm requires the optional 'diversimax' dependencies, which are not available"

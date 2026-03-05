@@ -26,7 +26,7 @@ from sortition_algorithms.people_features import (
     select_from_feature_collection,
     simple_add_selected,
 )
-from sortition_algorithms.settings import Settings
+from sortition_algorithms.settings import DEFAULT_BACKEND, Settings
 from sortition_algorithms.utils import ReportLevel, RunReport, logger, random_provider, set_random_provider
 
 
@@ -251,7 +251,7 @@ def find_random_sample(
     check_same_address_columns: list[str],
     *,
     selection_algorithm: str = "maximin",
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
     test_selection: bool = False,
     number_selections: int = 1,
     max_seconds: int = 30,
@@ -264,7 +264,7 @@ def find_random_sample(
         number_people_wanted: desired size of the panel
         check_same_address_columns: columns for the address to check, or empty list if no check required
         selection_algorithm: one of "legacy", "maximin", "leximin", or "nash"
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
         test_selection: if set, do not do a random selection, but just return some valid panel.
             Useful for quickly testing whether quotas are satisfiable, but should always be false for actual selection!
         number_selections: how many panels to return. Most of the time, this should be set to 1, which means that

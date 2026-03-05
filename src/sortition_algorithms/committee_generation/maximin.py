@@ -19,20 +19,21 @@ from sortition_algorithms.committee_generation.solver import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
+from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport
 
 
 def _find_maximin_primal(
     committees: list[frozenset[str]],
     covered_agents: frozenset[str],
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> list[float]:
     """Find the optimal probabilities for committees that maximize the minimum selection probability.
 
     Args:
         committees: list of feasible committees
         covered_agents: frozenset of agents who can be selected
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         list of probabilities for each committee (same order as input)
@@ -64,7 +65,7 @@ def _find_maximin_primal(
 def _setup_maximin_incremental_model(
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[Solver, dict[str, Any], Any]:
     """Set up the incremental LP model for maximin optimization.
 
@@ -81,7 +82,7 @@ def _setup_maximin_incremental_model(
     Args:
         committees: set of initial committees
         covered_agents: agents that can be included in some committee
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (incremental_solver, incr_agent_vars, upper_bound_var)
@@ -197,7 +198,7 @@ def _run_maximin_optimization_loop(
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
     report: RunReport,
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Run the main maximin optimization loop with column generation.
 
@@ -210,6 +211,8 @@ def _run_maximin_optimization_loop(
         committees: set of committees (modified in-place)
         covered_agents: agents that can be included
         output_lines: list of output messages (modified in-place)
+        report: RunReport to add output to
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (committees, probabilities, output_lines)
@@ -269,7 +272,7 @@ def find_distribution_maximin(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-    solver_backend: str = "highspy",
+    solver_backend: str = DEFAULT_BACKEND,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected.
 
@@ -279,7 +282,7 @@ def find_distribution_maximin(
         number_people_wanted: desired size of the panel
         check_same_address_columns: Address columns for household identification, or empty
                                     if no address checking to be done.
-        solver_backend: solver backend to use ("highspy" or "mip")
+        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
 
     Returns:
         tuple of (committees, probabilities, output_lines)
