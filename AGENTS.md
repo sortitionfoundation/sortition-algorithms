@@ -45,9 +45,9 @@ This is a Python package for sortition algorithms (democratic lotteries). The co
 
 - **`People`** (`src/sortition_algorithms/people.py`): Manages a collection of people with their data, including demographic features and metadata. Provides methods for adding/removing people and finding households based on address matching.
 
-- **`FeatureCollection`** (`src/sortition_algorithms/features.py`): Manages stratification features (e.g., gender, age) and their allowed values with min/max selection targets. Each feature contains multiple values with associated counts and constraints.
-
 - **`FeatureValueCounts`** (`src/sortition_algorithms/features.py`): Tracks selection counts for individual feature values (e.g., "male" within "gender" feature), including min/max targets and current selected/remaining counts.
+
+- **`FeatureCollection`** (`src/sortition_algorithms/features.py`): Manages stratification features (e.g., gender, age) and their allowed values with min/max selection targets. Each feature contains multiple values with associated counts and constraints. This is actually a nested dict with `FeatureValueCounts` objects as the leaf elements.
 
 - **`PeopleFeatures`** (`src/sortition_algorithms/people_features.py`): Bridges People and Features, maintaining running totals of how many people are available/selected for each feature value.
 
@@ -69,14 +69,6 @@ This is a Python package for sortition algorithms (democratic lotteries). The co
 
 Tests are organized by module with comprehensive coverage including error conditions and edge cases.
 
-## Strategy for migrating code
+### Details Docs
 
-This project is producing a standalone python package from the single python file in `old_code/stratification.py`. The old code has no tests. Looking under `src/` you can see the progress I
-have made so far, splitting out functionality bit-by-bit. I want you to continue the work.
-
-My strategy so far has been to find bits of code that don't depend on anything I have yet to migrate, taking small bites as I go. I am structuring it into small classes and **not** using
-inheritance, instead relying on composition. In particular the `FeaturesCollection` and `People` classes that are initially created should **not** change during the life of the process. But
-the `PeopleFeatures` class makes a deep copy of both those classes, and it is allowed to change the state of the copies that it owns.
-
-Identify the next set of functions/methods that would be good to move - just a few, don't try to do it all in one go. Tell me what you plan to migrate next and how you plan to do it. Once you
-and I have agreed a plan you should write the new code.
+Detailed docs are in the docs/ folder - read files from there as appropriate for the task you are doing. And don't forget to keep those docs up-to-date.
