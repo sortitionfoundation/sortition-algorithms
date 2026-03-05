@@ -1,10 +1,9 @@
 import pytest
 
 from sortition_algorithms import errors
+from sortition_algorithms.committee_generation.legacy import MaxRatioResult, PeopleFeatures
 from sortition_algorithms.features import iterate_feature_collection, read_in_features
 from sortition_algorithms.people_features import (
-    MaxRatioResult,
-    PeopleFeatures,
     iterate_select_collection,
     select_from_feature_collection,
 )

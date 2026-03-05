@@ -405,12 +405,12 @@ def _initial_category_info_table(
 
     # Generate table rows
     data: list[list[str | int | float]] = []
-    for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
+    for feature_name, fvalue_name, select_counts in iterate_select_collection(select_collection):
         data.append([
             feature_name,
             fvalue_name,
-            fv_counts.selected,
-            f"[{fv_counts.min_max.min},{fv_counts.min_max.max}]",
+            select_counts.selected,
+            f"[{select_counts.min_max.min},{select_counts.min_max.max}]",
         ])
 
     report = RunReport()
@@ -449,13 +449,13 @@ def _category_info_table(
 
     data: list[list[str | int | float]] = []
     # Generate table rows
-    for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
-        percent_selected = fv_counts.percent_selected(number_people_wanted)
+    for feature_name, fvalue_name, select_counts in iterate_select_collection(select_collection):
+        percent_selected = select_counts.percent_selected(number_people_wanted)
         data.append([
             feature_name,
             fvalue_name,
-            f"{fv_counts.selected} ({percent_selected:.2f}%)",
-            f"[{fv_counts.min_max.min},{fv_counts.min_max.max}]",
+            f"{select_counts.selected} ({percent_selected:.2f}%)",
+            f"[{select_counts.min_max.min},{select_counts.min_max.max}]",
         ])
 
     report.add_table(headers, data)
@@ -493,11 +493,11 @@ def _check_category_selected(
 
     # Check if quotas are met
     feature_fails: list[str] = []
-    for feature_name, fvalue_name, fv_counts in iterate_select_collection(select_collection):
-        if not fv_counts.hit_target:
+    for feature_name, fvalue_name, select_counts in iterate_select_collection(select_collection):
+        if not select_counts.hit_target:
             feature_fails.append(
-                f"{feature_name}/{fvalue_name} actual: {fv_counts.selected} "
-                f"min: {fv_counts.min_max.min} max: {fv_counts.min_max.max}"
+                f"{feature_name}/{fvalue_name} actual: {select_counts.selected} "
+                f"min: {select_counts.min_max.min} max: {select_counts.min_max.max}"
             )
 
     if not feature_fails:

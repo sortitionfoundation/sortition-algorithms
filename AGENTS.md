@@ -51,6 +51,8 @@ This is a Python package for sortition algorithms (democratic lotteries). The co
 
 - **`PeopleFeatures`** (`src/sortition_algorithms/people_features.py`): Bridges People and Features, maintaining running totals of how many people are available/selected for each feature value.
 
+- **`Settings`** (`src/sortition_algorithms/settings.py`): The core settings for running the selection, whether to check for addresses, what columns to keep etc.
+
 ### Data Flow
 
 1. Features are loaded from CSV with min/max targets for each value
