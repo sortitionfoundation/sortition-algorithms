@@ -1,6 +1,4 @@
-import csv
 import typing
-from collections import defaultdict
 from collections.abc import Generator, Iterable, MutableMapping
 from copy import deepcopy
 
@@ -10,7 +8,6 @@ from requests.structures import CaseInsensitiveDict
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax, iterate_feature_collection
 from sortition_algorithms.people import People
-from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport, random_provider
 
 
@@ -299,48 +296,3 @@ def simple_add_selected(person_keys: Iterable[str], people: People, features: Se
         for feature_name in features:
             feature_value = person[feature_name]
             features[feature_name][feature_value].add_selected()
-
-
-class WeightedSample:
-    def __init__(self, features: FeatureCollection) -> None:
-        """
-        This produces a set of lists of feature values for each feature.  Each value
-        is in the list `fv_minmax.max` times - so a random choice with represent the max.
-
-        So if we had feature "ethnicity", value "white" w max 4, "asian" w max 3 and
-        "black" with max 2 we'd get:
-
-        ["white", "white", "white", "white", "asian", "asian", "asian", "black", "black"]
-
-        Then making random choices from that list produces a weighted sample.
-        """
-        self.weighted: dict[str, list[str]] = defaultdict(list)
-        for feature_name, fvalue_name, fv_minmax in iterate_feature_collection(features):
-            self.weighted[feature_name] += [fvalue_name] * fv_minmax.max
-
-    def value_for(self, feature_name: str) -> str:
-        # S311 is random numbers for crypto - but this is just for a sample file
-        return random_provider().choice(self.weighted[feature_name])
-
-
-def create_readable_sample_file(
-    features: FeatureCollection,
-    people_file: typing.TextIO,
-    number_people_example_file: int,
-    settings: Settings,
-) -> None:
-    example_people_writer = csv.writer(
-        people_file,
-        delimiter=",",
-        quotechar='"',
-        quoting=csv.QUOTE_MINIMAL,
-    )
-    example_people_writer.writerow([settings.id_column, *settings.full_columns_to_keep, *features.keys()])
-    weighted = WeightedSample(features)
-    for x in range(number_people_example_file):
-        row = [
-            f"p{x}",
-            *[f"{col} {x}" for col in settings.full_columns_to_keep],
-            *[weighted.value_for(f) for f in features],
-        ]
-        example_people_writer.writerow(row)

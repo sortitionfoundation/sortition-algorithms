@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from sortition_algorithms import adapters, core, people_features
+from sortition_algorithms import adapters, core, people
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport, set_log_level
 
@@ -338,4 +338,4 @@ def gen_sample(settings: str, features_csv: str, people_csv: str, number_wanted:
     features, report = select_data.load_features()
     echo_report(report)
     with open(people_csv, "w", newline="") as people_f:
-        people_features.create_readable_sample_file(features, people_f, number_wanted, settings_obj)
+        people.create_readable_sample_file(features, people_f, number_wanted, settings_obj)
