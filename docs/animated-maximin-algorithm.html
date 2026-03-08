@@ -181,13 +181,11 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 5px 7px;
-    width: 105px;
+    width: 115px;
     position: relative;
     overflow: hidden;
     transition: border-color 0.3s, box-shadow 0.3s;
   }
-  .candidate-card.north { border-left: 3px solid var(--north-border); }
-  .candidate-card.south { border-left: 3px solid var(--south-border); }
   .candidate-card.is-minimum {
     border-color: var(--min-highlight);
     box-shadow: 0 0 8px rgba(255, 91, 91, 0.25);
@@ -199,7 +197,7 @@
     margin-bottom: 1px;
   }
   .card-meta {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--muted);
     margin-bottom: 4px;
   }
@@ -458,12 +456,7 @@
                 <div id="candidates-section">
                     <h2>Candidates — each person's chance of being selected</h2>
                     <div class="region-group">
-                        <div class="region-label north" id="north-label"></div>
-                        <div class="cards-row" id="north-cards"></div>
-                    </div>
-                    <div class="region-group">
-                        <div class="region-label south" id="south-label"></div>
-                        <div class="cards-row" id="south-cards"></div>
+                        <div class="cards-row" id="all-cards"></div>
                     </div>
                 </div>
                 <div id="chart-panel">
@@ -513,27 +506,27 @@ const CANDIDATES = [
   // North Senior Males (4) — abundant group
   { id: "adam",    name: "Adam",    gender: "M", region: "North", age: "Senior" },
   { id: "ben",     name: "Ben",     gender: "M", region: "North", age: "Senior" },
-  { id: "charlie", name: "Charlie", gender: "M", region: "North", age: "Senior" },
-  { id: "dan",     name: "Dan",     gender: "M", region: "North", age: "Senior" },
+  { id: "chen",    name: "Chen",    gender: "M", region: "North", age: "Senior" },
+  { id: "dmitri",  name: "Dmitri",  gender: "M", region: "North", age: "Senior" },
   // North Senior Females (3)
-  { id: "emma",    name: "Emma",    gender: "F", region: "North", age: "Senior" },
-  { id: "fiona",   name: "Fiona",   gender: "F", region: "North", age: "Senior" },
+  { id: "elena",   name: "Elena",   gender: "F", region: "North", age: "Senior" },
+  { id: "fatima",  name: "Fatima",  gender: "F", region: "North", age: "Senior" },
   { id: "grace",   name: "Grace",   gender: "F", region: "North", age: "Senior" },
   // North Young Males (2)
-  { id: "harry",   name: "Harry",   gender: "M", region: "North", age: "Young" },
+  { id: "hassan",  name: "Hassan",  gender: "M", region: "North", age: "Young" },
   { id: "ivan",    name: "Ivan",    gender: "M", region: "North", age: "Young" },
   // North Young Females (2)
-  { id: "julia",   name: "Julia",   gender: "F", region: "North", age: "Young" },
-  { id: "karen",   name: "Karen",   gender: "F", region: "North", age: "Young" },
+  { id: "jun",     name: "Jun",     gender: "F", region: "North", age: "Young" },
+  { id: "keiko",   name: "Keiko",   gender: "F", region: "North", age: "Young" },
   // South Senior Males (1) — scarce
   { id: "leo",     name: "Leo",     gender: "M", region: "South", age: "Senior" },
   // South Senior Females (2)
   { id: "mia",     name: "Mia",     gender: "F", region: "South", age: "Senior" },
-  { id: "nora",    name: "Nora",    gender: "F", region: "South", age: "Senior" },
+  { id: "nadia",   name: "Nadia",   gender: "F", region: "South", age: "Senior" },
   // South Young Male (1) — very scarce
-  { id: "oscar",   name: "Oscar",   gender: "M", region: "South", age: "Young" },
+  { id: "omar",    name: "Omar",    gender: "M", region: "South", age: "Young" },
   // South Young Female (1) — very scarce
-  { id: "penny",   name: "Penny",   gender: "F", region: "South", age: "Young" },
+  { id: "priya",   name: "Priya",   gender: "F", region: "South", age: "Young" },
 ];
 
 const SELECT_COUNT = 8;
@@ -551,9 +544,6 @@ const CONSTRAINTS = [
 const CANDIDATE_IDS = CANDIDATES.map(c => c.id);
 const ID_TO_IDX = {};
 CANDIDATES.forEach((c, i) => { ID_TO_IDX[c.id] = i; });
-
-const NORTH_IDS = CANDIDATES.filter(c => c.region === "North").map(c => c.id);
-const SOUTH_IDS = CANDIDATES.filter(c => c.region === "South").map(c => c.id);
 
 // ─────────────────────────────────────────────────────────────
 // Check if a committee satisfies all constraints
@@ -950,7 +940,7 @@ function runMaximinColumnGeneration() {
         `The algorithm assigns a probability to each committee (they must add up to 100%), ` +
         `choosing probabilities that make the selection as fair as possible.<br><br>` +
         `With just these starting committees, the lowest anyone's chance can be is only <span class="low">${pct(primal.minProb)}</span>. ` +
-        `Notice the bars: Penny (the only Young Southern Female) appears in every committee — ` +
+        `Notice the bars: Priya (the only Young Southern Female) appears in every committee — ` +
         `she has no substitute, so her chance is 100%. Meanwhile the Senior Northerners, with 7 people competing for a handful of spots, ` +
         `start with much lower chances.<br><br>` +
         `Can we do better? The algorithm will now search for new committees to add, ` +
@@ -1211,26 +1201,22 @@ const SNAPSHOTS = runMaximinColumnGeneration();
 // ─────────────────────────────────────────────────────────────
 
 function buildCandidateCards() {
-  const northCards = document.getElementById("north-cards");
-  const southCards = document.getElementById("south-cards");
-  document.getElementById("north-label").textContent = `North (${NORTH_IDS.length} candidates)`;
-  document.getElementById("south-label").textContent = `South (${SOUTH_IDS.length} candidates)`;
+  const allCards = document.getElementById("all-cards");
 
   for (const c of CANDIDATES) {
     const card = document.createElement("div");
-    card.className = `candidate-card ${c.region.toLowerCase()}`;
+    card.className = "candidate-card";
     card.id = `card-${c.id}`;
     const genderIcon = c.gender === "M" ? "♂" : "♀";
     card.innerHTML = `
       <div class="card-name">${c.name}</div>
-      <div class="card-meta">${genderIcon} ${c.age}</div>
+      <div class="card-meta">${genderIcon} · ${c.region} · ${c.age}</div>
       <div class="card-prob-bar">
         <div class="card-prob-fill" id="fill-${c.id}" style="width: 0%"></div>
         <div class="card-prob-text" id="prob-${c.id}">—</div>
       </div>
     `;
-    if (c.region === "North") northCards.appendChild(card);
-    else southCards.appendChild(card);
+    allCards.appendChild(card);
   }
 }
 
@@ -1238,10 +1224,8 @@ function buildCommitteeTableHeader() {
   const thead = document.getElementById("committee-thead");
   let html = "<tr><th class='prob-col'>#</th>";
   for (const c of CANDIDATES) {
-    const cls = c.region === "North" ? "north-col" : "south-col";
-    // Use first 3 chars but avoid duplicate headers by appending initial of last trait
     const label = c.name.length <= 4 ? c.name : c.name.slice(0, 3);
-    html += `<th class="${cls}" title="${c.name} (${c.gender}, ${c.age}, ${c.region})">${label}</th>`;
+    html += `<th title="${c.name} (${c.gender}, ${c.age}, ${c.region})">${label}</th>`;
   }
   html += `<th class="prob-col">Prob</th></tr>`;
   thead.innerHTML = html;

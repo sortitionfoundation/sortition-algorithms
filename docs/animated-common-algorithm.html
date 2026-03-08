@@ -180,14 +180,11 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 5px 7px;
-    width: 105px;
+    width: 115px;
     position: relative;
     overflow: hidden;
     transition: border-color 0.3s, box-shadow 0.3s;
   }
-  .candidate-card.north { border-left: 3px solid var(--north-border); }
-  .candidate-card.south { border-left: 3px solid var(--south-border); }
-
   /* Green left border when covered by at least one panel */
   .candidate-card.is-covered {
     border-left-color: var(--green);
@@ -197,6 +194,11 @@
     box-shadow: 0 0 10px rgba(62, 207, 142, 0.4);
     border-color: var(--green);
   }
+  /* Yellow glow for highlighted (e.g. highest-scoring uncovered) */
+  .candidate-card.is-highlighted {
+    box-shadow: 0 0 10px rgba(255, 209, 102, 0.4);
+    border-color: var(--yellow);
+  }
 
   .card-name {
     font-weight: 600;
@@ -204,7 +206,7 @@
     margin-bottom: 1px;
   }
   .card-meta {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--muted);
     margin-bottom: 3px;
   }
@@ -398,9 +400,6 @@
     white-space: nowrap;
     z-index: 1;
   }
-  #committee-table th.north-col { color: var(--north-border); }
-  #committee-table th.south-col { color: var(--south-border); }
-
   #committee-table td {
     padding: 2px 5px;
     text-align: center;
@@ -503,12 +502,7 @@
                 <div id="candidates-section">
                     <h2>Candidates &mdash; search scores &amp; coverage</h2>
                     <div class="region-group">
-                        <div class="region-label north" id="north-label"></div>
-                        <div class="cards-row" id="north-cards"></div>
-                    </div>
-                    <div class="region-group">
-                        <div class="region-label south" id="south-label"></div>
-                        <div class="cards-row" id="south-cards"></div>
+                        <div class="cards-row" id="all-cards"></div>
                     </div>
                 </div>
                 <div id="stats-panel">
@@ -588,27 +582,27 @@ const CANDIDATES = [
   // North Senior Males (4) — abundant group
   { id: "adam",    name: "Adam",    gender: "M", region: "North", age: "Senior" },
   { id: "ben",     name: "Ben",     gender: "M", region: "North", age: "Senior" },
-  { id: "charlie", name: "Charlie", gender: "M", region: "North", age: "Senior" },
-  { id: "dan",     name: "Dan",     gender: "M", region: "North", age: "Senior" },
+  { id: "chen",    name: "Chen",    gender: "M", region: "North", age: "Senior" },
+  { id: "dmitri",  name: "Dmitri",  gender: "M", region: "North", age: "Senior" },
   // North Senior Females (3)
-  { id: "emma",    name: "Emma",    gender: "F", region: "North", age: "Senior" },
-  { id: "fiona",   name: "Fiona",   gender: "F", region: "North", age: "Senior" },
+  { id: "elena",   name: "Elena",   gender: "F", region: "North", age: "Senior" },
+  { id: "fatima",  name: "Fatima",  gender: "F", region: "North", age: "Senior" },
   { id: "grace",   name: "Grace",   gender: "F", region: "North", age: "Senior" },
   // North Young Males (2)
-  { id: "harry",   name: "Harry",   gender: "M", region: "North", age: "Young" },
+  { id: "hassan",  name: "Hassan",  gender: "M", region: "North", age: "Young" },
   { id: "ivan",    name: "Ivan",    gender: "M", region: "North", age: "Young" },
   // North Young Females (2)
-  { id: "julia",   name: "Julia",   gender: "F", region: "North", age: "Young" },
-  { id: "karen",   name: "Karen",   gender: "F", region: "North", age: "Young" },
+  { id: "jun",     name: "Jun",     gender: "F", region: "North", age: "Young" },
+  { id: "keiko",   name: "Keiko",   gender: "F", region: "North", age: "Young" },
   // South Senior Males (1) — scarce
   { id: "leo",     name: "Leo",     gender: "M", region: "South", age: "Senior" },
   // South Senior Females (2)
   { id: "mia",     name: "Mia",     gender: "F", region: "South", age: "Senior" },
-  { id: "nora",    name: "Nora",    gender: "F", region: "South", age: "Senior" },
+  { id: "nadia",   name: "Nadia",   gender: "F", region: "South", age: "Senior" },
   // South Young Male (1) — very scarce
-  { id: "oscar",   name: "Oscar",   gender: "M", region: "South", age: "Young" },
+  { id: "omar",    name: "Omar",    gender: "M", region: "South", age: "Young" },
   // South Young Female (1) — very scarce
-  { id: "penny",   name: "Penny",   gender: "F", region: "South", age: "Young" },
+  { id: "priya",   name: "Priya",   gender: "F", region: "South", age: "Young" },
 ];
 
 const SELECT_COUNT = 8;
@@ -626,9 +620,6 @@ const CONSTRAINTS = [
 const CANDIDATE_IDS = CANDIDATES.map(c => c.id);
 const ID_TO_IDX = {};
 CANDIDATES.forEach((c, i) => { ID_TO_IDX[c.id] = i; });
-
-const NORTH_IDS = CANDIDATES.filter(c => c.region === "North").map(c => c.id);
-const SOUTH_IDS = CANDIDATES.filter(c => c.region === "South").map(c => c.id);
 
 // ─────────────────────────────────────────────────────────────
 // Check if a committee satisfies all constraints
@@ -714,8 +705,8 @@ function listNames(ids) {
   return ids.map(id => candidateTag(id)).join(", ");
 }
 
-// Format a score to 3 decimal places
-function fmtScore(v) { return v.toFixed(3); }
+// Format a score to 2 decimal places
+function fmtScore(v) { return v.toFixed(2); }
 
 // ─────────────────────────────────────────────────────────────
 // Multiplicative weights search
@@ -738,10 +729,10 @@ function runMultiplicativeWeightsSearch() {
   const coverageCounts = {};        // How many panels each person appears in
   CANDIDATE_IDS.forEach(id => { coverageCounts[id] = 0; });
 
-  // Initialise scores: nearly equal with tiny random variation
+  // Initialise scores: all equal at 1.0
   const scores = {};
   CANDIDATE_IDS.forEach(id => {
-    scores[id] = 0.99 + 0.01 * rng();
+    scores[id] = 1.0;
   });
 
   // Find the panel with the highest total score
@@ -777,6 +768,7 @@ function runMultiplicativeWeightsSearch() {
       newPanelIdx: opts.newPanelIdx != null ? opts.newPanelIdx : -1,
       duplicatePanelIdx: opts.duplicatePanelIdx != null ? opts.duplicatePanelIdx : -1,
       inFoundCommittee: opts.inFoundCommittee || new Set(),
+      highlightIds: opts.highlightIds || new Set(),
       round: opts.round || 0,
       narration,
     };
@@ -791,7 +783,7 @@ function runMultiplicativeWeightsSearch() {
     body: `We have <span class="highlight">16 candidates</span> and need to select a panel of <span class="highlight">8</span>. ` +
       `But the pool is uneven: 11 live in the North vs only 5 in the South, and 10 are Senior vs 6 Young. ` +
       `That means some combinations of traits are common (Senior Northern Males — 4 of them) ` +
-      `while others are very rare (Young Southern Male — just Oscar, or Young Southern Female — just Penny).<br><br>` +
+      `while others are very rare (Young Southern Male — just Omar, or Young Southern Female — just Priya).<br><br>` +
       `Before we can run any fairness algorithm, we need to find a good <em>starting collection</em> of valid panels ` +
       `that includes every person at least once.`
   }));
@@ -821,7 +813,7 @@ function runMultiplicativeWeightsSearch() {
   snapshots.push(makeSnapshot({
     heading: "The scoring system",
     body: `Here's how the search works. Every person gets a <b>score</b> (shown on the cards above). ` +
-      `Right now they're all roughly equal — around 1.000 — with tiny random differences to break ties.<br><br>` +
+      `Right now they're all exactly 1.00.<br><br>` +
       `Each round, we find the valid panel whose members have the <b>highest total score</b>. ` +
       `Then we <em>lower</em> those members' scores by 20%, so next time the search naturally favours ` +
       `different people. This simple trick builds variety into the collection.<br><br>` +
@@ -879,19 +871,39 @@ function runMultiplicativeWeightsSearch() {
 
       if (round === 1) {
         // Detailed narration for the first round
-        body = `Everyone's scores are nearly equal, so the first search is almost random. ` +
+        body = `Everyone's scores are equal, so the first search picks any valid panel. ` +
           `Found: {${listNames(memberIds)}}.<br><br>` +
           `These ${memberIds.length} people are now <span class="highlight">covered</span> — ` +
           `they appear in at least one panel. ` +
           `Their scores drop by 20% so the next search favours the remaining ` +
           `${CANDIDATE_IDS.length - coveredSet.size} uncovered people.`;
-      } else if (round <= 3) {
-        // Medium detail for rounds 2-3
+      } else if (round === 2) {
+        // Round 2: point out who is still uncovered and has the highest score
+        const uncoveredIds = CANDIDATE_IDS.filter(id => !coveredSet.has(id));
+        const maxUncoveredScore = Math.max(...uncoveredIds.map(id => scores[id]));
+        const highestUncovered = uncoveredIds.filter(id => Math.abs(scores[id] - maxUncoveredScore) < 0.001);
         body = `Panel #${foundPanels.length} found: {${listNames(memberIds)}}.`;
         if (newlyCovered.length > 0) {
           body += `<br>Newly covered: ${listNames(newlyCovered)}.`;
         }
         body += `<br><span class="highlight">${coveredSet.size}</span> of ${CANDIDATE_IDS.length} people now covered.`;
+        if (uncoveredIds.length > 0) {
+          body += `<br><br>Still uncovered: ${listNames(uncoveredIds)}. ` +
+            `Since they haven't been in any panel yet, their scores haven't been reduced — ` +
+            `they have the highest scores (${fmtScore(maxUncoveredScore)}), highlighted in yellow above. ` +
+            `The next search will strongly favour them.`;
+        }
+      } else if (round === 3) {
+        // Round 3: point out that previously uncovered people were picked up
+        body = `Panel #${foundPanels.length} found: {${listNames(memberIds)}}.`;
+        if (newlyCovered.length > 0) {
+          body += `<br>Newly covered: ${listNames(newlyCovered)}.`;
+        }
+        body += `<br><span class="highlight">${coveredSet.size}</span> of ${CANDIDATE_IDS.length} people now covered.`;
+        if (coveredSet.size === CANDIDATE_IDS.length) {
+          body += `<br><br>Everyone is now covered! The previously uncovered people were selected this round ` +
+            `and their scores have now come down.`;
+        }
       } else {
         // Concise for rounds 4+
         body = `Panel #${foundPanels.length} found.`;
@@ -901,10 +913,15 @@ function runMultiplicativeWeightsSearch() {
         body += ` <span class="highlight">${coveredSet.size}</span> of ${CANDIDATE_IDS.length} covered.`;
       }
 
+      // For round 2, highlight the still-uncovered candidates (highest scores)
+      const stillUncovered = (round === 2)
+        ? new Set(CANDIDATE_IDS.filter(id => !coveredSet.has(id)))
+        : new Set();
+
       snapshots.push(makeSnapshot({
         heading: `Round ${round}`,
         body
-      }, { round, newPanelIdx: newIdx, inFoundCommittee: new Set(bestPanel) }));
+      }, { round, newPanelIdx: newIdx, inFoundCommittee: new Set(bestPanel), highlightIds: stillUncovered }));
     }
   }
 
@@ -926,7 +943,8 @@ function runMultiplicativeWeightsSearch() {
       `But the spread is uneven:<br><br>`;
 
     body += `${listNames(mostInPanels)} appear in <span class="highlight">${maxCount} panels each</span>. ` +
-      `As Young Southerners, they're so rare that almost every valid panel needs them.<br><br>`;
+      `As Young Southerners, they're so rare that almost every valid panel needs them, ` +
+      `despite their scores being under 0.50.<br><br>`;
 
     body += `Meanwhile ${listNames(leastInPanels)} each appear in only <span class="highlight">${minCount} panels</span>. ` +
       `As Senior Northerners — the most common group — the algorithm has plenty of substitutes ` +
@@ -1018,27 +1036,23 @@ const SNAPSHOTS = runMultiplicativeWeightsSearch();
 // ─────────────────────────────────────────────────────────────
 
 function buildCandidateCards() {
-  const northCards = document.getElementById("north-cards");
-  const southCards = document.getElementById("south-cards");
-  document.getElementById("north-label").textContent = `North (${NORTH_IDS.length} candidates)`;
-  document.getElementById("south-label").textContent = `South (${SOUTH_IDS.length} candidates)`;
+  const allCards = document.getElementById("all-cards");
 
   for (const c of CANDIDATES) {
     const card = document.createElement("div");
-    card.className = `candidate-card ${c.region.toLowerCase()}`;
+    card.className = "candidate-card";
     card.id = `card-${c.id}`;
     const genderIcon = c.gender === "M" ? "\u2642" : "\u2640";
     card.innerHTML = `
       <div class="card-name">${c.name}</div>
-      <div class="card-meta">${genderIcon} ${c.age}</div>
+      <div class="card-meta">${genderIcon} · ${c.region} · ${c.age}</div>
       <div class="card-score-bar">
         <div class="card-score-fill" id="fill-${c.id}" style="width: 0%"></div>
         <div class="card-score-text" id="score-${c.id}">&mdash;</div>
       </div>
       <div class="card-coverage" id="cov-${c.id}"></div>
     `;
-    if (c.region === "North") northCards.appendChild(card);
-    else southCards.appendChild(card);
+    allCards.appendChild(card);
   }
 }
 
@@ -1071,9 +1085,8 @@ function buildCommitteeTableHeader() {
   const thead = document.getElementById("committee-thead");
   let html = '<tr><th style="color: var(--muted)">#</th>';
   for (const c of CANDIDATES) {
-    const cls = c.region === "North" ? "north-col" : "south-col";
     const label = c.name.length <= 4 ? c.name : c.name.slice(0, 3);
-    html += `<th class="${cls}" title="${c.name} (${c.gender}, ${c.age}, ${c.region})">${label}</th>`;
+    html += `<th title="${c.name} (${c.gender}, ${c.age}, ${c.region})">${label}</th>`;
   }
   html += "</tr>";
   thead.innerHTML = html;
@@ -1237,9 +1250,11 @@ function renderStep(stepIdx) {
       covText.className = "card-coverage";
     }
 
-    // Card styling: green border when covered, glow when in found panel
+    // Card styling: green border when covered, glow when in found panel, yellow when highlighted
+    const isHighlighted = snap.highlightIds && snap.highlightIds.has(c.id);
     card.classList.toggle("is-covered", isCovered);
     card.classList.toggle("in-found-committee", !!inFound);
+    card.classList.toggle("is-highlighted", !!isHighlighted);
   }
 
   // Stats panel: search progress
