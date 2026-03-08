@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ABOUTME: Animated step-by-step visualisation of the Legacy sortition algorithm. -->
-<!-- ABOUTME: Uses candidates and features from tests/fixtures/ to select 23 people. -->
+<!-- ABOUTME: Uses the same 16-person candidate pool as animated-common-algorithm.html. -->
 <html lang="en">
     <head>
         <meta charset="UTF-8">
@@ -57,248 +57,232 @@
     align-items: baseline;
     gap: 16px;
   }
-  #header h1 {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--accent);
-    white-space: nowrap;
-  }
-  #step-info {
-    font-size: 13px;
-    color: var(--muted);
-  }
-  #step-label { color: var(--yellow); font-weight: 600; }
+  #header h1 { font-size: 16px; font-weight: 700; white-space: nowrap; }
+  #step-info { font-size: 13px; color: var(--muted); }
+  #step-desc { color: var(--text); }
 
-  /* ── Controls ────────────────────────────────────────────── */
+  /* ── Controls ───────────────────────────────────────────── */
   #controls {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 20px;
+    gap: 8px;
+    padding: 6px 20px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
-  button {
+  #controls button {
     background: var(--surface2);
-    border: 1px solid var(--border);
     color: var(--text);
-    border-radius: var(--radius);
-    padding: 4px 13px;
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     font-family: var(--font);
-    transition: background 0.12s, border-color 0.12s;
   }
-  button:hover:not(:disabled) { background: var(--border); }
-  button:disabled { opacity: 0.35; cursor: default; }
+  #controls button:hover { background: var(--border); }
+  #controls button:disabled { opacity: 0.3; cursor: default; }
+  #controls button.playing { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #controls button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .speed-group { display: flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 12px; color: var(--muted); }
+  .speed-group input[type="range"] { width: 80px; }
+  #speed-label { font-family: var(--mono); font-size: 11px; min-width: 36px; }
+  .step-counter { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--mono); }
 
-  #btn-play {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-    font-weight: 600;
-    min-width: 88px;
-  }
-  #btn-play:hover:not(:disabled) { background: #7090ff; border-color: #7090ff; }
-  #btn-play.playing { background: var(--orange); border-color: var(--orange); }
-  #btn-play.playing:hover { background: #ffb060; }
-
-  #btn-log { font-size: 12px; padding: 4px 10px; color: var(--muted); }
-  #btn-log.active { color: var(--text); border-color: var(--muted); }
-
-  .speed-group {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin-left: 6px;
-  }
-  .speed-group label { color: var(--muted); font-size: 12px; }
-  #speed-slider {
-    -webkit-appearance: none;
-    width: 110px;
-    height: 4px;
-    background: var(--border);
-    border-radius: 4px;
-    outline: none;
-  }
-  #speed-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 13px;
-    height: 13px;
-    background: var(--accent);
-    border-radius: 50%;
-    cursor: pointer;
-  }
-  #speed-label { color: var(--text); font-size: 12px; min-width: 40px; }
-
-  .step-counter { margin-left: auto; font-size: 12px; color: var(--muted); }
-  .step-counter span { color: var(--text); font-weight: 600; }
-
-  /* ── Main layout ─────────────────────────────────────────── */
+  /* ── Main layout ────────────────────────────────────────── */
   #main {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    flex: 1;
-    min-height: 0;       /* allow flex child to shrink below content height */
-    overflow: hidden;
-  }
-
-  /* ── Left: Feature/Value Table ───────────────────────────── */
-  #feature-table-panel {
-    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    flex: 1;
     overflow: hidden;
     min-height: 0;
   }
-  #feature-table-panel h2 {
-    font-size: 11px;
+
+  /* ── People pool section ────────────────────────────────── */
+  #people-pool-section {
+    padding: 10px 20px 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  #people-pool-section h2 {
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--muted);
-    padding: 7px 16px 6px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+  .region-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 4px 0 3px;
+  }
+  #people-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .person-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    min-width: 72px;
+    text-align: center;
+    transition: background 0.3s, border-color 0.3s, opacity 0.3s;
+  }
+  .person-card .pc-name {
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text);
+    transition: color 0.3s;
+  }
+  .person-card .pc-traits {
+    font-size: 9px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .person-card.is-selected {
+    border-color: var(--green);
+    background: var(--winner-bg);
+  }
+  .person-card.is-selected .pc-name { color: var(--green); }
+  .person-card.is-just-selected {
+    border-color: var(--green);
+    background: rgba(62, 207, 142, 0.3);
+    animation: card-flash-green 0.5s ease-out;
+  }
+  .person-card.is-just-selected .pc-name { color: #fff; }
+  .person-card.is-removed {
+    opacity: 0.2;
+    border-style: dashed;
+  }
+  .person-card.is-just-removed {
+    opacity: 0.5;
+    border-color: var(--red);
+    background: rgba(255, 91, 91, 0.15);
+    animation: card-flash-red 0.5s ease-out;
+  }
+
+  /* ── Bottom section (table + detail) ────────────────────── */
+  #bottom-section {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── Feature table panel ────────────────────────────────── */
+  #feature-table-panel {
+    width: 480px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  #feature-table-panel > h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 10px 14px 7px;
     flex-shrink: 0;
   }
   #feature-table-wrap {
-    overflow-y: auto;
     flex: 1;
+    overflow-y: auto;
+    padding: 0 14px 10px;
   }
 
-  table.ft {
+  /* ── Feature value table ────────────────────────────────── */
+  .ft {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 12px;
+    font-family: var(--mono);
   }
-
-  /* Sticky header */
-  table.ft thead th {
+  .ft th {
     position: sticky;
     top: 0;
-    z-index: 2;
-    background: var(--surface2);
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
+    background: var(--bg);
+    text-align: center;
+    padding: 4px 6px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 6px 14px;
-    text-align: right;
+    color: var(--muted);
     border-bottom: 2px solid var(--border);
-    white-space: nowrap;
+    z-index: 1;
   }
-  table.ft thead th:first-child { text-align: left; padding-left: 16px; }
-
-  /* Feature group header rows */
-  table.ft tr.fg-header td {
-    background: var(--surface);
+  .ft td {
+    padding: 5px 6px;
+    text-align: center;
+    border-bottom: 1px solid rgba(46,51,80,0.4);
+  }
+  .fg-header td {
+    font-weight: 700;
     color: var(--accent);
     font-size: 11px;
-    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 8px 16px 4px;
-    border-top: 1px solid var(--border);
-  }
-  table.ft tr.fg-header:first-of-type td { border-top: none; }
-
-  /* Value rows */
-  table.ft tr.fv-row td {
-    padding: 5px 14px;
-    text-align: right;
-    border-bottom: 1px solid rgba(46,51,80,0.5);
-    font-family: var(--mono);
-    font-size: 12px;
-    transition: background 0.25s, color 0.25s, opacity 0.25s;
-  }
-  table.ft tr.fv-row td:first-child {
+    letter-spacing: 0.5px;
+    padding-top: 10px;
+    border-bottom: 1px solid var(--accent);
     text-align: left;
-    padding-left: 24px;
-    font-family: var(--font);
-    font-size: 13px;
-    color: var(--text);
   }
+  tr.fv-row .td-val { text-align: left; color: var(--text); font-weight: 600; }
+  tr.fv-row .td-min { color: var(--c-min); }
+  tr.fv-row .td-sel .sel-num { color: var(--c-sel); font-weight: 700; }
+  tr.fv-row .td-sel .sel-min { color: var(--muted); font-size: 10px; }
+  tr.fv-row .td-rem .rem-num { color: var(--c-rem); }
 
-  /* Min column — colored to match ratio formula */
-  td.td-min { color: var(--c-min); }
+  .c-min { color: var(--c-min); }
+  .c-sel { color: var(--c-sel); }
+  .c-rem { color: var(--c-rem); }
+  .c-res { color: var(--yellow); font-weight: 700; }
 
-  /* Selected column — colored to match ratio formula */
-  td.td-sel { color: var(--text); }
-  td.td-sel .sel-num { font-weight: 700; color: var(--c-sel); }
-  td.td-sel .sel-min { color: var(--muted); font-size: 11px; }
-
-  /* Remaining column — colored to match ratio formula */
-  td.td-rem { text-align: center; }
-  td.td-rem .rem-num {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--c-rem);
-  }
-
-  /* Ratio column — shows full color-coded calculation */
-  td.td-ratio {
-    white-space: nowrap;
-  }
-  .ratio-cell {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 6px;
-  }
-  .ratio-formula {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .ratio-formula .c-min { color: var(--c-min); }
-  .ratio-formula .c-sel { color: var(--c-sel); }
-  .ratio-formula .c-rem { color: var(--c-rem); }
-  .ratio-formula .c-res { color: var(--text); font-weight: 600; }
-  .ratio-track {
-    width: 50px;
-    height: 6px;
-    background: var(--border);
+  .difficulty-cell { display: flex; flex-direction: column; gap: 2px; }
+  .difficulty-formula { font-size: 11px; white-space: nowrap; }
+  .difficulty-track {
+    height: 4px;
+    background: rgba(46,51,80,0.5);
     border-radius: 3px;
     overflow: hidden;
-    flex-shrink: 0;
+    min-width: 60px;
   }
-  .ratio-fill {
+  .difficulty-fill {
     height: 100%;
-    background: var(--accent);
+    background: var(--yellow);
     border-radius: 3px;
-    transition: width 0.35s ease;
+    transition: width 0.25s;
   }
 
-  /* ── Row state classes ───────────────────────────────────── */
-
-  /* Winner: bright green */
+  /* Row states */
   tr.fv-row.is-winner {
-    background: var(--winner-bg) !important;
+    animation: row-flash-green 0.45s ease-out;
+    background: var(--winner-bg);
   }
-  tr.fv-row.is-winner td:first-child { color: var(--green) !important; font-weight: 700; }
-  tr.fv-row.is-winner td:first-child::before { content: '★ '; }
-  tr.fv-row.is-winner td.td-max { color: var(--green) !important; }
-  tr.fv-row.is-winner .ratio-formula .c-res { color: var(--green); }
-  tr.fv-row.is-winner .ratio-fill { background: var(--green); }
-
-  /* Category full: red highlight */
+  tr.fv-row.is-winner .td-val { color: var(--green); }
   tr.fv-row.is-full-event {
-    background: var(--full-bg) !important;
+    animation: row-flash-red 0.45s ease-out;
+    background: var(--full-bg);
   }
-  tr.fv-row.is-full-event td:first-child { color: var(--red) !important; }
-  tr.fv-row.is-full-event td:first-child::before { content: '✕ '; }
-  tr.fv-row.is-full-event td.td-max { color: var(--red) !important; }
-
-  /* Max reached (but not full-event): orange selected count */
-  tr.fv-row.is-maxed td.td-sel .sel-num { color: var(--orange); }
-  tr.fv-row.is-maxed td:first-child { color: var(--muted); }
-
-  /* Inactive: nothing more to contribute */
+  tr.fv-row.is-maxed { opacity: 0.4; }
   tr.fv-row.is-inactive { opacity: 0.35; }
-  tr.fv-row.is-inactive td:first-child::before { content: ''; }
+  tr.fv-row.is-changed {
+    background: rgba(255, 209, 102, 0.1);
+  }
+  tr.fv-row.is-changed td {
+    border-bottom-color: rgba(255, 209, 102, 0.3);
+  }
 
   /* ── Right panel ─────────────────────────────────────────── */
   #right-panel {
@@ -306,13 +290,13 @@
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
+    flex: 1;
   }
 
   /* ── Step detail ─────────────────────────────────────────── */
   #step-detail {
     flex: 1 1 auto;
     padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
     overflow-y: auto;
     min-height: 0;
   }
@@ -378,11 +362,30 @@
     margin-bottom: 4px;
   }
 
+  /* ── How-it-works card ──────────────────────────────────── */
+  #how-card ol {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.7;
+    padding-left: 20px;
+    margin: 0;
+  }
+  #how-card li {
+    padding: 2px 6px;
+    border-radius: 4px;
+    border-left: 3px solid transparent;
+    transition: background 0.3s, border-color 0.3s;
+    margin-bottom: 2px;
+  }
+  #how-card li.active-step {
+    background: rgba(91, 127, 255, 0.15);
+    border-left-color: var(--accent);
+    color: #fff;
+  }
+
   /* ── Selected panel ──────────────────────────────────────── */
   #selected-panel {
-    /* flex: 1;
-    overflow-y: auto; */
-    padding: 10px 14px;
+    padding: 10px 0;
   }
   #selected-panel h2 {
     font-size: 10px;
@@ -391,10 +394,6 @@
     letter-spacing: 1px;
     color: var(--muted);
     margin-bottom: 7px;
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-    padding-bottom: 3px;
   }
   .sel-grid {
     display: flex;
@@ -431,7 +430,7 @@
     background: var(--surface);
     border-top: 1px solid var(--border);
     flex-shrink: 0;
-    display: none;         /* hidden until toggled */
+    display: none;
     flex-direction: column;
     max-height: 160px;
     overflow: hidden;
@@ -456,7 +455,7 @@
   }
   .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(46,51,80,0.3); color: var(--muted); }
   .log-entry.current { color: var(--text); }
-  .log-entry.type-ratio .tag    { color: var(--yellow); }
+  .log-entry.type-difficulty .tag    { color: var(--yellow); }
   .log-entry.type-selection .tag { color: var(--green); }
   .log-entry.type-category_full .tag { color: var(--red); }
   .log-entry.type-complete .tag { color: var(--accent); }
@@ -495,9 +494,14 @@
     0%   { transform: scale(1.25); background: #fff; color: var(--accent); }
     100% { transform: scale(1);    background: var(--accent); color: #fff; }
   }
-
-  tr.fv-row.is-winner    { animation: row-flash-green 0.45s ease-out; }
-  tr.fv-row.is-full-event { animation: row-flash-red  0.45s ease-out; }
+  @keyframes card-flash-green {
+    0%   { background: rgba(62,207,142,0.5); }
+    100% { background: rgba(62,207,142,0.3); }
+  }
+  @keyframes card-flash-red {
+    0%   { background: rgba(255,91,91,0.35); }
+    100% { background: rgba(255,91,91,0.15); }
+  }
         </style>
     </head>
     <body>
@@ -505,7 +509,7 @@
             <h1>Legacy Sortition Algorithm</h1>
             <div id="step-info">
                 <span id="step-label">Step 1</span>
-                <span id="step-desc">— Initial state: 150 candidates, selecting 23</span>
+                <span id="step-desc">— Initial state: 16 candidates, selecting 8</span>
             </div>
         </div>
         <div id="controls">
@@ -523,61 +527,66 @@
             </div>
         </div>
         <div id="main">
-            <div id="feature-table-panel">
-                <h2>
-                    Feature quotas &amp; urgency ratios — ratio = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span>
-                </h2>
-                <div id="feature-table-wrap">
-                    <table class="ft">
-                        <thead>
-                            <tr>
-                                <th>Value</th>
-                                <th title="Minimum required" style="color:var(--c-min)">Min</th>
-                                <th title="Maximum allowed">Max</th>
-                                <th title="Selected so far" style="color:var(--c-sel)">Selected</th>
-                                <th title="Remaining candidates in pool with this value"
-                                    style="color:var(--c-rem)">Remaining</th>
-                                <th title="Urgency ratio = (min − selected) / remaining">Ratio</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ft-tbody">
-                        </tbody>
-                    </table>
-                </div>
+            <div id="people-pool-section">
+                <h2>Candidate Pool</h2>
+                <div id="people-grid"></div>
             </div>
-            <div id="right-panel">
-                <div id="step-detail">
-                    <div class="detail-card" id="how-card">
-                        <h3>How it works</h3>
-                        <ul style="font-size:13px;
-                                   color:var(--text);
-                                   line-height:1.7;
-                                   padding-left:16px">
-                            <li>
-                                Each round, compute <em>ratio = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span></em> for every feature value
-                            </li>
-                            <li>Pick a random person from the value with the highest ratio</li>
-                            <li>When a value hits its max, remove all remaining candidates with that value from the pool</li>
-                        </ul>
+            <div id="bottom-section">
+                <div id="feature-table-panel">
+                    <h2>
+                        Feature quotas &amp; difficulty — difficulty = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span>
+                    </h2>
+                    <div id="feature-table-wrap">
+                        <table class="ft">
+                            <thead>
+                                <tr>
+                                    <th>Value</th>
+                                    <th title="Minimum required" style="color:var(--c-min)">Min</th>
+                                    <th title="Maximum allowed">Max</th>
+                                    <th title="Selected so far" style="color:var(--c-sel)">Selected</th>
+                                    <th title="Remaining candidates in pool with this value"
+                                        style="color:var(--c-rem)">Remaining</th>
+                                    <th title="Difficulty = (min − selected) / remaining">Difficulty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ft-tbody">
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="detail-card" id="counts-card">
-                        <h3>Counts</h3>
-                        <div class="dr">
-                            <span class="k">Candidates in pool</span><span class="v" id="count-pool">—</span>
+                </div>
+                <div id="right-panel">
+                    <div id="step-detail">
+                        <div class="detail-card" id="how-card">
+                            <h3>How it works</h3>
+                            <ol>
+                                <li id="how-step-1">
+                                    Each round, compute <em>difficulty = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span></em> for every feature value
+                                </li>
+                                <li id="how-step-2">Pick a random person from the value with the highest difficulty</li>
+                                <li id="how-step-3">Update the selected and remaining numbers for all values that person has</li>
+                                <li id="how-step-4">When a value hits its max, remove all remaining candidates with that value from the pool</li>
+                                <li id="how-step-5">Update the remaining numbers for all values those removed people had</li>
+                            </ol>
                         </div>
-                        <div class="dr">
-                            <span class="k">Selected</span><span class="v" id="count-selected">—</span>
+                        <div class="detail-card" id="counts-card">
+                            <h3>Counts</h3>
+                            <div class="dr">
+                                <span class="k">Candidates in pool</span><span class="v" id="count-pool">—</span>
+                            </div>
+                            <div class="dr">
+                                <span class="k">Selected</span><span class="v" id="count-selected">—</span>
+                            </div>
+                            <div class="dr">
+                                <span class="k">Features</span><span class="v" id="count-features">—</span>
+                            </div>
                         </div>
-                        <div class="dr">
-                            <span class="k">Features</span><span class="v" id="count-features">—</span>
+                        <div id="selected-panel">
+                            <h2 id="selected-title">Selected (0 / 8)</h2>
+                            <div class="sel-grid" id="selected-grid"></div>
                         </div>
+                        <h2>Step detail</h2>
+                        <div id="detail-content"></div>
                     </div>
-                    <div id="selected-panel">
-                        <h2 id="selected-title">Selected (0 / 23)</h2>
-                        <div class="sel-grid" id="selected-grid"></div>
-                    </div>
-                    <h2>Step detail</h2>
-                    <div id="detail-content"></div>
                 </div>
             </div>
         </div>
@@ -592,200 +601,58 @@
         </div>
         <script>
 // ─────────────────────────────────────────────────────────────────
-// DATA — from tests/fixtures/candidates.csv and features.csv
+// DATA — Same 16 candidates as animated-common-algorithm.html
 // ─────────────────────────────────────────────────────────────────
 
 const FEATURES = {
-  Gender: {
-    Female: { min: 11, max: 12 },
-    Male:   { min: 10, max: 11 },
-    "Non-binary or other": { min: 0, max: 1 },
+  gender: {
+    M: { min: 4, max: 4 },
+    F: { min: 4, max: 4 },
   },
-  age_bracket: {
-    "0-15":  { min: 0, max: 0 },
-    "16-29": { min: 5, max: 7 },
-    "30-44": { min: 5, max: 7 },
-    "45-59": { min: 5, max: 6 },
-    "60+":   { min: 5, max: 6 },
+  region: {
+    North: { min: 3, max: 5 },
+    South: { min: 3, max: 5 },
   },
-  edu_level: {
-    "No qualifications":  { min: 5, max: 7 },
-    "Level 1":            { min: 5, max: 7 },
-    "Level 2 or 3":       { min: 5, max: 6 },
-    "Level 4 and above":  { min: 5, max: 6 },
-  },
-  geo_bucket: {
-    "Central Scotland":      { min: 3, max: 5 },
-    "Glasgow":               { min: 3, max: 5 },
-    "Highlands and Islands": { min: 2, max: 5 },
-    "Lothian":               { min: 3, max: 5 },
-    "Mid Scotland and Fife": { min: 3, max: 5 },
-    "North East Scotland":   { min: 2, max: 5 },
-    "South Scotland":        { min: 3, max: 5 },
-    "West Scotland":         { min: 3, max: 5 },
+  age: {
+    Young:  { min: 4, max: 4 },
+    Senior: { min: 4, max: 4 },
   },
 };
 
-// Candidates: [id, Gender, age_bracket, geo_bucket, edu_level]
-const RAW_CANDIDATES = [
-  ["p0","Male","30-44","South Scotland","Level 4 and above"],
-  ["p1","Female","16-29","Lothian","Level 1"],
-  ["p2","Female","45-59","West Scotland","Level 2 or 3"],
-  ["p3","Male","30-44","Glasgow","Level 4 and above"],
-  ["p4","Female","45-59","South Scotland","Level 1"],
-  ["p5","Male","16-29","Mid Scotland and Fife","Level 2 or 3"],
-  ["p6","Female","30-44","Lothian","Level 1"],
-  ["p7","Male","30-44","Mid Scotland and Fife","Level 4 and above"],
-  ["p8","Female","45-59","Mid Scotland and Fife","Level 1"],
-  ["p9","Male","60+","North East Scotland","Level 1"],
-  ["p10","Male","45-59","Mid Scotland and Fife","Level 4 and above"],
-  ["p11","Male","16-29","Central Scotland","Level 2 or 3"],
-  ["p12","Male","45-59","Mid Scotland and Fife","No qualifications"],
-  ["p13","Male","16-29","Highlands and Islands","No qualifications"],
-  ["p14","Female","60+","Lothian","Level 1"],
-  ["p15","Female","45-59","Mid Scotland and Fife","Level 1"],
-  ["p16","Male","16-29","North East Scotland","Level 1"],
-  ["p17","Female","45-59","Lothian","No qualifications"],
-  ["p18","Female","45-59","Mid Scotland and Fife","Level 2 or 3"],
-  ["p19","Female","16-29","Glasgow","Level 4 and above"],
-  ["p20","Male","60+","Highlands and Islands","No qualifications"],
-  ["p21","Female","30-44","West Scotland","Level 2 or 3"],
-  ["p22","Female","16-29","North East Scotland","Level 2 or 3"],
-  ["p23","Female","16-29","Highlands and Islands","Level 1"],
-  ["p24","Male","30-44","Glasgow","Level 4 and above"],
-  ["p25","Female","45-59","Highlands and Islands","No qualifications"],
-  ["p26","Male","45-59","South Scotland","Level 4 and above"],
-  ["p27","Male","16-29","Glasgow","Level 4 and above"],
-  ["p28","Male","16-29","Mid Scotland and Fife","No qualifications"],
-  ["p29","Male","60+","North East Scotland","Level 4 and above"],
-  ["p30","Female","60+","North East Scotland","Level 1"],
-  ["p31","Female","60+","Glasgow","Level 4 and above"],
-  ["p32","Male","60+","Highlands and Islands","Level 4 and above"],
-  ["p33","Male","16-29","West Scotland","Level 2 or 3"],
-  ["p34","Male","60+","Mid Scotland and Fife","No qualifications"],
-  ["p35","Female","60+","North East Scotland","Level 4 and above"],
-  ["p36","Male","60+","North East Scotland","Level 1"],
-  ["p37","Male","30-44","Mid Scotland and Fife","No qualifications"],
-  ["p38","Female","60+","South Scotland","Level 1"],
-  ["p39","Female","45-59","Highlands and Islands","Level 1"],
-  ["p40","Male","16-29","Highlands and Islands","Level 1"],
-  ["p41","Male","16-29","Highlands and Islands","No qualifications"],
-  ["p42","Female","45-59","Highlands and Islands","Level 1"],
-  ["p43","Male","60+","Mid Scotland and Fife","No qualifications"],
-  ["p44","Male","16-29","Lothian","Level 1"],
-  ["p45","Female","60+","West Scotland","No qualifications"],
-  ["p46","Female","60+","Mid Scotland and Fife","No qualifications"],
-  ["p47","Female","45-59","South Scotland","No qualifications"],
-  ["p48","Female","16-29","South Scotland","No qualifications"],
-  ["p49","Female","30-44","Mid Scotland and Fife","No qualifications"],
-  ["p50","Male","60+","Mid Scotland and Fife","No qualifications"],
-  ["p51","Male","60+","Mid Scotland and Fife","Level 2 or 3"],
-  ["p52","Female","30-44","Central Scotland","Level 2 or 3"],
-  ["p53","Female","60+","North East Scotland","Level 4 and above"],
-  ["p54","Male","60+","Highlands and Islands","Level 1"],
-  ["p55","Male","16-29","Highlands and Islands","Level 2 or 3"],
-  ["p56","Male","16-29","West Scotland","No qualifications"],
-  ["p57","Female","60+","Highlands and Islands","Level 2 or 3"],
-  ["p58","Male","45-59","West Scotland","Level 2 or 3"],
-  ["p59","Male","16-29","West Scotland","No qualifications"],
-  ["p60","Male","16-29","North East Scotland","Level 4 and above"],
-  ["p61","Male","16-29","Highlands and Islands","No qualifications"],
-  ["p62","Male","16-29","Highlands and Islands","Level 2 or 3"],
-  ["p63","Male","45-59","South Scotland","No qualifications"],
-  ["p64","Female","45-59","South Scotland","No qualifications"],
-  ["p65","Male","30-44","Central Scotland","Level 4 and above"],
-  ["p66","Female","30-44","South Scotland","No qualifications"],
-  ["p67","Male","45-59","Mid Scotland and Fife","Level 4 and above"],
-  ["p68","Female","60+","Mid Scotland and Fife","No qualifications"],
-  ["p69","Male","16-29","South Scotland","Level 4 and above"],
-  ["p70","Male","45-59","Lothian","Level 2 or 3"],
-  ["p71","Male","30-44","Highlands and Islands","No qualifications"],
-  ["p72","Male","60+","West Scotland","Level 4 and above"],
-  ["p73","Male","60+","Mid Scotland and Fife","Level 1"],
-  ["p74","Male","45-59","West Scotland","Level 1"],
-  ["p75","Female","30-44","Central Scotland","Level 4 and above"],
-  ["p76","Male","16-29","Central Scotland","Level 2 or 3"],
-  ["p77","Female","60+","West Scotland","Level 2 or 3"],
-  ["p78","Female","45-59","Mid Scotland and Fife","Level 4 and above"],
-  ["p79","Male","30-44","Highlands and Islands","Level 1"],
-  ["p80","Male","30-44","West Scotland","No qualifications"],
-  ["p81","Male","30-44","Central Scotland","No qualifications"],
-  ["p82","Female","16-29","Glasgow","Level 2 or 3"],
-  ["p83","Male","16-29","Mid Scotland and Fife","Level 1"],
-  ["p84","Female","45-59","Glasgow","Level 1"],
-  ["p85","Female","45-59","Lothian","Level 4 and above"],
-  ["p86","Female","60+","Glasgow","Level 1"],
-  ["p87","Male","45-59","Glasgow","Level 1"],
-  ["p88","Female","45-59","Lothian","No qualifications"],
-  ["p89","Female","30-44","West Scotland","Level 1"],
-  ["p90","Male","60+","Central Scotland","No qualifications"],
-  ["p91","Male","30-44","Highlands and Islands","Level 4 and above"],
-  ["p92","Male","45-59","South Scotland","Level 1"],
-  ["p93","Female","45-59","North East Scotland","Level 1"],
-  ["p94","Male","16-29","West Scotland","Level 2 or 3"],
-  ["p95","Female","30-44","Lothian","No qualifications"],
-  ["p96","Male","45-59","Lothian","No qualifications"],
-  ["p97","Male","16-29","Mid Scotland and Fife","Level 1"],
-  ["p98","Male","16-29","Glasgow","Level 1"],
-  ["p99","Female","16-29","Lothian","Level 4 and above"],
-  ["p100","Male","60+","Glasgow","Level 1"],
-  ["p101","Female","60+","Highlands and Islands","Level 4 and above"],
-  ["p102","Female","60+","Glasgow","No qualifications"],
-  ["p103","Female","16-29","North East Scotland","Level 4 and above"],
-  ["p104","Male","60+","South Scotland","No qualifications"],
-  ["p105","Female","30-44","Central Scotland","Level 1"],
-  ["p106","Female","45-59","Highlands and Islands","Level 4 and above"],
-  ["p107","Female","45-59","West Scotland","Level 4 and above"],
-  ["p108","Female","30-44","West Scotland","Level 2 or 3"],
-  ["p109","Male","60+","Central Scotland","Level 4 and above"],
-  ["p110","Male","30-44","North East Scotland","No qualifications"],
-  ["p111","Female","60+","Lothian","Level 2 or 3"],
-  ["p112","Male","16-29","Mid Scotland and Fife","Level 4 and above"],
-  ["p113","Female","16-29","Mid Scotland and Fife","Level 1"],
-  ["p114","Female","30-44","Glasgow","No qualifications"],
-  ["p115","Male","16-29","Lothian","Level 4 and above"],
-  ["p116","Female","60+","North East Scotland","Level 4 and above"],
-  ["p117","Female","60+","West Scotland","Level 4 and above"],
-  ["p118","Male","16-29","Central Scotland","Level 2 or 3"],
-  ["p119","Male","60+","North East Scotland","Level 4 and above"],
-  ["p120","Male","30-44","Lothian","Level 4 and above"],
-  ["p121","Female","60+","Glasgow","Level 1"],
-  ["p122","Female","30-44","Mid Scotland and Fife","Level 4 and above"],
-  ["p123","Female","45-59","North East Scotland","Level 4 and above"],
-  ["p124","Male","30-44","Mid Scotland and Fife","Level 4 and above"],
-  ["p125","Female","45-59","Highlands and Islands","Level 1"],
-  ["p126","Female","30-44","South Scotland","Level 1"],
-  ["p127","Female","16-29","Lothian","Level 2 or 3"],
-  ["p128","Male","30-44","Glasgow","No qualifications"],
-  ["p129","Female","60+","Central Scotland","Level 1"],
-  ["p130","Female","60+","Lothian","No qualifications"],
-  ["p131","Female","30-44","South Scotland","Level 4 and above"],
-  ["p132","Female","45-59","Central Scotland","Level 1"],
-  ["p133","Female","45-59","Lothian","Level 2 or 3"],
-  ["p134","Female","45-59","Lothian","Level 1"],
-  ["p135","Female","60+","Glasgow","Level 2 or 3"],
-  ["p136","Female","45-59","Glasgow","No qualifications"],
-  ["p137","Male","45-59","Central Scotland","Level 2 or 3"],
-  ["p138","Female","16-29","Glasgow","Level 2 or 3"],
-  ["p139","Female","60+","Central Scotland","Level 4 and above"],
-  ["p140","Female","60+","South Scotland","Level 2 or 3"],
-  ["p141","Female","45-59","South Scotland","Level 2 or 3"],
-  ["p142","Male","16-29","Central Scotland","Level 4 and above"],
-  ["p143","Male","45-59","Glasgow","Level 2 or 3"],
-  ["p144","Female","16-29","Central Scotland","Level 4 and above"],
-  ["p145","Female","60+","Highlands and Islands","Level 1"],
-  ["p146","Female","16-29","North East Scotland","Level 2 or 3"],
-  ["p147","Female","60+","Highlands and Islands","No qualifications"],
-  ["p148","Male","16-29","Mid Scotland and Fife","Level 1"],
-  ["p149","Male","45-59","West Scotland","Level 4 and above"],
+const CANDIDATES = [
+  // North Senior Males (4) — abundant group
+  { id: "adam",    name: "Adam",    gender: "M", region: "North", age: "Senior" },
+  { id: "ben",     name: "Ben",     gender: "M", region: "North", age: "Senior" },
+  { id: "chen",    name: "Chen",    gender: "M", region: "North", age: "Senior" },
+  { id: "dmitri",  name: "Dmitri",  gender: "M", region: "North", age: "Senior" },
+  // North Senior Females (3)
+  { id: "elena",   name: "Elena",   gender: "F", region: "North", age: "Senior" },
+  { id: "fatima",  name: "Fatima",  gender: "F", region: "North", age: "Senior" },
+  { id: "grace",   name: "Grace",   gender: "F", region: "North", age: "Senior" },
+  // North Young Males (2)
+  { id: "hassan",  name: "Hassan",  gender: "M", region: "North", age: "Young" },
+  { id: "ivan",    name: "Ivan",    gender: "M", region: "North", age: "Young" },
+  // North Young Females (2)
+  { id: "jun",     name: "Jun",     gender: "F", region: "North", age: "Young" },
+  { id: "keiko",   name: "Keiko",   gender: "F", region: "North", age: "Young" },
+  // South Senior Males (1) — scarce
+  { id: "leo",     name: "Leo",     gender: "M", region: "South", age: "Senior" },
+  // South Senior Females (2)
+  { id: "mia",     name: "Mia",     gender: "F", region: "South", age: "Senior" },
+  { id: "nadia",   name: "Nadia",   gender: "F", region: "South", age: "Senior" },
+  // South Young Male (1) — very scarce
+  { id: "omar",    name: "Omar",    gender: "M", region: "South", age: "Young" },
+  // South Young Female (1) — very scarce
+  { id: "priya",   name: "Priya",   gender: "F", region: "South", age: "Young" },
 ];
 
-const CANDIDATES = RAW_CANDIDATES.map(([id, Gender, age_bracket, geo_bucket, edu_level]) =>
-  ({ id, Gender, age_bracket, geo_bucket, edu_level })
-);
-
-const NUM_WANTED = 23;
+const NUM_WANTED = 8;
 const FEATURE_NAMES = Object.keys(FEATURES);
+const FEATURE_DISPLAY = { gender: "Gender", region: "Region", age: "Age" };
+
+// Build lookup from id → candidate object
+const ID_TO_CANDIDATE = {};
+CANDIDATES.forEach(c => { ID_TO_CANDIDATE[c.id] = c; });
 
 // ─────────────────────────────────────────────────────────────────
 // SEEDED PRNG (mulberry32)
@@ -848,7 +715,6 @@ function deleteAllWithValue(pool, counts, feature, value) {
     const person = pool[idx];
     pool.splice(idx, 1);
     deleted.push(person);
-    // decrement remaining counts for all features of this person
     for (const f of FEATURE_NAMES) {
       const fv = person[f];
       if (counts[f][fv] !== undefined && counts[f][fv].remaining > 0) {
@@ -875,29 +741,28 @@ function peopleStillNeeded(sc) {
   return Math.max(sc.min - sc.selected, 0);
 }
 
-function calcRatios(counts) {
-  const ratios = [];
+function calcDifficulties(counts) {
+  const difficulties = [];
   for (const f of FEATURE_NAMES) {
     for (const [v, sc] of Object.entries(counts[f])) {
       const needed = peopleStillNeeded(sc);
-      const ratio = sc.remaining > 0 && sc.max > 0 ? needed / sc.remaining : -1;
-      ratios.push({ feature: f, value: v, selected: sc.selected, remaining: sc.remaining, min: sc.min, max: sc.max, needed, ratio });
+      const difficulty = sc.remaining > 0 && sc.max > 0 ? needed / sc.remaining : -1;
+      difficulties.push({ feature: f, value: v, selected: sc.selected, remaining: sc.remaining, min: sc.min, max: sc.max, needed, difficulty });
     }
   }
-  return ratios;
+  return difficulties;
 }
 
-function findWinner(ratios) {
+function findWinner(difficulties) {
   let best = null;
-  for (const r of ratios) {
+  for (const r of difficulties) {
     if (r.remaining <= 0 || r.max <= 0) continue;
-    if (best === null || r.ratio > best.ratio) best = r;
+    if (best === null || r.difficulty > best.difficulty) best = r;
   }
   return best;
 }
 
 function findPersonByPosition(pool, feature, value, position) {
-  // position is 1-indexed
   let count = 0;
   for (const person of pool) {
     if (person[feature] === value) {
@@ -920,6 +785,23 @@ function getFullCategories(counts, person) {
   return full;
 }
 
+// Compute which feature/value pairs changed difficulty between two difficulty arrays
+function findChangedFVs(prevDifficulties, currDifficulties) {
+  const changed = [];
+  const prevMap = {};
+  for (const r of prevDifficulties) {
+    prevMap[`${r.feature}||${r.value}`] = r;
+  }
+  for (const r of currDifficulties) {
+    const key = `${r.feature}||${r.value}`;
+    const prev = prevMap[key];
+    if (prev && (prev.difficulty !== r.difficulty || prev.selected !== r.selected || prev.remaining !== r.remaining)) {
+      changed.push({ feature: r.feature, value: r.value, prevDifficulty: prev.difficulty, newDifficulty: r.difficulty });
+    }
+  }
+  return changed;
+}
+
 function runSimulation(seed) {
   const rng = makePrng(seed);
   const pool = CANDIDATES.map(c => ({ ...c }));
@@ -929,18 +811,7 @@ function runSimulation(seed) {
 
   updateRemaining(pool, counts);
 
-  // Prune for max=0
-  const pruneEvents = [];
-  for (const f of FEATURE_NAMES) {
-    for (const [v, { max }] of Object.entries(FEATURES[f])) {
-      if (max === 0 && counts[f][v].remaining > 0) {
-        const deleted = deleteAllWithValue(pool, counts, f, v);
-        if (deleted.length > 0) {
-          pruneEvents.push(`Pruned ${deleted.length} people with ${f}=${v} (max=0)`);
-        }
-      }
-    }
-  }
+  const initialDifficulties = calcDifficulties(counts);
 
   steps.push({
     type: 'initial',
@@ -951,69 +822,104 @@ function runSimulation(seed) {
     winner: null,
     selectedPerson: null,
     fullCats: [],
-    events: [`Loaded ${CANDIDATES.length} candidates. Target: ${NUM_WANTED} people.`, ...pruneEvents],
-    ratios: calcRatios(counts),
+    events: [`Loaded ${CANDIDATES.length} candidates. Target: ${NUM_WANTED} people.`],
+    difficulties: initialDifficulties,
     iteration: 0,
+    activeSteps: [],
+    changedFVs: [],
+    removedIds: [],
   });
 
   for (let iter = 0; iter < NUM_WANTED; iter++) {
-    // ── Ratio calculation step ──────────────────────────────
-    const ratios = calcRatios(counts);
-    const winner = findWinner(ratios);
+    // ── Difficulty calculation step ──────────────────────────
+    const difficulties = calcDifficulties(counts);
+    const winner = findWinner(difficulties);
 
-    if (!winner) break; // should not happen
+    if (!winner) break;
 
     steps.push({
-      type: 'ratio',
-      description: `Iteration ${iter + 1}: Computing urgency ratios`,
+      type: 'difficulty',
+      description: `Iteration ${iter + 1}: Computing difficulty values`,
       pool: pool.map(p => p.id),
       selected: selected.map(p => p.id),
       counts: deepCloneCounts(counts),
       winner,
       selectedPerson: null,
       fullCats: [],
-      ratios,
+      difficulties,
       iteration: iter + 1,
+      activeSteps: [1],
+      changedFVs: [],
+      removedIds: [],
       events: [
-        `Iteration ${iter + 1}: Calculating urgency ratios for all ${pool.length} remaining candidates`,
-        `Winner: ${winner.feature} / ${winner.value}  →  ratio = ${winner.needed} / ${winner.remaining} = ${winner.ratio.toFixed(4)}`,
+        `Iteration ${iter + 1}: Computing difficulty for all feature values`,
+        `Highest difficulty: ${FEATURE_DISPLAY[winner.feature]} / ${winner.value}  →  ${winner.needed} / ${winner.remaining} = ${winner.difficulty.toFixed(3)}`,
       ],
     });
 
     // ── Selection step ──────────────────────────────────────
+    const prevDifficulties = calcDifficulties(counts);
     const position = rng.randbelow(winner.remaining) + 1;
     const person = findPersonByPosition(pool, winner.feature, winner.value, position);
 
     selectPerson(pool, counts, person);
     selected.push(person);
 
+    const newDifficulties = calcDifficulties(counts);
+    const changedFVs = findChangedFVs(prevDifficulties, newDifficulties);
+
+    // Build narration for the selection
+    const selEvents = [
+      `Picked position ${position} of ${winner.remaining} in ${FEATURE_DISPLAY[winner.feature]}/${winner.value}  →  ${person.name}`,
+    ];
+
+    // For the first pick, add special narration about cascading updates
+    if (iter === 0) {
+      const otherChanges = changedFVs.filter(c => !(c.feature === winner.feature && c.value === winner.value));
+      if (otherChanges.length > 0) {
+        const parts = otherChanges.map(c =>
+          `${FEATURE_DISPLAY[c.feature]}/${c.value} (${c.prevDifficulty.toFixed(3)} → ${c.newDifficulty.toFixed(3)})`
+        );
+        selEvents.push(
+          `We picked ${person.name} from ${FEATURE_DISPLAY[winner.feature]}=${winner.value}, but since they are also ${otherChanges.map(c => `${FEATURE_DISPLAY[c.feature]}=${c.value}`).join(" and ")}, those difficulty values were updated too: ${parts.join(", ")}`
+        );
+      }
+    } else {
+      selEvents.push(
+        `Updated difficulty for: ${changedFVs.map(c => `${FEATURE_DISPLAY[c.feature]}/${c.value}`).join(", ")}`
+      );
+    }
+
     steps.push({
       type: 'selection',
-      description: `Iteration ${iter + 1}: Selected ${person.id}`,
+      description: `Iteration ${iter + 1}: Selected ${person.name}`,
       pool: pool.map(p => p.id),
       selected: selected.map(p => p.id),
       counts: deepCloneCounts(counts),
       winner,
       selectedPerson: person,
       fullCats: [],
-      ratios: calcRatios(counts),
+      difficulties: newDifficulties,
       iteration: iter + 1,
       position,
-      events: [
-        `Selected position ${position} of ${winner.remaining} in ${winner.feature}/${winner.value}`,
-        `→ ${person.id}: Gender=${person.Gender}, age=${person.age_bracket}, geo=${person.geo_bucket}, edu=${person.edu_level}`,
-      ],
+      activeSteps: [2, 3],
+      changedFVs,
+      removedIds: [],
+      events: selEvents,
     });
 
     // ── Category-full steps ─────────────────────────────────
     const fullCats = getFullCategories(counts, person);
     for (const fc of fullCats) {
-      const before = pool.length;
+      const prevDiff = calcDifficulties(counts);
       const deleted = deleteAllWithValue(pool, counts, fc.feature, fc.value);
       if (deleted.length > 0) {
+        const newDiff = calcDifficulties(counts);
+        const fullChangedFVs = findChangedFVs(prevDiff, newDiff);
+
         steps.push({
           type: 'category_full',
-          description: `Category ${fc.feature}/${fc.value} is full`,
+          description: `${FEATURE_DISPLAY[fc.feature]}/${fc.value} is full`,
           pool: pool.map(p => p.id),
           selected: selected.map(p => p.id),
           counts: deepCloneCounts(counts),
@@ -1021,13 +927,16 @@ function runSimulation(seed) {
           selectedPerson: person,
           fullCat: fc,
           fullCats: [fc],
-          ratios: calcRatios(counts),
+          difficulties: newDiff,
           iteration: iter + 1,
           position,
           removedIds: deleted.map(p => p.id),
+          activeSteps: [4, 5],
+          changedFVs: fullChangedFVs,
           events: [
-            `Category ${fc.feature}/${fc.value} FULL: selected=${fc.selected} = max=${fc.max}`,
+            `${FEATURE_DISPLAY[fc.feature]}/${fc.value} FULL: selected=${fc.selected} = max=${fc.max}`,
             `Removed ${deleted.length} remaining candidates from pool  (${pool.length} left)`,
+            `Updated remaining counts for: ${fullChangedFVs.map(c => `${FEATURE_DISPLAY[c.feature]}/${c.value}`).join(", ")}`,
           ],
         });
       }
@@ -1043,8 +952,11 @@ function runSimulation(seed) {
     winner: null,
     selectedPerson: null,
     fullCats: [],
-    ratios: calcRatios(counts),
+    difficulties: calcDifficulties(counts),
     iteration: NUM_WANTED,
+    activeSteps: [],
+    changedFVs: [],
+    removedIds: [],
     events: [
       `Selection complete! ${selected.length} people chosen from ${CANDIDATES.length} candidates.`,
       `Remaining pool size: ${pool.length}`,
@@ -1069,21 +981,58 @@ function buildLog(steps) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// RENDER — people pool
+// ─────────────────────────────────────────────────────────────────
+function buildPeoplePool() {
+  const grid = document.getElementById('people-grid');
+  let html = '';
+  for (const c of CANDIDATES) {
+    html += `<div class="person-card" id="pc-${c.id}">
+      <span class="pc-name">${c.name}</span>
+      <span class="pc-traits">${c.gender} · ${c.region} · ${c.age}</span>
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function renderPeoplePool(step) {
+  const poolSet = new Set(step.pool);
+  const selectedSet = new Set(step.selected);
+  const justSelectedId = step.selectedPerson ? step.selectedPerson.id : null;
+  const justRemovedSet = new Set(step.removedIds || []);
+
+  for (const c of CANDIDATES) {
+    const el = document.getElementById(`pc-${c.id}`);
+    if (!el) continue;
+
+    // Reset classes
+    el.className = 'person-card';
+
+    if (step.type === 'selection' && c.id === justSelectedId) {
+      el.classList.add('is-just-selected');
+    } else if (step.type === 'category_full' && justRemovedSet.has(c.id)) {
+      el.classList.add('is-just-removed');
+    } else if (selectedSet.has(c.id)) {
+      el.classList.add('is-selected');
+    } else if (!poolSet.has(c.id) && !selectedSet.has(c.id)) {
+      el.classList.add('is-removed');
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // RENDER — feature/value table
 // ─────────────────────────────────────────────────────────────────
 
-// Map from "feature||value" → tr element, populated by buildTableSkeleton().
 const FV_ROW_MAP = new Map();
 
-// Build the static skeleton once; thereafter only cell values change.
-// Row order is fixed to the order features/values appear in FEATURES.
 function buildTableSkeleton() {
   const tbody = document.getElementById('ft-tbody');
   FV_ROW_MAP.clear();
   let html = '';
   let idx = 0;
   for (const f of FEATURE_NAMES) {
-    html += `<tr class="fg-header"><td colspan="6">${f}</td></tr>`;
+    html += `<tr class="fg-header"><td colspan="6">${FEATURE_DISPLAY[f]}</td></tr>`;
     for (const v of Object.keys(FEATURES[f])) {
       html += `<tr class="fv-row" data-rowidx="${idx}">
         <td class="td-val">${v}</td>
@@ -1091,10 +1040,10 @@ function buildTableSkeleton() {
         <td class="td-max">${FEATURES[f][v].max}</td>
         <td class="td-sel"><span class="sel-num">0</span><span class="sel-min"> / ${FEATURES[f][v].min}</span></td>
         <td class="td-rem"><span class="rem-num">—</span></td>
-        <td class="td-ratio">
-          <div class="ratio-cell">
-            <span class="ratio-formula">—</span>
-            <div class="ratio-track"><div class="ratio-fill" style="width:0%"></div></div>
+        <td class="td-difficulty">
+          <div class="difficulty-cell">
+            <span class="difficulty-formula">—</span>
+            <div class="difficulty-track"><div class="difficulty-fill" style="width:0%"></div></div>
           </div>
         </td>
       </tr>`;
@@ -1103,7 +1052,6 @@ function buildTableSkeleton() {
     }
   }
   tbody.innerHTML = html;
-  // Replace index values with actual element references
   const rows = tbody.querySelectorAll('tr.fv-row');
   for (const [key, i] of FV_ROW_MAP) {
     FV_ROW_MAP.set(key, rows[i]);
@@ -1117,53 +1065,59 @@ function renderCounts(step) {
 }
 
 function renderFeatureTable(step) {
-  const { ratios, winner, type, fullCat } = step;
+  const { difficulties, winner, type, fullCat, changedFVs } = step;
 
-  // Find max ratio among active rows to scale the bars
-  let maxRatio = 0;
-  for (const r of ratios) {
-    if (r.ratio > maxRatio) maxRatio = r.ratio;
+  // Build a set of changed FV keys for fast lookup
+  const changedSet = new Set();
+  if (changedFVs) {
+    for (const c of changedFVs) {
+      changedSet.add(`${c.feature}||${c.value}`);
+    }
   }
-  if (maxRatio === 0) maxRatio = 1;
 
-  for (const r of ratios) {
-    const row = FV_ROW_MAP.get(`${r.feature}||${r.value}`);
+  // Find max difficulty among active rows to scale the bars
+  let maxDifficulty = 0;
+  for (const r of difficulties) {
+    if (r.difficulty > maxDifficulty) maxDifficulty = r.difficulty;
+  }
+  if (maxDifficulty === 0) maxDifficulty = 1;
+
+  for (const r of difficulties) {
+    const key = `${r.feature}||${r.value}`;
+    const row = FV_ROW_MAP.get(key);
     if (!row) continue;
 
-    // Determine row state
     const isWinner  = winner && r.feature === winner.feature && r.value === winner.value;
     const isFullEvt = type === 'category_full' && fullCat &&
                       r.feature === fullCat.feature && r.value === fullCat.value;
     const isMaxed   = !isWinner && r.selected >= r.max && r.max > 0;
     const isInactive = r.max === 0;
+    const isChanged  = changedSet.has(key) && !isWinner && !isFullEvt;
 
     row.className = 'fv-row' +
       (isWinner   ? ' is-winner'     : '') +
       (isFullEvt  ? ' is-full-event' : '') +
       (isMaxed    ? ' is-maxed'      : '') +
-      (isInactive ? ' is-inactive'   : '');
+      (isInactive ? ' is-inactive'   : '') +
+      (isChanged  ? ' is-changed'    : '');
 
-    // Update selected count
     row.querySelector('.sel-num').textContent = r.selected;
-
-    // Update remaining count
     row.querySelector('.rem-num').textContent = r.remaining;
 
-    // Update ratio display — full color-coded formula
-    const formulaEl = row.querySelector('.ratio-formula');
+    const formulaEl = row.querySelector('.difficulty-formula');
     let barPct;
     if (r.max === 0 || r.remaining === 0) {
       formulaEl.textContent = '—';
       barPct = 0;
     } else {
       formulaEl.innerHTML =
-        `(<span class="c-min">${r.min}</span> − <span class="c-sel">${r.selected}</span>) / <span class="c-rem">${r.remaining}</span> = <span class="c-res">${r.ratio.toFixed(3)}</span>`;
-      barPct = Math.round((r.ratio / maxRatio) * 100);
+        `(<span class="c-min">${r.min}</span> − <span class="c-sel">${r.selected}</span>) / <span class="c-rem">${r.remaining}</span> = <span class="c-res">${r.difficulty.toFixed(3)}</span>`;
+      barPct = Math.round((r.difficulty / maxDifficulty) * 100);
     }
-    row.querySelector('.ratio-fill').style.width = `${barPct}%`;
+    row.querySelector('.difficulty-fill').style.width = `${barPct}%`;
   }
 
-  // Scroll the winner row into view smoothly
+  // Scroll the winner row into view
   if (winner) {
     const row = FV_ROW_MAP.get(`${winner.feature}||${winner.value}`);
     if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -1171,59 +1125,102 @@ function renderFeatureTable(step) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// RENDER — how-it-works step highlighting
+// ─────────────────────────────────────────────────────────────────
+function renderHowSteps(step) {
+  const activeSteps = step.activeSteps || [];
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById(`how-step-${i}`);
+    if (el) {
+      if (activeSteps.includes(i)) {
+        el.classList.add('active-step');
+      } else {
+        el.classList.remove('active-step');
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // RENDER — step detail card (right panel)
 // ─────────────────────────────────────────────────────────────────
 function personCard(person, iteration, position, categoryRemaining) {
-  // Show the person with all their feature values
   const rows = FEATURE_NAMES.map(f =>
-    `<div class="dr"><span class="k">${f}</span><span class="v">${person[f]}</span></div>`
+    `<div class="dr"><span class="k">${FEATURE_DISPLAY[f]}</span><span class="v">${person[f]}</span></div>`
   ).join('');
   return `<div class="detail-card dc-person">
     <h3>Person selected — iteration ${iteration}</h3>
-    <div class="person-id">${person.id}</div>
+    <div class="person-id">${person.name}</div>
     <div class="dr"><span class="k">position in category</span><span class="v">${position} of ${categoryRemaining}</span></div>
     ${rows}
   </div>`;
 }
 
 function renderDetail(step) {
-  const { type, winner, selectedPerson, fullCat, position, ratios, iteration } = step;
+  const { type, winner, selectedPerson, fullCat, position, difficulties, iteration, changedFVs } = step;
   const el = document.getElementById('detail-content');
   let html = '';
 
   if (type === 'initial') {
     html = '';
 
-  } else if (type === 'ratio' && winner) {
+  } else if (type === 'difficulty' && winner) {
     html = `<div class="detail-card dc-winner">
-      <h3>Highest urgency — iteration ${iteration}</h3>
-      <div class="dr"><span class="k">Feature</span><span class="v hl">${winner.feature}</span></div>
+      <h3>Highest difficulty — iteration ${iteration}</h3>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${FEATURE_DISPLAY[winner.feature]}</span></div>
       <div class="dr"><span class="k">Value</span><span class="v hl">${winner.value}</span></div>
       <div class="dr"><span class="k">Selected / min</span><span class="v">${winner.selected} / ${winner.min}</span></div>
       <div class="dr"><span class="k">Still needed</span><span class="v">${winner.needed}</span></div>
       <div class="dr"><span class="k">Remaining in pool</span><span class="v">${winner.remaining}</span></div>
-      <div class="formula">ratio = ${winner.needed} / ${winner.remaining} = ${winner.ratio.toFixed(4)}</div>
+      <div class="formula">difficulty = ${winner.needed} / ${winner.remaining} = ${winner.difficulty.toFixed(4)}</div>
     </div>`;
 
   } else if (type === 'selection' && selectedPerson) {
     html = `<div class="detail-card dc-winner">
       <h3>Category chosen — iteration ${iteration}</h3>
-      <div class="dr"><span class="k">Feature</span><span class="v hl">${winner.feature}</span></div>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${FEATURE_DISPLAY[winner.feature]}</span></div>
       <div class="dr"><span class="k">Value</span><span class="v hl">${winner.value}</span></div>
-      <div class="formula">ratio = ${winner.ratio.toFixed(4)}</div>
+      <div class="formula">difficulty = ${winner.difficulty.toFixed(4)}</div>
     </div>
     ${personCard(selectedPerson, iteration, position, winner.remaining + 1)}`;
+
+    // Show which difficulty values changed
+    if (changedFVs && changedFVs.length > 0) {
+      html += `<div class="detail-card" style="border-color:var(--yellow); background:rgba(255,209,102,0.06);">
+        <h3 style="color:var(--yellow);">Difficulty values updated</h3>`;
+      for (const c of changedFVs) {
+        html += `<div class="dr">
+          <span class="k">${FEATURE_DISPLAY[c.feature]}/${c.value}</span>
+          <span class="v" style="color:var(--yellow)">${c.prevDifficulty.toFixed(3)} → ${c.newDifficulty.toFixed(3)}</span>
+        </div>`;
+      }
+      html += `</div>`;
+    }
 
   } else if (type === 'category_full' && fullCat) {
     html = `<div class="detail-card dc-full">
       <h3>Category full — iteration ${iteration}</h3>
-      <div class="dr"><span class="k">Feature</span><span class="v hl">${fullCat.feature}</span></div>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${FEATURE_DISPLAY[fullCat.feature]}</span></div>
       <div class="dr"><span class="k">Value</span><span class="v hl">${fullCat.value}</span></div>
       <div class="dr"><span class="k">Selected = max</span><span class="v">${fullCat.selected}</span></div>
       <div class="dr"><span class="k">Candidates removed</span><span class="v">${step.removedIds ? step.removedIds.length : 0}</span></div>
       <div class="dr"><span class="k">Pool size now</span><span class="v">${step.pool.length}</span></div>
-    </div>
-    ${selectedPerson ? personCard(selectedPerson, iteration, step.position, winner ? winner.remaining + 1 : '?') : ''}`;
+    </div>`;
+    if (selectedPerson) {
+      html += personCard(selectedPerson, iteration, step.position, winner ? winner.remaining + 1 : '?');
+    }
+    // Show which difficulty values changed from the removal
+    if (changedFVs && changedFVs.length > 0) {
+      html += `<div class="detail-card" style="border-color:var(--yellow); background:rgba(255,209,102,0.06);">
+        <h3 style="color:var(--yellow);">Remaining counts updated</h3>`;
+      for (const c of changedFVs) {
+        html += `<div class="dr">
+          <span class="k">${FEATURE_DISPLAY[c.feature]}/${c.value}</span>
+          <span class="v" style="color:var(--yellow)">${c.prevDifficulty >= 0 ? c.prevDifficulty.toFixed(3) : '—'} → ${c.newDifficulty >= 0 ? c.newDifficulty.toFixed(3) : '—'}</span>
+        </div>`;
+      }
+      html += `</div>`;
+    }
 
   } else if (type === 'complete') {
     html = `<div class="detail-card dc-done">
@@ -1247,8 +1244,9 @@ function renderSelected(step) {
 
   let html = '';
   for (const id of selected) {
+    const c = ID_TO_CANDIDATE[id];
     const isNew = selectedPerson && id === selectedPerson.id;
-    html += `<span class="sel-chip${isNew ? ' is-new' : ''}">${id}</span>`;
+    html += `<span class="sel-chip${isNew ? ' is-new' : ''}">${c ? c.name : id}</span>`;
   }
   for (let i = selected.length; i < NUM_WANTED; i++) {
     html += `<span class="empty-slot">—</span>`;
@@ -1264,7 +1262,7 @@ function renderLog(stepIdx, allLog) {
   let html = '';
   for (const entry of allLog) {
     const isCurrent = entry.stepIdx === stepIdx;
-    const tag = { initial:'[INIT]', ratio:'[RATIO]', selection:'[SELECT]',
+    const tag = { initial:'[INIT]', difficulty:'[DIFF]', selection:'[SELECT]',
                   category_full:'[FULL]', complete:'[DONE]' }[entry.type] || '[?]';
     html = `<div class="log-entry type-${entry.type}${isCurrent ? ' current' : ''}">` +
            `<span class="tag">${tag}</span>${entry.text}</div>` + html;
@@ -1290,8 +1288,10 @@ function renderStep(stepIdx) {
   renderStepInfo(step, stepIdx, STEPS.length);
   renderCounts(step);
   renderFeatureTable(step);
+  renderHowSteps(step);
   renderDetail(step);
   renderSelected(step);
+  renderPeoplePool(step);
   renderLog(stepIdx, ALL_LOG);
   document.getElementById('btn-prev').disabled = stepIdx === 0;
   document.getElementById('btn-next').disabled = stepIdx === STEPS.length - 1;
@@ -1306,7 +1306,6 @@ let playTimer = null;
 
 function getDelay() {
   const val = parseInt(document.getElementById('speed-slider').value, 10);
-  // slider 1=slowest (3000ms) to 10=fastest (150ms)
   return Math.round(3000 - (val - 1) * (3000 - 150) / 9);
 }
 
@@ -1393,6 +1392,7 @@ document.addEventListener('keydown', (e) => {
 const STEPS = runSimulation(12);
 const ALL_LOG = buildLog(STEPS);
 
+buildPeoplePool();
 buildTableSkeleton();
 updateSpeedLabel();
 renderStep(0);
