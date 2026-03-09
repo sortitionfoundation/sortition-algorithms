@@ -71,6 +71,10 @@ This is a Python package for sortition algorithms (democratic lotteries). The co
 
 Tests are organized by module with comprehensive coverage including error conditions and edge cases.
 
+### Exploring Web Pages
+
+If you need to explore web pages, check if rodney is available. Run `uvx rodney --help` to learn what it can do.
+
 ### Details Docs
 
 Detailed docs are in the docs/ folder - read files from there as appropriate for the task you are doing. And don't forget to keep those docs up-to-date.
