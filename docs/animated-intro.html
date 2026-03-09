@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Scrollytelling introduction to sortition: recruitment, skewed pools, naive selection, -->
+<!-- ABOUTME: targets, and the fairness problem. Links to the algorithm animations. -->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Why Sortition Algorithms?</title>
+        <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222638;
+    --border: #2e3350;
+    --text: #e0e3f0;
+    --muted: #7a7f9a;
+    --accent: #5b7fff;
+    --green: #3ecf8e;
+    --red: #ff5b5b;
+    --yellow: #ffd166;
+    --orange: #ff9a3c;
+    --north-border: #3a6adf;
+    --south-border: #d4a843;
+    --radius: 8px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 17px;
+    line-height: 1.7;
+  }
+
+  /* ── Scroll progress bar ─────────────────────────────── */
+  #scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--accent);
+    z-index: 100;
+    transition: width 0.1s;
+  }
+
+  /* ── Content column ──────────────────────────────────── */
+  .col {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── Sections ────────────────────────────────────────── */
+  section {
+    padding: 80px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  section:last-of-type { border-bottom: none; }
+
+  .hero {
+    padding: 120px 0 100px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 36px;
+    font-weight: 800;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p {
+    font-size: 20px;
+    color: var(--muted);
+    max-width: 500px;
+    margin: 0 auto 40px;
+  }
+  .scroll-hint {
+    color: var(--muted);
+    font-size: 14px;
+    letter-spacing: 1px;
+    animation: bob 2s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+  }
+
+  /* ── Act titles ──────────────────────────────────────── */
+  .act-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  section h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+  section h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 32px 0 12px;
+    color: var(--yellow);
+  }
+
+  /* ── Scene (scroll-reveal unit) ──────────────────────── */
+  .scene {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    margin-bottom: 36px;
+  }
+  .scene.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Key message callout ─────────────────────────────── */
+  .key-message {
+    border-left: 4px solid var(--accent);
+    background: var(--surface);
+    padding: 16px 20px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin: 24px 0;
+    font-style: italic;
+    color: var(--text);
+  }
+
+  /* ── Funnel diagram ──────────────────────────────────── */
+  .funnel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin: 28px 0;
+  }
+  .funnel-step {
+    padding: 14px 20px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    text-align: center;
+    font-weight: 600;
+    transition: all 0.4s;
+  }
+  .funnel-step .num {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 800;
+  }
+  .funnel-step .label { color: var(--muted); font-size: 14px; }
+  .funnel-arrow {
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1;
+  }
+  .funnel-reasons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0;
+  }
+  .funnel-reason {
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--full-bg, rgba(255,91,91,0.08));
+    border: 1px solid rgba(255,91,91,0.2);
+    color: var(--red);
+  }
+  .funnel-methods {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0;
+  }
+  .funnel-method {
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(62,207,142,0.08);
+    border: 1px solid rgba(62,207,142,0.2);
+    color: var(--green);
+  }
+
+  /* ── People grid ─────────────────────────────────────── */
+  .people-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    margin: 20px 0;
+  }
+  .p-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 5px 9px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    min-width: 74px;
+    text-align: center;
+  }
+  .p-card .p-name {
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .p-card .p-traits {
+    font-size: 9px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .p-card.is-north { border-color: var(--north-border); }
+  .p-card.is-south { border-color: var(--south-border); }
+
+  /* ── Bar charts ──────────────────────────────────────── */
+  .bar-chart {
+    margin: 16px 0;
+  }
+  .bar-group-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin: 16px 0 6px;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .bar-label {
+    width: 60px;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .bar-track {
+    flex: 1;
+    height: 26px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    transition: width 0.6s ease;
+  }
+  .bar-fill.ok { background: var(--green); }
+  .bar-fill.skewed { background: var(--orange); }
+  .bar-fill.bad { background: var(--red); }
+  .bar-pop {
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+    width: 80px;
+  }
+  .bar-pop-marker {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 2px;
+    background: var(--text);
+    opacity: 0.5;
+  }
+  .bar-verdict {
+    text-align: right;
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 2px;
+    margin-bottom: 8px;
+  }
+  .bar-verdict.pass { color: var(--green); }
+  .bar-verdict.fail { color: var(--red); }
+
+  /* ── Intersection grid ───────────────────────────────── */
+  .ix-grid {
+    display: grid;
+    grid-template-columns: 70px 1fr 1fr;
+    gap: 4px;
+    margin: 24px auto;
+    max-width: 600px;
+  }
+  .ix-header {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    text-align: center;
+    padding: 6px;
+  }
+  .ix-row-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+  }
+  .ix-cell {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    text-align: center;
+    background: var(--surface);
+    transition: background 0.3s;
+  }
+  .ix-cell .ix-count {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 800;
+  }
+  .ix-cell .ix-names {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+  .ix-cell.ix-abundant .ix-count { color: var(--green); }
+  .ix-cell.ix-scarce .ix-count { color: var(--red); }
+  .ix-cell.ix-moderate .ix-count { color: var(--yellow); }
+
+  /* ── Scorecard ───────────────────────────────────────── */
+  .draw-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    background: var(--surface);
+    margin-bottom: 16px;
+  }
+  .draw-card h4 {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .draw-people {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 12px;
+  }
+  .draw-chip {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-weight: 600;
+  }
+  .scorecard {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-family: var(--mono);
+  }
+  .score-icon { font-weight: 800; width: 20px; text-align: center; }
+  .score-icon.pass { color: var(--green); }
+  .score-icon.fail { color: var(--red); }
+
+  /* ── Number lines ────────────────────────────────────── */
+  .nl-group {
+    margin: 20px 0;
+  }
+  .nl-row {
+    margin-bottom: 16px;
+  }
+  .nl-label {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .nl-track-wrap {
+    position: relative;
+    height: 32px;
+    margin: 0 10px;
+  }
+  .nl-track {
+    position: absolute;
+    top: 14px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+  }
+  .nl-range {
+    position: absolute;
+    top: 8px;
+    height: 16px;
+    border-radius: 4px;
+    border: 2px solid var(--accent);
+    background: rgba(91,127,255,0.15);
+  }
+  .nl-marker {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    height: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .nl-marker .nl-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    margin-top: 10px;
+  }
+  .nl-marker.in-range .nl-dot { background: var(--accent); }
+  .nl-marker .nl-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .nl-type {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 2px;
+  }
+  .nl-pool-count {
+    font-size: 12px;
+    color: var(--yellow);
+    margin-top: 2px;
+  }
+
+  /* ── Probability bars ────────────────────────────────── */
+  .prob-chart {
+    margin: 20px 0;
+  }
+  .prob-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  .prob-name {
+    width: 60px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .prob-track {
+    flex: 1;
+    height: 20px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .prob-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+  .prob-fill.high { background: var(--red); }
+  .prob-fill.medium { background: var(--yellow); }
+  .prob-fill.low { background: var(--green); }
+  .prob-value {
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 36px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .prob-meta {
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+    width: 70px;
+  }
+
+  /* ── Side-by-side panels ─────────────────────────────── */
+  .panels-side {
+    display: flex;
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .panel-example {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    background: var(--surface);
+  }
+  .panel-example h4 {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .panel-example .draw-people { margin-bottom: 8px; }
+  .shared-badge {
+    background: rgba(91,127,255,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── Algorithm link cards ────────────────────────────── */
+  .algo-links {
+    display: flex;
+    gap: 16px;
+    margin: 28px 0;
+  }
+  .algo-card {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    background: var(--surface);
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .algo-card:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .algo-card h4 {
+    font-size: 16px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .algo-card p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ── Footnote ────────────────────────────────────────── */
+  .footnote {
+    font-size: 13px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-top: 40px;
+  }
+  .footnote sup { color: var(--accent); }
+
+  /* ── Highlight span ──────────────────────────────────── */
+  .hl { color: var(--yellow); font-weight: 600; }
+  .hl-green { color: var(--green); font-weight: 600; }
+  .hl-red { color: var(--red); font-weight: 600; }
+  .hl-accent { color: var(--accent); font-weight: 600; }
+        </style>
+    </head>
+    <body>
+        <div id="scroll-progress" style="width: 0%"></div>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- HERO                                               -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <section class="hero">
+            <div class="col">
+                <div class="scene">
+                    <h1>Why Sortition Algorithms?</h1>
+                    <p>How do you select a representative group of people &mdash; fairly?</p>
+                    <div class="scroll-hint">Scroll down to find out &#x25BE;</div>
+                </div>
+            </div>
+        </section>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- ACT 1 — THE INVITATION                            -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="col">
+                <div class="scene">
+                    <div class="act-title">Act 1</div>
+                    <h2>The Invitation</h2>
+                    <p>
+                        Citizens' assemblies, juries, and deliberative panels all start the same way: inviting people to participate. Letters go out to thousands of randomly chosen households.
+                    </p>
+                </div>
+                <div class="scene">
+                    <div class="funnel">
+                        <div class="funnel-step" style="width:90%">
+                            <div class="num">~200,000</div>
+                            <div class="label">households in the city</div>
+                        </div>
+                        <div class="funnel-arrow">&#x25BE;</div>
+                        <div class="funnel-step" style="width:60%">
+                            <div class="num">10,000</div>
+                            <div class="label">
+                                letters sent <sup>*</sup>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="scene">
+                    <p>Most people don't respond.</p>
+                    <div class="funnel-reasons">
+                        <span class="funnel-reason">too busy</span>
+                        <span class="funnel-reason">not interested</span>
+                        <span class="funnel-reason">letter lost in the post</span>
+                        <span class="funnel-reason">moved away</span>
+                        <span class="funnel-reason">doesn't feel qualified</span>
+                    </div>
+                </div>
+                <div class="scene">
+                    <p>But some people do. They fill in a form online, on their phone, or by calling a number.</p>
+                    <div class="funnel-methods">
+                        <span class="funnel-method">filled in online</span>
+                        <span class="funnel-method">responded on phone</span>
+                        <span class="funnel-method">called the number</span>
+                    </div>
+                    <div class="funnel" style="margin-top:16px">
+                        <div class="funnel-step" style="width:30%">
+                            <div class="num">~400</div>
+                            <div class="label">responses (about 4%)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="scene">
+                    <div class="key-message">
+                        The candidate pool is <strong>self-selected</strong>. The people who respond are not a random cross-section of the population &mdash; they're the people who <em>chose</em> to respond. This matters.
+                    </div>
+                    <p>
+                        For the rest of this walkthrough, we'll use a simplified example: <span class="hl">16 candidates</span>, from which we need to select <span class="hl">8</span>.
+                    </p>
+                </div>
+            </div>
+        </section>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- ACT 2 — THE SKEWED POOL                           -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="col">
+                <div class="scene">
+                    <div class="act-title">Act 2</div>
+                    <h2>The Skewed Pool</h2>
+                    <p>
+                        Here are our 16 candidates. Each has three demographic attributes: <span class="hl">Gender</span>, <span class="hl">Region</span>, and <span class="hl">Age</span>.
+                    </p>
+                </div>
+                <div class="scene">
+                    <div class="people-grid" id="pool-grid"></div>
+                </div>
+                <div class="scene">
+                    <h3>How does our pool compare to the population?</h3>
+                    <div class="bar-chart" id="demographics-chart"></div>
+                </div>
+                <div class="scene">
+                    <h3>The intersection problem</h3>
+                    <p>
+                        The real issue becomes clear when you look at <em>combinations</em> of categories. Some intersections are abundant, others are dangerously scarce.
+                    </p>
+                </div>
+                <div class="scene">
+                    <p style="text-align:center;
+                              font-size:14px;
+                              color:var(--muted);
+                              margin-bottom:8px">Count of candidates in each intersection</p>
+                    <div id="intersection-north"></div>
+                    <div id="intersection-south" style="margin-top:4px"></div>
+                </div>
+                <div class="scene">
+                    <div class="key-message">
+                        The pool doesn't look like the population. <span class="hl-red">Omar</span> is the only Young Southern Male. <span class="hl-red">Priya</span> is the only Young Southern Female. Meanwhile, there are <span class="hl-green">4</span> Senior Northern Males. If we pick randomly from this pool, our selection will inherit the same skew.
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- ACT 3 — NAIVE SELECTION                           -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="col">
+                <div class="scene">
+                    <div class="act-title">Act 3</div>
+                    <h2>Just Pick 8 at Random</h2>
+                    <p>What happens if we simply draw 8 names from a hat?</p>
+                </div>
+                <div class="scene" id="naive-draws"></div>
+                <div class="scene">
+                    <div class="key-message">
+                        If this assembly is deciding transport policy for the whole city, but most members are from the North, Southern communities have little voice in decisions that affect them. Random selection from a skewed pool gives a skewed result.
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- ACT 4 — INTRODUCING TARGETS                      -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="col">
+                <div class="scene">
+                    <div class="act-title">Act 4</div>
+                    <h2>What Does a Good Selection Look Like?</h2>
+                    <p>
+                        The solution is to set <span class="hl">targets</span> for each category. Organisers decide these based on census data and the assembly's purpose.
+                    </p>
+                </div>
+                <div class="scene">
+                    <h3>Exact targets</h3>
+                    <p>
+                        Some categories need precise balance. Gender must be <strong>exactly 4 Male and 4 Female</strong> &mdash; no wiggle room.
+                    </p>
+                    <div class="nl-group" id="nl-exact"></div>
+                </div>
+                <div class="scene">
+                    <h3>Range targets</h3>
+                    <p>
+                        Other categories allow flexibility. Region needs <strong>at least 3 but no more than 5</strong> from each area. This gives the algorithm room to work while still ensuring adequate representation.
+                    </p>
+                    <div class="nl-group" id="nl-range"></div>
+                </div>
+                <div class="scene">
+                    <h3>Targets meet pool</h3>
+                    <p>
+                        Here are our targets alongside the pool. Notice which ones will be <span class="hl-green">easy</span> and which will be <span class="hl-red">tight</span>.
+                    </p>
+                    <div id="targets-vs-pool"></div>
+                </div>
+                <div class="scene">
+                    <div class="key-message">
+                        Targets define what "representative" means. They turn a vague goal into concrete constraints that a selection process can aim for.
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- ACT 5 — THE FAIRNESS PROBLEM                     -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="col">
+                <div class="scene">
+                    <div class="act-title">Act 5</div>
+                    <h2>Targets Aren't Enough</h2>
+                    <p>
+                        Meeting the targets is possible. But <em>how</em> you meet them matters. There are many valid selections &mdash; the question is which one to pick.
+                    </p>
+                </div>
+                <div class="scene">
+                    <h3>Two valid selections</h3>
+                    <p>Both of these panels meet every target. But look at who's in each one.</p>
+                    <div class="panels-side" id="example-panels"></div>
+                    <p style="font-size:14px;color:var(--muted);margin-top:8px">
+                        Notice that <span class="hl-accent">Omar</span> and <span class="hl-accent">Priya</span> appear in both panels. They have to &mdash; they're the only Young Southerners.
+                    </p>
+                </div>
+                <div class="scene">
+                    <h3>Not everyone has the same chance</h3>
+                    <p>
+                        Across <strong>all</strong> valid panels, some people appear far more often than others.
+                    </p>
+                    <div class="prob-chart" id="prob-chart"></div>
+                </div>
+                <div class="scene">
+                    <p>
+                        People who appear in very few valid panels might feel: <em>"There's no point in registering &mdash; I have almost no chance anyway."</em> That's a problem for the legitimacy of the whole process.
+                    </p>
+                </div>
+                <div class="scene">
+                    <h3>Representativeness vs Fairness</h3>
+                    <p>
+                        There's a genuine tension here. The panel must <span class="hl-green">look like the population</span> (representativeness), but each individual should also have <span class="hl-accent">a fair shot</span> at being selected (fairness). <sup>&dagger;</sup>
+                    </p>
+                </div>
+                <div class="scene">
+                    <p>
+                        Real assemblies might have <span class="hl">400 respondents</span>, <span class="hl">15 demographic categories</span>, and need to select <span class="hl">30 people</span>. The maths gets complicated fast &mdash; far beyond what a spreadsheet can handle.
+                    </p>
+                    <p>
+                        The good news: mathematicians have developed algorithms that handle both representativeness and fairness. Let's see how they work.
+                    </p>
+                </div>
+                <div class="scene">
+                    <div class="algo-links">
+                        <a class="algo-card" href="animated-legacy-algorithm.html">
+                            <h4>The Legacy Algorithm &#x2192;</h4>
+                            <p>Can be followed step-by-step and is efficient, though it is not as fair as the other algorithms.</p>
+                        </a>
+                        <a class="algo-card" href="animated-common-algorithm.html">
+                            <h4>The Common Algorithm &#x2192;</h4>
+                            <p>
+                                The first part of the fairer algorithms (maximin, nash and leximin). Those algorithms try to balance targets AND fairness.
+                            </p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- FOOTNOTE                                          -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <section style="padding:40px 0 80px">
+            <div class="col">
+                <div class="footnote">
+                    <p>
+                        <sup>*</sup> In practice, assemblies also check for <strong>multiple respondents from the same household</strong> and typically keep only one per address, to avoid over-representing a single home.
+                    </p>
+                    <p style="margin-top:8px">
+                        <sup>&dagger;</sup> There is a third concern too: <strong>explainability</strong>. People understand voting in an election, and that juries are randomly selected. It may be worth accepting slightly less mathematical fairness in exchange for an algorithm the public can more easily understand. Conversations continue in the sortition community about the trade-offs among these options.
+                    </p>
+                </div>
+            </div>
+        </section>
+        <script>
+// ─────────────────────────────────────────────────────────────────
+// DATA — same 16 candidates used in all animations
+// ─────────────────────────────────────────────────────────────────
+
+const CANDIDATES = [
+  { id: "adam",    name: "Adam",    gender: "M", region: "North", age: "Senior" },
+  { id: "ben",     name: "Ben",     gender: "M", region: "North", age: "Senior" },
+  { id: "chen",    name: "Chen",    gender: "M", region: "North", age: "Senior" },
+  { id: "dmitri",  name: "Dmitri",  gender: "M", region: "North", age: "Senior" },
+  { id: "elena",   name: "Elena",   gender: "F", region: "North", age: "Senior" },
+  { id: "fatima",  name: "Fatima",  gender: "F", region: "North", age: "Senior" },
+  { id: "grace",   name: "Grace",   gender: "F", region: "North", age: "Senior" },
+  { id: "hassan",  name: "Hassan",  gender: "M", region: "North", age: "Young" },
+  { id: "ivan",    name: "Ivan",    gender: "M", region: "North", age: "Young" },
+  { id: "jun",     name: "Jun",     gender: "F", region: "North", age: "Young" },
+  { id: "keiko",   name: "Keiko",   gender: "F", region: "North", age: "Young" },
+  { id: "leo",     name: "Leo",     gender: "M", region: "South", age: "Senior" },
+  { id: "mia",     name: "Mia",     gender: "F", region: "South", age: "Senior" },
+  { id: "nadia",   name: "Nadia",   gender: "F", region: "South", age: "Senior" },
+  { id: "omar",    name: "Omar",    gender: "M", region: "South", age: "Young" },
+  { id: "priya",   name: "Priya",   gender: "F", region: "South", age: "Young" },
+];
+
+const SELECT_COUNT = 8;
+
+const CONSTRAINTS = [
+  { category: "Gender",  value: "M",      min: 4, max: 4 },
+  { category: "Gender",  value: "F",      min: 4, max: 4 },
+  { category: "Region",  value: "North",  min: 3, max: 5 },
+  { category: "Region",  value: "South",  min: 3, max: 5 },
+  { category: "Age",     value: "Young",  min: 4, max: 4 },
+  { category: "Age",     value: "Senior", min: 4, max: 4 },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// SEEDED PRNG (mulberry32)
+// ─────────────────────────────────────────────────────────────────
+function makePrng(seed) {
+  let s = seed >>> 0;
+  return function() {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NAIVE DRAWS — pick 8 at random with a given seed
+// ─────────────────────────────────────────────────────────────────
+function naiveDraw(seed) {
+  const rng = makePrng(seed);
+  const pool = [...CANDIDATES];
+  const selected = [];
+  for (let i = 0; i < SELECT_COUNT; i++) {
+    const idx = Math.floor(rng() * pool.length);
+    selected.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+  return selected;
+}
+
+function scoreSelection(sel) {
+  const scores = [];
+  for (const c of CONSTRAINTS) {
+    const key = c.category.toLowerCase();
+    const count = sel.filter(p => p[key] === c.value).length;
+    const pass = count >= c.min && count <= c.max;
+    scores.push({ ...c, count, pass });
+  }
+  return scores;
+}
+
+// Find 3 seeds that give clearly bad selections (fail at least one constraint)
+function findBadSeeds() {
+  const seeds = [];
+  for (let s = 1; seeds.length < 3 && s < 200; s++) {
+    const sel = naiveDraw(s);
+    const scores = scoreSelection(sel);
+    const failCount = scores.filter(s => !s.pass).length;
+    if (failCount >= 2) {
+      seeds.push(s);
+    }
+  }
+  return seeds;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ENUMERATE VALID PANELS
+// ─────────────────────────────────────────────────────────────────
+function combinations(arr, k) {
+  if (k === 0) return [[]];
+  if (arr.length < k) return [];
+  const result = [];
+  for (let i = 0; i <= arr.length - k; i++) {
+    for (const rest of combinations(arr.slice(i + 1), k - 1)) {
+      result.push([arr[i], ...rest]);
+    }
+  }
+  return result;
+}
+
+function enumerateValidPanels() {
+  const males = CANDIDATES.filter(c => c.gender === "M");
+  const females = CANDIDATES.filter(c => c.gender === "F");
+
+  const mc = combinations(males, 4);
+  const fc = combinations(females, 4);
+
+  const panels = [];
+  for (const m of mc) {
+    for (const f of fc) {
+      const panel = [...m, ...f];
+      const young = panel.filter(p => p.age === "Young").length;
+      const north = panel.filter(p => p.region === "North").length;
+      if (young === 4 && north >= 3 && north <= 5) {
+        panels.push(panel);
+      }
+    }
+  }
+  return panels;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — people grid (Act 2)
+// ─────────────────────────────────────────────────────────────────
+function renderPoolGrid() {
+  const grid = document.getElementById("pool-grid");
+  let html = "";
+  for (const c of CANDIDATES) {
+    const regionClass = c.region === "North" ? "is-north" : "is-south";
+    html += `<div class="p-card ${regionClass}">
+      <span class="p-name">${c.name}</span>
+      <span class="p-traits">${c.gender} &middot; ${c.region} &middot; ${c.age}</span>
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — demographics bar chart (Act 2)
+// ─────────────────────────────────────────────────────────────────
+function renderDemographics() {
+  const el = document.getElementById("demographics-chart");
+
+  const categories = [
+    {
+      title: "Gender",
+      pop: "population: ~50% / ~50%",
+      bars: [
+        { label: "Male", count: 8, total: 16, popPct: 50, balanced: true },
+        { label: "Female", count: 8, total: 16, popPct: 50, balanced: true },
+      ],
+    },
+    {
+      title: "Region",
+      pop: "population: ~50% / ~50%",
+      bars: [
+        { label: "North", count: 11, total: 16, popPct: 50, balanced: false },
+        { label: "South", count: 5, total: 16, popPct: 50, balanced: false },
+      ],
+    },
+    {
+      title: "Age",
+      pop: "population: ~50% / ~50%",
+      bars: [
+        { label: "Young", count: 6, total: 16, popPct: 50, balanced: false },
+        { label: "Senior", count: 10, total: 16, popPct: 50, balanced: false },
+      ],
+    },
+  ];
+
+  let html = "";
+  for (const cat of categories) {
+    const isBalanced = cat.bars.every(b => b.balanced);
+    html += `<div class="bar-group-title">${cat.title}</div>`;
+    for (const b of cat.bars) {
+      const pct = Math.round((b.count / b.total) * 100);
+      const cls = b.balanced ? "ok" : "skewed";
+      html += `<div class="bar-row">
+        <span class="bar-label">${b.label}</span>
+        <div class="bar-track">
+          <div class="bar-fill ${cls}" style="width:${pct}%">${b.count}</div>
+          <div class="bar-pop-marker" style="left:${b.popPct}%"></div>
+        </div>
+        <span class="bar-pop">pop: ~${b.popPct}%</span>
+      </div>`;
+    }
+    html += `<div class="bar-verdict ${isBalanced ? "pass" : "fail"}">${isBalanced ? "Balanced" : "Skewed"}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — intersection grid (Act 2)
+// ─────────────────────────────────────────────────────────────────
+function renderIntersections() {
+  const groups = [
+    { region: "North", data: [
+      { gender: "Male",   age: "Young",  names: ["Hassan", "Ivan"], count: 2 },
+      { gender: "Female", age: "Young",  names: ["Jun", "Keiko"], count: 2 },
+      { gender: "Male",   age: "Senior", names: ["Adam", "Ben", "Chen", "Dmitri"], count: 4 },
+      { gender: "Female", age: "Senior", names: ["Elena", "Fatima", "Grace"], count: 3 },
+    ]},
+    { region: "South", data: [
+      { gender: "Male",   age: "Young",  names: ["Omar"], count: 1 },
+      { gender: "Female", age: "Young",  names: ["Priya"], count: 1 },
+      { gender: "Male",   age: "Senior", names: ["Leo"], count: 1 },
+      { gender: "Female", age: "Senior", names: ["Mia", "Nadia"], count: 2 },
+    ]},
+  ];
+
+  for (const g of groups) {
+    const el = document.getElementById(`intersection-${g.region.toLowerCase()}`);
+    let html = `<div class="ix-grid">`;
+    // Header row
+    html += `<div class="ix-header">${g.region}</div>`;
+    html += `<div class="ix-header">Male</div>`;
+    html += `<div class="ix-header">Female</div>`;
+
+    // Young row
+    html += `<div class="ix-row-label">Young</div>`;
+    for (const age of ["Young"]) {
+      for (const gender of ["Male", "Female"]) {
+        const cell = g.data.find(d => d.gender === gender && d.age === age);
+        const cls = cell.count >= 3 ? "ix-abundant" : cell.count === 2 ? "ix-moderate" : "ix-scarce";
+        html += `<div class="ix-cell ${cls}">
+          <div class="ix-count">${cell.count}</div>
+          <div class="ix-names">${cell.names.join(", ")}</div>
+        </div>`;
+      }
+    }
+
+    // Senior row
+    html += `<div class="ix-row-label">Senior</div>`;
+    for (const age of ["Senior"]) {
+      for (const gender of ["Male", "Female"]) {
+        const cell = g.data.find(d => d.gender === gender && d.age === age);
+        const cls = cell.count >= 3 ? "ix-abundant" : cell.count === 2 ? "ix-moderate" : "ix-scarce";
+        html += `<div class="ix-cell ${cls}">
+          <div class="ix-count">${cell.count}</div>
+          <div class="ix-names">${cell.names.join(", ")}</div>
+        </div>`;
+      }
+    }
+
+    html += `</div>`;
+    el.innerHTML = html;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — naive draws (Act 3)
+// ─────────────────────────────────────────────────────────────────
+function renderNaiveDraws() {
+  const el = document.getElementById("naive-draws");
+  const seeds = findBadSeeds();
+
+  let html = "";
+  for (let i = 0; i < seeds.length; i++) {
+    const sel = naiveDraw(seeds[i]);
+    const scores = scoreSelection(sel);
+
+    html += `<div class="draw-card">`;
+    html += `<h4>Draw ${i + 1}</h4>`;
+    html += `<div class="draw-people">`;
+    for (const p of sel) {
+      html += `<span class="draw-chip">${p.name}</span>`;
+    }
+    html += `</div>`;
+    html += `<div class="scorecard">`;
+
+    // Show per-category scores (group by category)
+    const cats = ["Gender", "Region", "Age"];
+    for (const cat of cats) {
+      const catScores = scores.filter(s => s.category === cat);
+      const catPass = catScores.every(s => s.pass);
+      const detail = catScores.map(s => `${s.count} ${s.value}`).join(", ");
+      const target = catScores.map(s => s.min === s.max ? `${s.min} ${s.value}` : `${s.min}-${s.max} ${s.value}`).join(", ");
+      html += `<div class="score-row">
+        <span class="score-icon ${catPass ? "pass" : "fail"}">${catPass ? "\u2713" : "\u2717"}</span>
+        <span>${cat}: ${detail}</span>
+        <span style="color:var(--muted);font-size:12px;margin-left:auto">(target: ${target})</span>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — number lines (Act 4)
+// ─────────────────────────────────────────────────────────────────
+function renderNumberLine(containerId, items) {
+  const el = document.getElementById(containerId);
+  let html = "";
+  for (const item of items) {
+    const maxVal = SELECT_COUNT;
+    html += `<div class="nl-row">`;
+    html += `<div class="nl-label">${item.category} / ${item.value}</div>`;
+    html += `<div class="nl-track-wrap">`;
+    html += `<div class="nl-track"></div>`;
+
+    // Highlighted range
+    const left = (item.min / maxVal) * 100;
+    const width = ((item.max - item.min) / maxVal) * 100;
+    html += `<div class="nl-range" style="left:${left}%;width:${width || 1}%"></div>`;
+
+    // Markers
+    for (let n = 0; n <= maxVal; n++) {
+      const pos = (n / maxVal) * 100;
+      const inRange = n >= item.min && n <= item.max;
+      html += `<div class="nl-marker ${inRange ? "in-range" : ""}" style="left:calc(${pos}% - 0.5px)">
+        <div class="nl-dot"></div>
+        <span class="nl-num">${n}</span>
+      </div>`;
+    }
+
+    html += `</div>`; // track-wrap
+    html += `<div class="nl-type">${item.min === item.max ? "Exact: must be exactly " + item.min : "Range: at least " + item.min + ", at most " + item.max}</div>`;
+    if (item.poolCount !== undefined) {
+      html += `<div class="nl-pool-count">${item.poolCount} in pool</div>`;
+    }
+    html += `</div>`; // nl-row
+  }
+  el.innerHTML = html;
+}
+
+function renderTargets() {
+  renderNumberLine("nl-exact", [
+    { category: "Gender", value: "Male",   min: 4, max: 4 },
+    { category: "Gender", value: "Female", min: 4, max: 4 },
+    { category: "Age",    value: "Young",  min: 4, max: 4 },
+    { category: "Age",    value: "Senior", min: 4, max: 4 },
+  ]);
+  renderNumberLine("nl-range", [
+    { category: "Region", value: "North", min: 3, max: 5 },
+    { category: "Region", value: "South", min: 3, max: 5 },
+  ]);
+
+  // Targets vs pool
+  const el = document.getElementById("targets-vs-pool");
+  const items = [
+    { cat: "Gender", val: "Male",   min: 4, max: 4, pool: 8 },
+    { cat: "Gender", val: "Female", min: 4, max: 4, pool: 8 },
+    { cat: "Region", val: "North",  min: 3, max: 5, pool: 11 },
+    { cat: "Region", val: "South",  min: 3, max: 5, pool: 5 },
+    { cat: "Age",    val: "Young",  min: 4, max: 4, pool: 6 },
+    { cat: "Age",    val: "Senior", min: 4, max: 4, pool: 10 },
+  ];
+
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0">
+    <tr style="color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:0.5px">
+      <th style="text-align:left;padding:6px">Category value</th>
+      <th style="padding:6px">Target</th>
+      <th style="padding:6px">In pool</th>
+      <th style="padding:6px">Difficulty</th>
+    </tr>`;
+  for (const it of items) {
+    const target = it.min === it.max ? `exactly ${it.min}` : `${it.min} &ndash; ${it.max}`;
+    const ratio = it.min / it.pool;
+    const tight = ratio > 0.5;
+    html += `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px;font-weight:600">${it.cat} / ${it.val}</td>
+      <td style="padding:6px;text-align:center">${target}</td>
+      <td style="padding:6px;text-align:center">${it.pool}</td>
+      <td style="padding:6px;text-align:center;color:${tight ? "var(--red)" : "var(--green)"};font-weight:600">
+        ${tight ? "tight" : "comfortable"}
+      </td>
+    </tr>`;
+  }
+  html += `</table>`;
+  el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — example panels and probabilities (Act 5)
+// ─────────────────────────────────────────────────────────────────
+function renderAct5() {
+  const allPanels = enumerateValidPanels();
+  const totalPanels = allPanels.length;
+
+  // Count appearances
+  const counts = {};
+  CANDIDATES.forEach(c => { counts[c.id] = 0; });
+  for (const panel of allPanels) {
+    for (const p of panel) {
+      counts[p.id]++;
+    }
+  }
+
+  // Pick two valid panels that both contain Omar and Priya but differ maximally otherwise
+  const withBoth = allPanels.filter(p => {
+    const ids = new Set(p.map(x => x.id));
+    return ids.has("omar") && ids.has("priya");
+  });
+  const panelA = withBoth[0];
+  let panelB = withBoth[withBoth.length - 1];
+  const aIds = new Set(panelA.map(p => p.id));
+  let bestDiff = 0;
+  for (const panel of withBoth) {
+    const pIds = new Set(panel.map(p => p.id));
+    let diff = 0;
+    for (const id of pIds) { if (!aIds.has(id)) diff++; }
+    if (diff > bestDiff) { bestDiff = diff; panelB = panel; }
+  }
+
+  // Render side-by-side panels
+  const panelsEl = document.getElementById("example-panels");
+  const bIds = new Set(panelB.map(p => p.id));
+  const shared = new Set([...aIds].filter(id => bIds.has(id)));
+
+  function renderPanel(panel, title) {
+    let html = `<div class="panel-example"><h4>${title}</h4><div class="draw-people">`;
+    for (const p of panel) {
+      const isShared = shared.has(p.id);
+      html += `<span class="draw-chip ${isShared ? "shared-badge" : ""}">${p.name}</span>`;
+    }
+    html += `</div></div>`;
+    return html;
+  }
+  panelsEl.innerHTML = renderPanel(panelA, "Panel A") + renderPanel(panelB, "Panel B");
+
+  // Render probability chart
+  const probEl = document.getElementById("prob-chart");
+  // Sort by count descending
+  const sorted = CANDIDATES.map(c => ({
+    name: c.name,
+    id: c.id,
+    count: counts[c.id],
+    pct: Math.round((counts[c.id] / totalPanels) * 100),
+  })).sort((a, b) => b.count - a.count);
+
+  let html = `<p style="font-size:13px;color:var(--muted);margin-bottom:10px">
+    ${totalPanels} valid panels exist. Each person appears in:
+  </p>`;
+  for (const p of sorted) {
+    const cls = p.pct >= 80 ? "high" : p.pct >= 40 ? "medium" : "low";
+    html += `<div class="prob-row">
+      <span class="prob-name">${p.name}</span>
+      <div class="prob-track">
+        <div class="prob-fill ${cls}" style="width:${p.pct}%"></div>
+      </div>
+      <span class="prob-value">${p.pct}%</span>
+      <span class="prob-meta">${p.count} / ${totalPanels}</span>
+    </div>`;
+  }
+  probEl.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SCROLL OBSERVER — reveal scenes on scroll
+// ─────────────────────────────────────────────────────────────────
+function setupScrollReveal() {
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("is-visible");
+      }
+    }
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll(".scene").forEach(el => observer.observe(el));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SCROLL PROGRESS BAR
+// ─────────────────────────────────────────────────────────────────
+function setupScrollProgress() {
+  const bar = document.getElementById("scroll-progress");
+  window.addEventListener("scroll", () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    bar.style.width = `${pct}%`;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────
+renderPoolGrid();
+renderDemographics();
+renderIntersections();
+renderNaiveDraws();
+renderTargets();
+renderAct5();
+setupScrollReveal();
+setupScrollProgress();
+        </script>
+    </body>
+</html>

@@ -237,6 +237,7 @@ You can read a more detailed [walk through of the algorithms and code here](walk
 
 We are trying out some animations to help understand how the algorithms work. So far we have:
 
+- [introductory animation](animated-intro.html)
 - [legacy algorithm animation](animated-legacy-algorithm.html)
 - [common solver algorithm animation](animated-common-algorithm.html) - this is covers the common steps taken before handing over to maximin, nash or leximin.
 - [maximin algorithm animation](animated-maximin-algorithm.html)
