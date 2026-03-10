@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- ABOUTME: Scrollytelling introduction to sortition: recruitment, skewed pools, naive selection, -->
-<!-- ABOUTME: targets, and the fairness problem. Links to the algorithm animations. -->
+<!-- ABOUTME: Scrollytelling introduction to sortition: recruitment, skewed pools, representativeness, -->
+<!-- ABOUTME: naive selection, targets, and the fairness problem. Links to the algorithm animations. -->
 <html lang="en">
     <head>
         <meta charset="UTF-8">
@@ -135,6 +135,52 @@
     color: var(--text);
   }
 
+  /* ── Inline note (clickable popup) ───────────────────── */
+  .note-trigger {
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    border-bottom: 1px dashed var(--accent);
+    user-select: none;
+  }
+  .note-trigger:hover { color: var(--yellow); border-color: var(--yellow); }
+  .note-content {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-top: 8px;
+    font-size: 14px;
+    font-style: normal;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .note-content.is-open { display: block; }
+
+  /* ── Terminology box ─────────────────────────────────── */
+  .term-box {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 16px 20px;
+    margin: 20px 0;
+  }
+  .term-box dt {
+    font-weight: 700;
+    color: var(--yellow);
+    font-size: 15px;
+    margin-top: 8px;
+  }
+  .term-box dt:first-child { margin-top: 0; }
+  .term-box dd {
+    color: var(--text);
+    font-size: 15px;
+    margin-left: 0;
+    margin-bottom: 4px;
+  }
+
   /* ── Funnel diagram ──────────────────────────────────── */
   .funnel {
     display: flex;
@@ -174,7 +220,7 @@
     font-size: 13px;
     padding: 4px 12px;
     border-radius: 20px;
-    background: var(--full-bg, rgba(255,91,91,0.08));
+    background: rgba(255,91,91,0.08);
     border: 1px solid rgba(255,91,91,0.2);
     color: var(--red);
   }
@@ -563,16 +609,6 @@
     line-height: 1.5;
   }
 
-  /* ── Footnote ────────────────────────────────────────── */
-  .footnote {
-    font-size: 13px;
-    color: var(--muted);
-    border-top: 1px solid var(--border);
-    padding-top: 12px;
-    margin-top: 40px;
-  }
-  .footnote sup { color: var(--accent); }
-
   /* ── Highlight span ──────────────────────────────────── */
   .hl { color: var(--yellow); font-weight: 600; }
   .hl-green { color: var(--green); font-weight: 600; }
@@ -616,8 +652,12 @@
                         <div class="funnel-step" style="width:60%">
                             <div class="num">10,000</div>
                             <div class="label">
-                                letters sent <sup>*</sup>
+                                letters sent
+                                <span class="note-trigger" data-note="household-note">[note]</span>
                             </div>
+                        </div>
+                        <div class="note-content" id="household-note">
+                            In practice, assemblies also check for multiple respondents from the same household and typically keep only one per address, to avoid over-representing a single home.
                         </div>
                     </div>
                 </div>
@@ -646,12 +686,29 @@
                     </div>
                 </div>
                 <div class="scene">
+                    <p>
+                        The assembly only has room for around <span class="hl">50 panellists</span>. So from these ~400 responses, we need to choose 50 people in a way that is both <span class="hl-green">representative</span> &mdash; reflecting the wider population &mdash; and <span class="hl-accent">fair</span> &mdash; giving everyone a reasonable chance of being selected. What exactly these words mean can vary by context, but both matter.
+                    </p>
+                    <div class="term-box">
+                        <dl>
+                            <dt>Candidates</dt>
+                            <dd>
+                                The people who responded &mdash; the pool we choose from.
+                            </dd>
+                            <dt>Panellists</dt>
+                            <dd>
+                                The people who are selected to serve on the assembly.
+                            </dd>
+                        </dl>
+                    </div>
+                    <p>
+                        For the rest of this walkthrough, we'll use a simplified example: <span class="hl">16 candidates</span>, from which we need to select <span class="hl">8 panellists</span>.
+                    </p>
+                </div>
+                <div class="scene">
                     <div class="key-message">
                         The candidate pool is <strong>self-selected</strong>. The people who respond are not a random cross-section of the population &mdash; they're the people who <em>chose</em> to respond. This matters.
                     </div>
-                    <p>
-                        For the rest of this walkthrough, we'll use a simplified example: <span class="hl">16 candidates</span>, from which we need to select <span class="hl">8</span>.
-                    </p>
                 </div>
             </div>
         </section>
@@ -673,11 +730,14 @@
                 <div class="scene">
                     <h3>How does our pool compare to the population?</h3>
                     <div class="bar-chart" id="demographics-chart"></div>
+                    <p>
+                        Why is the pool skewed? Self-selection bias. Older people may have more time to respond. People in the South &mdash; perhaps a poorer area &mdash; may feel less able to participate, or less confident that the assembly will listen to them. The reasons vary, but the result is the same: the pool doesn't look like the city.
+                    </p>
                 </div>
                 <div class="scene">
-                    <h3>The intersection problem</h3>
+                    <h3>Looking at intersections</h3>
                     <p>
-                        The real issue becomes clear when you look at <em>combinations</em> of categories. Some intersections are abundant, others are dangerously scarce.
+                        Another way to see the skew is to look at <em>combinations</em> of categories. Some intersections have many candidates, others have very few.
                     </p>
                 </div>
                 <div class="scene">
@@ -696,104 +756,115 @@
             </div>
         </section>
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- ACT 3 — NAIVE SELECTION                           -->
+        <!-- ACT 3 — WHAT DOES REPRESENTATIVE MEAN?            -->
         <!-- ═══════════════════════════════════════════════════ -->
         <section>
             <div class="col">
                 <div class="scene">
                     <div class="act-title">Act 3</div>
-                    <h2>Just Pick 8 at Random</h2>
-                    <p>What happens if we simply draw 8 names from a hat?</p>
+                    <h2>What Would &ldquo;Representative&rdquo; Mean?</h2>
+                    <p>
+                        Before we try selecting anyone, let's think about what we actually want. If the panel is supposed to represent the city, what would that look like?
+                    </p>
                 </div>
-                <div class="scene" id="naive-draws"></div>
                 <div class="scene">
+                    <h3>Precise balance</h3>
+                    <p>
+                        We might decide that some categories should precisely reflect the population. Gender in our city is roughly 50/50, and we're selecting 8 people, so we might want <strong>exactly 4 Male and 4 Female</strong> panellists. Same for age: <strong>exactly 4 Young and 4 Senior</strong>.
+                    </p>
+                    <div class="nl-group" id="nl-exact"></div>
+                </div>
+                <div class="scene">
+                    <h3>Adequate representation</h3>
+                    <p>
+                        For other categories, exact balance may be less important than ensuring adequate representation. For Region, we might be happy with <strong>anywhere from 3 to 5</strong> Northerners (and correspondingly 3 to 5 Southerners). This gives flexibility while still ensuring no region is shut out.
+                    </p>
+                    <div class="nl-group" id="nl-range"></div>
+                </div>
+                <div class="scene">
+                    <p>
+                        We could in principle set criteria for intersections too &mdash; like &ldquo;at least 1 Young Southerner&rdquo; &mdash; but the maths gets complicated fast, so in practice targets are set per category.
+                    </p>
                     <div class="key-message">
-                        If this assembly is deciding transport policy for the whole city, but most members are from the North, Southern communities have little voice in decisions that affect them. Random selection from a skewed pool gives a skewed result.
+                        We now have a concrete idea of what a representative panel looks like: a set of criteria for how many people from each category value should be included.
                     </div>
                 </div>
             </div>
         </section>
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- ACT 4 — INTRODUCING TARGETS                      -->
+        <!-- ACT 4 — NAIVE SELECTION                           -->
         <!-- ═══════════════════════════════════════════════════ -->
         <section>
             <div class="col">
                 <div class="scene">
                     <div class="act-title">Act 4</div>
-                    <h2>What Does a Good Selection Look Like?</h2>
-                    <p>
-                        The solution is to set <span class="hl">targets</span> for each category. Organisers decide these based on census data and the assembly's purpose.
-                    </p>
+                    <h2>Just Pick 8 at Random</h2>
+                    <p>So, does a simple random draw meet our criteria? Let's try it a few times.</p>
                 </div>
-                <div class="scene">
-                    <h3>Exact targets</h3>
-                    <p>
-                        Some categories need precise balance. Gender must be <strong>exactly 4 Male and 4 Female</strong> &mdash; no wiggle room.
-                    </p>
-                    <div class="nl-group" id="nl-exact"></div>
-                </div>
-                <div class="scene">
-                    <h3>Range targets</h3>
-                    <p>
-                        Other categories allow flexibility. Region needs <strong>at least 3 but no more than 5</strong> from each area. This gives the algorithm room to work while still ensuring adequate representation.
-                    </p>
-                    <div class="nl-group" id="nl-range"></div>
-                </div>
-                <div class="scene">
-                    <h3>Targets meet pool</h3>
-                    <p>
-                        Here are our targets alongside the pool. Notice which ones will be <span class="hl-green">easy</span> and which will be <span class="hl-red">tight</span>.
-                    </p>
-                    <div id="targets-vs-pool"></div>
-                </div>
+                <div class="scene" id="naive-draws"></div>
                 <div class="scene">
                     <div class="key-message">
-                        Targets define what "representative" means. They turn a vague goal into concrete constraints that a selection process can aim for.
+                        None of these meet our criteria for representativeness. If this assembly is deciding transport policy for the whole city, but most members are from the North, Southern communities have little voice in decisions that affect them. Random selection from a skewed pool gives a skewed result &mdash; we need something better.
                     </div>
                 </div>
             </div>
         </section>
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- ACT 5 — THE FAIRNESS PROBLEM                     -->
+        <!-- ACT 5 — FROM TARGETS TO FAIRNESS                 -->
         <!-- ═══════════════════════════════════════════════════ -->
         <section>
             <div class="col">
                 <div class="scene">
                     <div class="act-title">Act 5</div>
-                    <h2>Targets Aren't Enough</h2>
+                    <h2>From Targets to Fairness</h2>
                     <p>
-                        Meeting the targets is possible. But <em>how</em> you meet them matters. There are many valid selections &mdash; the question is which one to pick.
+                        We can take our earlier ideas about representativeness and turn them into concrete <span class="hl">targets</span> that the panel must meet. These are set by the organisers based on census data and the assembly's purpose.
                     </p>
                 </div>
                 <div class="scene">
-                    <h3>Two valid selections</h3>
-                    <p>Both of these panels meet every target. But look at who's in each one.</p>
+                    <h3>Targets meet pool</h3>
+                    <p>
+                        Here are our targets alongside the candidate pool. Some are comfortable to meet, others are tight &mdash; there isn't much room for manoeuvre.
+                    </p>
+                    <div id="targets-vs-pool"></div>
+                </div>
+                <div class="scene">
+                    <h3>Many valid selections</h3>
+                    <p>
+                        It turns out that, for our 16-person example, there are <span class="hl" id="panel-count-label">many</span> different panels of 8 that satisfy all the targets. Meeting the targets is possible &mdash; in fact, there are many ways to do it. The question is <em>which</em> valid panel to pick.
+                    </p>
+                    <p>Here are two examples &mdash; you can check that they really do satisfy the targets.</p>
                     <div class="panels-side" id="example-panels"></div>
                     <p style="font-size:14px;color:var(--muted);margin-top:8px">
-                        Notice that <span class="hl-accent">Omar</span> and <span class="hl-accent">Priya</span> appear in both panels. They have to &mdash; they're the only Young Southerners.
+                        Notice that <span class="hl-accent">Omar</span> and <span class="hl-accent">Priya</span> appear in both panels. That's not a coincidence&hellip;
                     </p>
                 </div>
                 <div class="scene">
                     <h3>Not everyone has the same chance</h3>
                     <p>
-                        Across <strong>all</strong> valid panels, some people appear far more often than others.
+                        Across <strong>all</strong> <span id="panel-count-label-2"></span> valid panels, some people appear far more often than others.
                     </p>
                     <div class="prob-chart" id="prob-chart"></div>
                 </div>
                 <div class="scene">
                     <p>
-                        People who appear in very few valid panels might feel: <em>"There's no point in registering &mdash; I have almost no chance anyway."</em> That's a problem for the legitimacy of the whole process.
+                        People who appear in very few valid panels might feel: <em>&ldquo;There's no point in registering &mdash; I have almost no chance anyway.&rdquo;</em> That's a problem for the legitimacy of the whole process.
                     </p>
                 </div>
                 <div class="scene">
                     <h3>Representativeness vs Fairness</h3>
                     <p>
-                        There's a genuine tension here. The panel must <span class="hl-green">look like the population</span> (representativeness), but each individual should also have <span class="hl-accent">a fair shot</span> at being selected (fairness). <sup>&dagger;</sup>
+                        There's a genuine tension here. The panel must <span class="hl-green">look like the population</span> (representativeness), but each individual should also have <span class="hl-accent">a fair shot</span> at being selected (fairness).
+                        There is a third concern too: <span class="hl">explainability</span>.
+                        <span class="note-trigger" data-note="explain-note">[more]</span>
                     </p>
+                    <div class="note-content" id="explain-note">
+                        People understand voting in an election, and that juries are randomly selected. It may be worth accepting slightly less mathematical fairness in exchange for an algorithm the public can more easily understand. Conversations continue in the sortition community about the trade-offs among these options.
+                    </div>
                 </div>
                 <div class="scene">
                     <p>
-                        Real assemblies might have <span class="hl">400 respondents</span>, <span class="hl">15 demographic categories</span>, and need to select <span class="hl">30 people</span>. The maths gets complicated fast &mdash; far beyond what a spreadsheet can handle.
+                        Real assemblies might have <span class="hl">400 candidates</span>, <span class="hl">15 demographic categories</span>, and need to select <span class="hl">50 panellists</span>. The maths gets complicated fast &mdash; far beyond what a spreadsheet can handle.
                     </p>
                     <p>
                         The good news: mathematicians have developed algorithms that handle both representativeness and fairness. Let's see how they work.
@@ -803,30 +874,17 @@
                     <div class="algo-links">
                         <a class="algo-card" href="animated-legacy-algorithm.html">
                             <h4>The Legacy Algorithm &#x2192;</h4>
-                            <p>Can be followed step-by-step and is efficient, though it is not as fair as the other algorithms.</p>
+                            <p>
+                                An efficient way of selecting a panel that satisfies the targets, meaning it is <strong>representative</strong>. However, the algorithm does not address <strong>fairness</strong>.
+                            </p>
                         </a>
                         <a class="algo-card" href="animated-common-algorithm.html">
                             <h4>The Common Algorithm &#x2192;</h4>
                             <p>
-                                The first part of the fairer algorithms (maximin, nash and leximin). Those algorithms try to balance targets AND fairness.
+                                The first part of the fairer algorithms (maximin, nash and leximin). These aim to balance both <strong>representativeness</strong> and <strong>fairness</strong> &mdash; meeting the targets while ensuring no candidate has a particularly low chance of selection.
                             </p>
                         </a>
                     </div>
-                </div>
-            </div>
-        </section>
-        <!-- ═══════════════════════════════════════════════════ -->
-        <!-- FOOTNOTE                                          -->
-        <!-- ═══════════════════════════════════════════════════ -->
-        <section style="padding:40px 0 80px">
-            <div class="col">
-                <div class="footnote">
-                    <p>
-                        <sup>*</sup> In practice, assemblies also check for <strong>multiple respondents from the same household</strong> and typically keep only one per address, to avoid over-representing a single home.
-                    </p>
-                    <p style="margin-top:8px">
-                        <sup>&dagger;</sup> There is a third concern too: <strong>explainability</strong>. People understand voting in an election, and that juries are randomly selected. It may be worth accepting slightly less mathematical fairness in exchange for an algorithm the public can more easily understand. Conversations continue in the sortition community about the trade-offs among these options.
-                    </p>
                 </div>
             </div>
         </section>
@@ -904,7 +962,7 @@ function scoreSelection(sel) {
   return scores;
 }
 
-// Find 3 seeds that give clearly bad selections (fail at least one constraint)
+// Find 3 seeds that give clearly bad selections (fail at least 2 constraints)
 function findBadSeeds() {
   const seeds = [];
   for (let s = 1; seeds.length < 3 && s < 200; s++) {
@@ -979,7 +1037,6 @@ function renderDemographics() {
   const categories = [
     {
       title: "Gender",
-      pop: "population: ~50% / ~50%",
       bars: [
         { label: "Male", count: 8, total: 16, popPct: 50, balanced: true },
         { label: "Female", count: 8, total: 16, popPct: 50, balanced: true },
@@ -987,7 +1044,6 @@ function renderDemographics() {
     },
     {
       title: "Region",
-      pop: "population: ~50% / ~50%",
       bars: [
         { label: "North", count: 11, total: 16, popPct: 50, balanced: false },
         { label: "South", count: 5, total: 16, popPct: 50, balanced: false },
@@ -995,7 +1051,6 @@ function renderDemographics() {
     },
     {
       title: "Age",
-      pop: "population: ~50% / ~50%",
       bars: [
         { label: "Young", count: 6, total: 16, popPct: 50, balanced: false },
         { label: "Senior", count: 10, total: 16, popPct: 50, balanced: false },
@@ -1046,27 +1101,12 @@ function renderIntersections() {
   for (const g of groups) {
     const el = document.getElementById(`intersection-${g.region.toLowerCase()}`);
     let html = `<div class="ix-grid">`;
-    // Header row
     html += `<div class="ix-header">${g.region}</div>`;
     html += `<div class="ix-header">Male</div>`;
     html += `<div class="ix-header">Female</div>`;
 
-    // Young row
-    html += `<div class="ix-row-label">Young</div>`;
-    for (const age of ["Young"]) {
-      for (const gender of ["Male", "Female"]) {
-        const cell = g.data.find(d => d.gender === gender && d.age === age);
-        const cls = cell.count >= 3 ? "ix-abundant" : cell.count === 2 ? "ix-moderate" : "ix-scarce";
-        html += `<div class="ix-cell ${cls}">
-          <div class="ix-count">${cell.count}</div>
-          <div class="ix-names">${cell.names.join(", ")}</div>
-        </div>`;
-      }
-    }
-
-    // Senior row
-    html += `<div class="ix-row-label">Senior</div>`;
-    for (const age of ["Senior"]) {
+    for (const age of ["Young", "Senior"]) {
+      html += `<div class="ix-row-label">${age}</div>`;
       for (const gender of ["Male", "Female"]) {
         const cell = g.data.find(d => d.gender === gender && d.age === age);
         const cls = cell.count >= 3 ? "ix-abundant" : cell.count === 2 ? "ix-moderate" : "ix-scarce";
@@ -1083,7 +1123,7 @@ function renderIntersections() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// RENDER — naive draws (Act 3)
+// RENDER — naive draws (Act 4)
 // ─────────────────────────────────────────────────────────────────
 function renderNaiveDraws() {
   const el = document.getElementById("naive-draws");
@@ -1103,7 +1143,6 @@ function renderNaiveDraws() {
     html += `</div>`;
     html += `<div class="scorecard">`;
 
-    // Show per-category scores (group by category)
     const cats = ["Gender", "Region", "Age"];
     for (const cat of cats) {
       const catScores = scores.filter(s => s.category === cat);
@@ -1113,7 +1152,7 @@ function renderNaiveDraws() {
       html += `<div class="score-row">
         <span class="score-icon ${catPass ? "pass" : "fail"}">${catPass ? "\u2713" : "\u2717"}</span>
         <span>${cat}: ${detail}</span>
-        <span style="color:var(--muted);font-size:12px;margin-left:auto">(target: ${target})</span>
+        <span style="color:var(--muted);font-size:12px;margin-left:auto">(want: ${target})</span>
       </div>`;
     }
     html += `</div></div>`;
@@ -1122,7 +1161,7 @@ function renderNaiveDraws() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// RENDER — number lines (Act 4)
+// RENDER — number lines (Act 3)
 // ─────────────────────────────────────────────────────────────────
 function renderNumberLine(containerId, items) {
   const el = document.getElementById(containerId);
@@ -1134,12 +1173,10 @@ function renderNumberLine(containerId, items) {
     html += `<div class="nl-track-wrap">`;
     html += `<div class="nl-track"></div>`;
 
-    // Highlighted range
     const left = (item.min / maxVal) * 100;
     const width = ((item.max - item.min) / maxVal) * 100;
     html += `<div class="nl-range" style="left:${left}%;width:${width || 1}%"></div>`;
 
-    // Markers
     for (let n = 0; n <= maxVal; n++) {
       const pos = (n / maxVal) * 100;
       const inRange = n >= item.min && n <= item.max;
@@ -1149,12 +1186,9 @@ function renderNumberLine(containerId, items) {
       </div>`;
     }
 
-    html += `</div>`; // track-wrap
-    html += `<div class="nl-type">${item.min === item.max ? "Exact: must be exactly " + item.min : "Range: at least " + item.min + ", at most " + item.max}</div>`;
-    if (item.poolCount !== undefined) {
-      html += `<div class="nl-pool-count">${item.poolCount} in pool</div>`;
-    }
-    html += `</div>`; // nl-row
+    html += `</div>`;
+    html += `<div class="nl-type">${item.min === item.max ? "Precise: exactly " + item.min : "Flexible: at least " + item.min + ", at most " + item.max}</div>`;
+    html += `</div>`;
   }
   el.innerHTML = html;
 }
@@ -1213,6 +1247,12 @@ function renderAct5() {
   const allPanels = enumerateValidPanels();
   const totalPanels = allPanels.length;
 
+  // Update panel count labels
+  const countLabel = document.getElementById("panel-count-label");
+  if (countLabel) countLabel.textContent = totalPanels;
+  const countLabel2 = document.getElementById("panel-count-label-2");
+  if (countLabel2) countLabel2.textContent = totalPanels;
+
   // Count appearances
   const counts = {};
   CANDIDATES.forEach(c => { counts[c.id] = 0; });
@@ -1222,7 +1262,7 @@ function renderAct5() {
     }
   }
 
-  // Pick two valid panels that both contain Omar and Priya but differ maximally otherwise
+  // Pick two valid panels that both contain Omar and Priya but differ maximally
   const withBoth = allPanels.filter(p => {
     const ids = new Set(p.map(x => x.id));
     return ids.has("omar") && ids.has("priya");
@@ -1238,14 +1278,15 @@ function renderAct5() {
     if (diff > bestDiff) { bestDiff = diff; panelB = panel; }
   }
 
-  // Render side-by-side panels
+  // Render side-by-side panels (sort alphabetically, not by gender)
   const panelsEl = document.getElementById("example-panels");
   const bIds = new Set(panelB.map(p => p.id));
   const shared = new Set([...aIds].filter(id => bIds.has(id)));
 
   function renderPanel(panel, title) {
+    const sorted = [...panel].sort((a, b) => a.name.localeCompare(b.name));
     let html = `<div class="panel-example"><h4>${title}</h4><div class="draw-people">`;
-    for (const p of panel) {
+    for (const p of sorted) {
       const isShared = shared.has(p.id);
       html += `<span class="draw-chip ${isShared ? "shared-badge" : ""}">${p.name}</span>`;
     }
@@ -1256,7 +1297,6 @@ function renderAct5() {
 
   // Render probability chart
   const probEl = document.getElementById("prob-chart");
-  // Sort by count descending
   const sorted = CANDIDATES.map(c => ({
     name: c.name,
     id: c.id,
@@ -1265,7 +1305,7 @@ function renderAct5() {
   })).sort((a, b) => b.count - a.count);
 
   let html = `<p style="font-size:13px;color:var(--muted);margin-bottom:10px">
-    ${totalPanels} valid panels exist. Each person appears in:
+    Each person appears in this many of the ${totalPanels} valid panels:
   </p>`;
   for (const p of sorted) {
     const cls = p.pct >= 80 ? "high" : p.pct >= 40 ? "medium" : "low";
@@ -1279,6 +1319,19 @@ function renderAct5() {
     </div>`;
   }
   probEl.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CLICKABLE NOTES — toggle inline popup on click
+// ─────────────────────────────────────────────────────────────────
+function setupNotes() {
+  document.querySelectorAll(".note-trigger").forEach(trigger => {
+    trigger.addEventListener("click", () => {
+      const noteId = trigger.getAttribute("data-note");
+      const content = document.getElementById(noteId);
+      if (content) content.classList.toggle("is-open");
+    });
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1318,6 +1371,7 @@ renderIntersections();
 renderNaiveDraws();
 renderTargets();
 renderAct5();
+setupNotes();
 setupScrollReveal();
 setupScrollProgress();
         </script>
