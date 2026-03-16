@@ -11,12 +11,12 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-02-25T13:01:41.78668833Z"
+exclude-newer = "2026-03-09T02:56:11.623308561Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
-mip = { timestamp = "2026-03-04T13:01:41.787606602Z", span = "PT0S" }
-cbcbox = { timestamp = "2026-03-04T13:01:41.788662454Z", span = "PT0S" }
+mip = { timestamp = "2026-03-16T02:56:11.623315999Z", span = "PT0S" }
+cbcbox = { timestamp = "2026-03-16T02:56:11.623319944Z", span = "PT0S" }
 
 [[package]]
 name = "attrs"
@@ -974,15 +974,15 @@ wheels = [
 
 [[package]]
 name = "mip"
-version = "1.17.1"
+version = "1.17.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cbcbox" },
     { name = "cffi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/c9/1880c86294e8d3ec4971a2ef78781fba93d1a2dc8db1177912db06f795ac/mip-1.17.1.tar.gz", hash = "sha256:cc77afd50c7f5446c55fade258ed43b0e2b229285ee1b3b118d0fbbebdd88d0f", size = 9442513, upload-time = "2026-03-01T23:03:07.668Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3c/99/e0bc2e33c3427acb62d8d6d10f0b8b0630d6664cb67b2a5d9dcd7fcfaec5/mip-1.17.2.tar.gz", hash = "sha256:f2cd07026df36840ef338d0c6f6dd7929f30f7cfec2d41d8942af9e492d5ab67", size = 9443613, upload-time = "2026-03-05T01:18:05.705Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/49/8fb6bbd16b724528b5b62c0ff46895519af0dd8599c303cfefeb8ec75502/mip-1.17.1-py3-none-any.whl", hash = "sha256:06a04dacffea2b05a2cc93ce8881a5bd0aa32ee9c9676b2d2c65c2a799b9bacd", size = 88124, upload-time = "2026-03-01T23:03:06.277Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/1e/7c785bec45d953084a4c2d880342cf5ca8f7a9b9e01a129cea75700189dd/mip-1.17.2-py3-none-any.whl", hash = "sha256:2b1ec900e7d9b219d6730af7a28cb47afefa439f929659a54edaedaa130d87eb", size = 88146, upload-time = "2026-03-05T01:18:03.76Z" },
 ]
 
 [[package]]
