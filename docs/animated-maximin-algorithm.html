@@ -129,25 +129,24 @@
     text-align: right;
   }
 
-  /* ── Main layout ────────────────────────────────────────── */
+  /* ── Main layout: left column + narration column ────────── */
   #main {
     flex: 1;
     display: flex;
-    flex-direction: column;
     overflow: hidden;
     padding: 12px 20px;
-    gap: 10px;
-  }
-
-  /* ── Top section: candidates + chart side by side ──────── */
-  #top-section {
-    display: flex;
     gap: 16px;
-    flex-shrink: 0;
   }
-  #candidates-section {
+  #left-column {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  #candidates-section {
+    flex-shrink: 0;
   }
 
   /* ── Candidate cards ────────────────────────────────────── */
@@ -232,27 +231,57 @@
     text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   }
 
-  /* ── Probability chart ──────────────────────────────────── */
+  /* ── Chart panel (selection rules + fairness curve, side by side) */
   #chart-panel {
-    width: 300px;
     flex-shrink: 0;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    gap: 12px;
+  }
+  #chart-panel > div {
+    flex: 1;
+    min-width: 0;
   }
   #chart-panel h2 {
     font-size: 13px;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
   }
+
+  /* Rules table */
+  #rules-table {
+    border-collapse: collapse;
+    font-size: 12px;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  #rules-table th {
+    background: var(--surface2);
+    padding: 4px 8px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+    color: var(--muted);
+  }
+  #rules-table td {
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  #rules-table tr:last-child td { border-bottom: none; }
+
   #chart-wrap {
-    flex: 1;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     position: relative;
-    min-height: 120px;
+    height: 200px;
   }
   #prob-chart {
     width: 100%;
@@ -260,21 +289,12 @@
     display: block;
   }
 
-  /* ── Middle panels ──────────────────────────────────────── */
-  #middle-panels {
-    display: flex;
-    gap: 16px;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
-
   /* ── Committee table ────────────────────────────────────── */
   #committee-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0;
+    min-height: 0;
   }
   #committee-panel h2 {
     font-size: 13px;
@@ -352,7 +372,7 @@
 
   /* ── Narration panel ────────────────────────────────────── */
   #narration-panel {
-    width: 340px;
+    width: 300px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -453,7 +473,7 @@
             <div id="progress-label">0 / 0</div>
         </div>
         <div id="main">
-            <div id="top-section">
+            <div id="left-column">
                 <div id="candidates-section">
                     <h2>Candidates — each person's chance of being selected</h2>
                     <div class="region-group">
@@ -461,13 +481,22 @@
                     </div>
                 </div>
                 <div id="chart-panel">
-                    <h2>Fairness curve — chances low → high</h2>
-                    <div id="chart-wrap">
-                        <canvas id="prob-chart"></canvas>
+                    <div>
+                        <h2>Selection Rules</h2>
+                        <table id="rules-table">
+                            <thead>
+                                <tr><th>Feature</th><th>Value</th><th>Required</th></tr>
+                            </thead>
+                            <tbody id="rules-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <h2>Fairness curve &mdash; chances low &rarr; high</h2>
+                        <div id="chart-wrap">
+                            <canvas id="prob-chart"></canvas>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div id="middle-panels">
                 <div id="committee-panel">
                     <h2>Committees Found So Far</h2>
                     <div id="committee-table-wrap">
@@ -479,10 +508,10 @@
                         </table>
                     </div>
                 </div>
-                <div id="narration-panel">
-                    <h2>What's happening</h2>
-                    <div id="narration-box"></div>
-                </div>
+            </div>
+            <div id="narration-panel">
+                <h2>What's happening</h2>
+                <div id="narration-box"></div>
             </div>
         </div>
         <script>
@@ -1233,6 +1262,20 @@ function buildCommitteeTableHeader() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Rendering: build rules table
+// ─────────────────────────────────────────────────────────────
+
+function buildRulesTable() {
+  const tbody = document.getElementById("rules-tbody");
+  let html = "";
+  for (const [feature, value, min, max] of CONSTRAINTS) {
+    const req = min === max ? `exactly ${min}` : `${min} to ${max}`;
+    html += `<tr><td>${feature}</td><td>${value}</td><td>${req}</td></tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Probability chart — sorted curve from lowest to highest
 // ─────────────────────────────────────────────────────────────
 
@@ -1473,7 +1516,8 @@ function renderStep(stepIdx) {
     }
   }
   narBox.innerHTML = narHtml;
-  narBox.scrollTop = narBox.scrollHeight;
+  const lastStep = narBox.querySelector(".nar-step:last-child");
+  if (lastStep) lastStep.scrollIntoView({ block: "start" });
 
   // Probability chart
   renderChart(snap);
@@ -1571,6 +1615,7 @@ document.addEventListener("keydown", (e) => {
 // ─────────────────────────────────────────────────────────────
 
 buildCandidateCards();
+buildRulesTable();
 buildCommitteeTableHeader();
 renderStep(0);
 

@@ -128,25 +128,24 @@
     text-align: right;
   }
 
-  /* ── Main layout ────────────────────────────────────────── */
+  /* ── Main layout: left column + narration column ────────── */
   #main {
     flex: 1;
     display: flex;
-    flex-direction: column;
     overflow: hidden;
     padding: 12px 20px;
-    gap: 10px;
-  }
-
-  /* ── Top section: candidates + stats panel side by side ── */
-  #top-section {
-    display: flex;
     gap: 16px;
-    flex-shrink: 0;
   }
-  #candidates-section {
+  #left-column {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  #candidates-section {
+    flex-shrink: 0;
   }
 
   /* ── Candidate cards ────────────────────────────────────── */
@@ -250,13 +249,16 @@
   .card-coverage.covered { color: var(--green); }
   .card-coverage.uncovered { color: var(--muted); }
 
-  /* ── Stats panel (replaces probability chart) ──────────── */
+  /* ── Stats panel (horizontal row of charts) ─────────────── */
   #stats-panel {
-    width: 300px;
     flex-shrink: 0;
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row;
+    gap: 12px;
+  }
+  #stats-panel > div {
+    flex: 1;
+    min-width: 0;
   }
   #stats-panel h2 {
     font-size: 13px;
@@ -352,21 +354,12 @@
     text-shadow: 0 1px 2px rgba(0,0,0,0.6);
   }
 
-  /* ── Middle panels ──────────────────────────────────────── */
-  #middle-panels {
-    display: flex;
-    gap: 16px;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
-
   /* ── Committee table ────────────────────────────────────── */
   #committee-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0;
+    min-height: 0;
   }
   #committee-panel h2 {
     font-size: 13px;
@@ -426,7 +419,7 @@
 
   /* ── Narration panel ────────────────────────────────────── */
   #narration-panel {
-    width: 340px;
+    width: 300px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -499,7 +492,7 @@
             <div id="progress-label">0 / 0</div>
         </div>
         <div id="main">
-            <div id="top-section">
+            <div id="left-column">
                 <div id="candidates-section">
                     <h2>Candidates &mdash; search scores &amp; coverage</h2>
                     <div class="region-group">
@@ -544,8 +537,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-            <div id="middle-panels">
                 <div id="committee-panel">
                     <h2>Panels Found So Far</h2>
                     <div id="committee-table-wrap">
@@ -555,10 +546,10 @@
                         </table>
                     </div>
                 </div>
-                <div id="narration-panel">
-                    <h2>What's happening</h2>
-                    <div id="narration-box"></div>
-                </div>
+            </div>
+            <div id="narration-panel">
+                <h2>What's happening</h2>
+                <div id="narration-box"></div>
             </div>
         </div>
         <script>
@@ -1317,7 +1308,8 @@ function renderStep(stepIdx) {
     }
   }
   narBox.innerHTML = narHtml;
-  narBox.scrollTop = narBox.scrollHeight;
+  const lastStep = narBox.querySelector(".nar-step:last-child");
+  if (lastStep) lastStep.scrollIntoView({ block: "start" });
 
   // Panel count chart
   renderChart(snap);
