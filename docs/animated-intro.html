@@ -10,19 +10,19 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #222638;
-    --border: #2e3350;
-    --text: #e0e3f0;
-    --muted: #7a7f9a;
-    --accent: #5b7fff;
-    --green: #3ecf8e;
-    --red: #ff5b5b;
-    --yellow: #ffd166;
-    --orange: #ff9a3c;
-    --north-border: #3a6adf;
-    --south-border: #d4a843;
+    --bg: #ffffff;
+    --surface: #f5f0eb;
+    --surface2: #ece5dd;
+    --border: #d9d0c7;
+    --text: #473d3d;
+    --muted: #7a6e6e;
+    --accent: #e40f7d;
+    --green: #70a311;
+    --red: #c7003a;
+    --yellow: #fda135;
+    --orange: #fe5734;
+    --north-border: #548eb4;
+    --south-border: #fda135;
     --radius: 8px;
     --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
     --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
@@ -69,7 +69,7 @@
     font-size: 36px;
     font-weight: 800;
     margin-bottom: 16px;
-    background: linear-gradient(135deg, var(--accent), var(--green));
+    background: linear-gradient(135deg, var(--accent), var(--orange));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -614,6 +614,28 @@
   .hl-green { color: var(--green); font-weight: 600; }
   .hl-red { color: var(--red); font-weight: 600; }
   .hl-accent { color: var(--accent); font-weight: 600; }
+  /* ── Footer ─────────────────────────────────────────────── */
+  .site-footer {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 40px 0;
+    text-align: center;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .site-footer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .site-footer a:hover {
+    text-decoration: underline;
+  }
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
         </style>
     </head>
     <body>
@@ -624,6 +646,7 @@
         <section class="hero">
             <div class="col">
                 <div class="scene">
+                    <div style="margin-bottom: 32px;"><a href="https://www.sortitionfoundation.org/"><img src="logosortition.svg" alt="Sortition Foundation" width="256" height="86"></a></div>
                     <h1>Why Sortition Algorithms?</h1>
                     <p>How do you select a representative group of people &mdash; fairly?</p>
                     <div class="scroll-hint">Scroll down to find out &#x25BE;</div>
@@ -1376,5 +1399,14 @@ setupNotes();
 setupScrollReveal();
 setupScrollProgress();
         </script>
+        <footer class="site-footer">
+            <div class="col">
+                <div class="footer-links">
+                    <a href="https://sortitionfoundation.github.io/sortition-algorithms/concepts/">Algorithm Documentation</a>
+                    <a href="https://github.com/sortitionfoundation/sortition-algorithms">GitHub Repository</a>
+                    <a href="https://www.sortitionfoundation.org/">Sortition Foundation</a>
+                </div>
+            </div>
+        </footer>
     </body>
 </html>

@@ -10,26 +10,26 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #222638;
-    --border: #2e3350;
-    --text: #e0e3f0;
-    --muted: #7a7f9a;
-    --accent: #5b7fff;
-    --green: #3ecf8e;
-    --red: #ff5b5b;
-    --yellow: #ffd166;
-    --orange: #ff9a3c;
-    --winner-bg: #162812;
-    --winner-border: #3ecf8e;
-    --selected-bg: #1a2a3d;
-    --selected-border: #5b7fff;
-    --full-bg: #2d1a1a;
-    --full-border: #ff5b5b;
-    --c-min: #ff8b8b;
-    --c-sel: #7ecfff;
-    --c-rem: #ffd166;
+    --bg: #ffffff;
+    --surface: #f5f0eb;
+    --surface2: #ece5dd;
+    --border: #d9d0c7;
+    --text: #473d3d;
+    --muted: #7a6e6e;
+    --accent: #e40f7d;
+    --green: #70a311;
+    --red: #c7003a;
+    --yellow: #fda135;
+    --orange: #fe5734;
+    --winner-bg: #edf5e4;
+    --winner-border: #70a311;
+    --selected-bg: #fce8f2;
+    --selected-border: #e40f7d;
+    --full-bg: #fde8ec;
+    --full-border: #c7003a;
+    --c-min: #c7003a;
+    --c-sel: #548eb4;
+    --c-rem: #fda135;
     --radius: 8px;
     --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
     --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
@@ -47,12 +47,23 @@
     overflow: hidden;
   }
 
+  /* ── Top bar (header + controls + logo) ─────────────────── */
+  #top-bar {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  #top-bar-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   /* ── Header ─────────────────────────────────────────────── */
   #header {
     padding: 10px 20px 8px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
     display: flex;
     align-items: baseline;
     gap: 16px;
@@ -67,9 +78,7 @@
     align-items: center;
     gap: 8px;
     padding: 6px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
+    border-top: 1px solid var(--border);
   }
   #controls button {
     background: var(--surface2);
@@ -89,6 +98,17 @@
   .speed-group input[type="range"] { width: 80px; }
   #speed-label { font-family: var(--mono); font-size: 11px; min-width: 36px; }
   .step-counter { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  /* ── Logo panel ────────────────────────────────────────── */
+  #logo-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+    background: #ffffff;
+  }
 
   /* ── Main layout ────────────────────────────────────────── */
   #main {
@@ -156,10 +176,10 @@
   .person-card.is-selected .pc-name { color: var(--green); }
   .person-card.is-just-selected {
     border-color: var(--green);
-    background: rgba(62, 207, 142, 0.3);
+    background: rgba(112, 163, 17, 0.2);
     animation: card-flash-green 0.5s ease-out;
   }
-  .person-card.is-just-selected .pc-name { color: #fff; }
+  .person-card.is-just-selected .pc-name { color: #2d5a00; }
   .person-card.is-removed {
     opacity: 0.2;
     border-style: dashed;
@@ -167,7 +187,7 @@
   .person-card.is-just-removed {
     opacity: 0.5;
     border-color: var(--red);
-    background: rgba(255, 91, 91, 0.15);
+    background: rgba(199, 0, 58, 0.1);
     animation: card-flash-red 0.5s ease-out;
   }
 
@@ -226,7 +246,7 @@
   .ft td {
     padding: 5px 6px;
     text-align: center;
-    border-bottom: 1px solid rgba(46,51,80,0.4);
+    border-bottom: 1px solid rgba(71,61,61,0.2);
   }
   .fg-header td {
     font-weight: 700;
@@ -253,7 +273,7 @@
   .difficulty-formula { font-size: 11px; white-space: nowrap; }
   .difficulty-track {
     height: 4px;
-    background: rgba(46,51,80,0.5);
+    background: rgba(71,61,61,0.15);
     border-radius: 3px;
     overflow: hidden;
     min-width: 60px;
@@ -278,10 +298,10 @@
   tr.fv-row.is-maxed { opacity: 0.4; }
   tr.fv-row.is-inactive { opacity: 0.35; }
   tr.fv-row.is-changed {
-    background: rgba(255, 209, 102, 0.1);
+    background: rgba(253, 161, 53, 0.1);
   }
   tr.fv-row.is-changed td {
-    border-bottom-color: rgba(255, 209, 102, 0.3);
+    border-bottom-color: rgba(253, 161, 53, 0.3);
   }
 
   /* ── Right panel ─────────────────────────────────────────── */
@@ -347,7 +367,7 @@
   .formula {
     font-family: var(--mono);
     font-size: 12px;
-    background: rgba(0,0,0,0.35);
+    background: rgba(71,61,61,0.08);
     border-radius: 4px;
     padding: 3px 8px;
     margin-top: 5px;
@@ -378,9 +398,9 @@
     margin-bottom: 2px;
   }
   #how-card li.active-step {
-    background: rgba(91, 127, 255, 0.15);
+    background: rgba(228, 15, 125, 0.1);
     border-left-color: var(--accent);
-    color: #fff;
+    color: var(--text);
   }
 
   /* ── Selected panel ──────────────────────────────────────── */
@@ -421,8 +441,8 @@
     padding: 3px 9px;
     border-radius: 5px;
     background: transparent;
-    border: 1px dashed rgba(46,51,80,0.7);
-    color: rgba(46,51,80,0.9);
+    border: 1px dashed rgba(71,61,61,0.3);
+    color: rgba(71,61,61,0.5);
   }
 
   /* ── Event log (hidden by default) ──────────────────────── */
@@ -453,7 +473,7 @@
     font-family: var(--mono);
     font-size: 11px;
   }
-  .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(46,51,80,0.3); color: var(--muted); }
+  .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(71,61,61,0.15); color: var(--muted); }
   .log-entry.current { color: var(--text); }
   .log-entry.type-difficulty .tag    { color: var(--yellow); }
   .log-entry.type-selection .tag { color: var(--green); }
@@ -483,11 +503,11 @@
 
   /* ── Animations ──────────────────────────────────────────── */
   @keyframes row-flash-green {
-    0%   { background: rgba(62,207,142,0.4); }
+    0%   { background: rgba(112,163,17,0.3); }
     100% { background: var(--winner-bg); }
   }
   @keyframes row-flash-red {
-    0%   { background: rgba(255,91,91,0.45); }
+    0%   { background: rgba(199,0,58,0.3); }
     100% { background: var(--full-bg); }
   }
   @keyframes chip-pop {
@@ -495,36 +515,43 @@
     100% { transform: scale(1);    background: var(--accent); color: #fff; }
   }
   @keyframes card-flash-green {
-    0%   { background: rgba(62,207,142,0.5); }
-    100% { background: rgba(62,207,142,0.3); }
+    0%   { background: rgba(112,163,17,0.35); }
+    100% { background: rgba(112,163,17,0.2); }
   }
   @keyframes card-flash-red {
-    0%   { background: rgba(255,91,91,0.35); }
-    100% { background: rgba(255,91,91,0.15); }
+    0%   { background: rgba(199,0,58,0.25); }
+    100% { background: rgba(199,0,58,0.1); }
   }
         </style>
     </head>
     <body>
-        <div id="header">
-            <a href="animated-intro.html" style="color:var(--muted);font-size:12px;text-decoration:none;margin-right:12px;white-space:nowrap" title="Back to introduction">&larr; Intro</a>
-            <h1>Legacy Sortition Algorithm</h1>
-            <div id="step-info">
-                <span id="step-label">Step 1</span>
-                <span id="step-desc">— Initial state: 16 candidates, selecting 8</span>
+        <div id="top-bar">
+            <div id="top-bar-left">
+                <div id="header">
+                    <a href="animated-intro.html" style="color:var(--muted);font-size:12px;text-decoration:none;margin-right:12px;white-space:nowrap" title="Back to introduction">&larr; Intro</a>
+                    <h1>Legacy Sortition Algorithm</h1>
+                    <div id="step-info">
+                        <span id="step-label">Step 1</span>
+                        <span id="step-desc">— Initial state: 16 candidates, selecting 8</span>
+                    </div>
+                </div>
+                <div id="controls">
+                    <button id="btn-prev" title="Previous step (←)">◀ Prev</button>
+                    <button id="btn-play">▶ Play</button>
+                    <button id="btn-next" title="Next step (→)">Next ▶</button>
+                    <div class="speed-group">
+                        <label>Speed:</label>
+                        <input type="range" id="speed-slider" min="1" max="10" value="5">
+                        <span id="speed-label">1.0s</span>
+                    </div>
+                    <button id="btn-log" title="Toggle event log">Log</button>
+                    <div class="step-counter">
+                        Step <span id="ctr-cur">1</span> / <span id="ctr-tot">?</span>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div id="controls">
-            <button id="btn-prev" title="Previous step (←)">◀ Prev</button>
-            <button id="btn-play">▶ Play</button>
-            <button id="btn-next" title="Next step (→)">Next ▶</button>
-            <div class="speed-group">
-                <label>Speed:</label>
-                <input type="range" id="speed-slider" min="1" max="10" value="5">
-                <span id="speed-label">1.0s</span>
-            </div>
-            <button id="btn-log" title="Toggle event log">Log</button>
-            <div class="step-counter">
-                Step <span id="ctr-cur">1</span> / <span id="ctr-tot">?</span>
+            <div id="logo-panel">
+                <a href="https://www.sortitionfoundation.org/"><img src="logosortition.svg" alt="Sortition Foundation" width="256" height="86"></a>
             </div>
         </div>
         <div id="main">
@@ -1187,7 +1214,7 @@ function renderDetail(step) {
 
     // Show which difficulty values changed
     if (changedFVs && changedFVs.length > 0) {
-      html += `<div class="detail-card" style="border-color:var(--yellow); background:rgba(255,209,102,0.06);">
+      html += `<div class="detail-card" style="border-color:var(--yellow); background:rgba(253,161,53,0.08);">
         <h3 style="color:var(--yellow);">Difficulty values updated</h3>`;
       for (const c of changedFVs) {
         html += `<div class="dr">
@@ -1212,7 +1239,7 @@ function renderDetail(step) {
     }
     // Show which difficulty values changed from the removal
     if (changedFVs && changedFVs.length > 0) {
-      html += `<div class="detail-card" style="border-color:var(--yellow); background:rgba(255,209,102,0.06);">
+      html += `<div class="detail-card" style="border-color:var(--yellow); background:rgba(253,161,53,0.08);">
         <h3 style="color:var(--yellow);">Remaining counts updated</h3>`;
       for (const c of changedFVs) {
         html += `<div class="dr">

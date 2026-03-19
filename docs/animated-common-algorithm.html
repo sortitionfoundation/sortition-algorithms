@@ -10,20 +10,20 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #222638;
-    --border: #2e3350;
-    --text: #e0e3f0;
-    --muted: #7a7f9a;
-    --accent: #5b7fff;
-    --green: #3ecf8e;
-    --red: #ff5b5b;
-    --yellow: #ffd166;
-    --orange: #ff9a3c;
+    --bg: #ffffff;
+    --surface: #f5f0eb;
+    --surface2: #ece5dd;
+    --border: #d9d0c7;
+    --text: #473d3d;
+    --muted: #7a6e6e;
+    --accent: #e40f7d;
+    --green: #70a311;
+    --red: #c7003a;
+    --yellow: #fda135;
+    --orange: #fe5734;
     --north-border: #3a6adf;
     --south-border: #d4a843;
-    --new-committee: #3ecf8e;
+    --new-committee: #70a311;
     --radius: 8px;
     --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
     --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
@@ -41,12 +41,23 @@
     overflow: hidden;
   }
 
+  /* ── Top bar ────────────────────────────────────────────── */
+  #top-bar {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  #top-bar-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   /* ── Header ─────────────────────────────────────────────── */
   #header {
     padding: 10px 20px 8px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
     display: flex;
     align-items: baseline;
     gap: 16px;
@@ -76,9 +87,7 @@
     align-items: center;
     gap: 10px;
     padding: 7px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
+    border-top: 1px solid var(--border);
     flex-wrap: wrap;
   }
   button {
@@ -102,7 +111,17 @@
     font-weight: 600;
     min-width: 88px;
   }
-  #btn-play:hover:not(:disabled) { background: #7090ff; border-color: #7090ff; }
+  #btn-play:hover:not(:disabled) { background: #c70068; border-color: #c70068; }
+
+  #logo-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+    background: #ffffff;
+  }
 
   #speed-group {
     display: flex;
@@ -190,12 +209,12 @@
   }
   /* Green glow when in the just-found committee */
   .candidate-card.in-found-committee {
-    box-shadow: 0 0 10px rgba(62, 207, 142, 0.4);
+    box-shadow: 0 0 10px rgba(112, 163, 17, 0.4);
     border-color: var(--green);
   }
   /* Yellow glow for highlighted (e.g. highest-scoring uncovered) */
   .candidate-card.is-highlighted {
-    box-shadow: 0 0 10px rgba(255, 209, 102, 0.4);
+    box-shadow: 0 0 10px rgba(253, 161, 53, 0.4);
     border-color: var(--yellow);
   }
 
@@ -237,7 +256,7 @@
     font-weight: 600;
     font-family: var(--mono);
     color: var(--text);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    text-shadow: 0 1px 2px rgba(71,61,61,0.15);
   }
 
   /* Coverage indicator below score bar */
@@ -351,7 +370,7 @@
     font-weight: 600;
     font-family: var(--mono);
     color: var(--text);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    text-shadow: 0 1px 2px rgba(71,61,61,0.15);
   }
 
   /* ── Committee table ────────────────────────────────────── */
@@ -402,14 +421,14 @@
   }
   /* Green-tinted row for newly found panel */
   #committee-table tr.new-row {
-    background: rgba(62, 207, 142, 0.08);
+    background: rgba(112, 163, 17, 0.08);
   }
   #committee-table tr.new-row td {
     border-bottom-color: var(--new-committee);
   }
   /* Yellow-tinted row for duplicate match */
   #committee-table tr.highlight-row {
-    background: rgba(255, 209, 102, 0.12);
+    background: rgba(253, 161, 53, 0.12);
   }
   #committee-table tr.highlight-row td {
     border-bottom-color: var(--yellow);
@@ -468,28 +487,35 @@
         </style>
     </head>
     <body>
-        <div id="header">
-            <a href="animated-intro.html" style="color:var(--muted);font-size:12px;text-decoration:none;margin-right:12px;white-space:nowrap" title="Back to introduction">&larr; Intro</a>
-            <h1>Panel Discovery</h1>
-            <div id="step-info">
-                Step <span id="step-label">0</span> of <span id="step-total">0</span>
+        <div id="top-bar">
+            <div id="top-bar-left">
+                <div id="header">
+                    <a href="animated-intro.html" style="color:var(--muted);font-size:12px;text-decoration:none;margin-right:12px;white-space:nowrap" title="Back to introduction">&larr; Intro</a>
+                    <h1>Panel Discovery</h1>
+                    <div id="step-info">
+                        Step <span id="step-label">0</span> of <span id="step-total">0</span>
+                    </div>
+                    <div id="coverage-display">
+                        Coverage: <span id="coverage-value">0 / 16</span>
+                    </div>
+                </div>
+                <div id="controls">
+                    <button id="btn-start" title="Jump to start">&#x23EE;</button>
+                    <button id="btn-prev" title="Previous step">&#x25C0;</button>
+                    <button id="btn-play">&#x25B6; Play</button>
+                    <button id="btn-next" title="Next step">&#x25B6;</button>
+                    <button id="btn-end" title="Jump to end">&#x23ED;</button>
+                    <div id="speed-group">
+                        <label for="speed-slider">Speed</label>
+                        <input type="range" id="speed-slider" min="1" max="10" value="4">
+                    </div>
+                    <input type="range" id="progress-slider" min="0" max="0" value="0">
+                    <div id="progress-label">0 / 0</div>
+                </div>
             </div>
-            <div id="coverage-display">
-                Coverage: <span id="coverage-value">0 / 16</span>
+            <div id="logo-panel">
+                <a href="https://www.sortitionfoundation.org/"><img src="logosortition.svg" alt="Sortition Foundation" width="256" height="86"></a>
             </div>
-        </div>
-        <div id="controls">
-            <button id="btn-start" title="Jump to start">&#x23EE;</button>
-            <button id="btn-prev" title="Previous step">&#x25C0;</button>
-            <button id="btn-play">&#x25B6; Play</button>
-            <button id="btn-next" title="Next step">&#x25B6;</button>
-            <button id="btn-end" title="Jump to end">&#x23ED;</button>
-            <div id="speed-group">
-                <label for="speed-slider">Speed</label>
-                <input type="range" id="speed-slider" min="1" max="10" value="4">
-            </div>
-            <input type="range" id="progress-slider" min="0" max="0" value="0">
-            <div id="progress-label">0 / 0</div>
         </div>
         <div id="main">
             <div id="left-column">
@@ -1127,10 +1153,10 @@ function renderChart(snap) {
   const sansFont = "'Segoe UI', system-ui, -apple-system, sans-serif";
 
   // ── Grid lines and Y-axis labels ──
-  ctx.strokeStyle = "#2e3350";
+  ctx.strokeStyle = "#d9d0c7";
   ctx.lineWidth = 0.5;
   ctx.font = "9px " + monoFont;
-  ctx.fillStyle = "#7a7f9a";
+  ctx.fillStyle = "#7a6e6e";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   const yStep = yMax <= 4 ? 1 : yMax <= 10 ? 2 : 5;
@@ -1145,7 +1171,7 @@ function renderChart(snap) {
 
   // ── X-axis labels (names, rotated) ──
   ctx.save();
-  ctx.fillStyle = "#7a7f9a";
+  ctx.fillStyle = "#7a6e6e";
   ctx.font = "8px " + sansFont;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
@@ -1171,12 +1197,12 @@ function renderChart(snap) {
     const y = margin.top + ch - barH;
 
     // Colour: green for covered, dimmed for uncovered
-    ctx.fillStyle = count > 0 ? "#5b7fff" : "#2e3350";
+    ctx.fillStyle = count > 0 ? "#e40f7d" : "#d9d0c7";
     ctx.fillRect(x, y, barWidth, barH);
 
     // Count label above bar (only if tall enough)
     if (count > 0) {
-      ctx.fillStyle = "#e0e3f0";
+      ctx.fillStyle = "#473d3d";
       ctx.font = "bold 8px " + monoFont;
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
