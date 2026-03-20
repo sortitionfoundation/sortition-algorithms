@@ -4,6 +4,7 @@ from collections.abc import Generator, ItemsView, Iterable, Iterator, MutableMap
 from copy import deepcopy
 from typing import Any, TextIO
 
+from attrs import define
 from requests.structures import CaseInsensitiveDict
 
 from sortition_algorithms.errors import (
@@ -261,17 +262,56 @@ def check_for_duplicate_people(people_body: Iterable[MutableMapping[str, str]], 
     raise SelectionMultilineError(output)
 
 
-def check_enough_people_for_every_feature_value(features: FeatureCollection, people: People) -> None:
-    """For each feature/value, if the min>0, check there are enough people who have that feature/value"""
-    error_list: list[str] = []
+@define(kw_only=True, slots=True, eq=True)
+class FeatureValueCountCheck:
+    """A structured result for a feature value where there are not enough people."""
+
+    feature_name: str
+    value_name: str
+    min_required: int
+    actual_count: int
+
+
+def check_people_per_feature_value(features: FeatureCollection, people: People) -> list[FeatureValueCountCheck]:
+    """Return structured data about feature values with insufficient people.
+
+    Unlike check_enough_people_for_every_feature_value(), this does not raise
+    an exception — it returns a list of issues that callers can inspect.
+    """
+    issues: list[FeatureValueCountCheck] = []
     for fname, fvalue, fv_minmax in iterate_feature_collection(features):
         matching_count = people.count_feature_value(fname, fvalue)
         if matching_count < fv_minmax.min:
-            error_list.append(
-                f"Not enough people with the value '{fvalue}' in category '{fname}' - "
-                f"the minimum is {fv_minmax.min} but we only have {matching_count}"
+            issues.append(
+                FeatureValueCountCheck(
+                    feature_name=fname,
+                    value_name=fvalue,
+                    min_required=fv_minmax.min,
+                    actual_count=matching_count,
+                )
             )
-    if error_list:
+    return issues
+
+
+def count_people_per_feature_value(features: FeatureCollection, people: People) -> dict[str, dict[str, int]]:
+    """Return {feature_name: {value_name: count}} for all feature values."""
+    result: dict[str, dict[str, int]] = {}
+    for fname, fvalue, _ in iterate_feature_collection(features):
+        if fname not in result:
+            result[fname] = {}
+        result[fname][fvalue] = people.count_feature_value(fname, fvalue)
+    return result
+
+
+def check_enough_people_for_every_feature_value(features: FeatureCollection, people: People) -> None:
+    """For each feature/value, if the min>0, check there are enough people who have that feature/value"""
+    issues = check_people_per_feature_value(features, people)
+    if issues:
+        error_list = [
+            f"Not enough people with the value '{issue.value_name}' in category '{issue.feature_name}' - "
+            f"the minimum is {issue.min_required} but we only have {issue.actual_count}"
+            for issue in issues
+        ]
         raise SelectionMultilineError(error_list)
 
 

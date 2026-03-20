@@ -8,9 +8,12 @@ from sortition_algorithms.features import (
     FEATURE_FILE_FIELD_NAMES_FLEX_OLD,
     FEATURE_FILE_FIELD_NAMES_OLD,
     FeatureValueMinMax,
+    MinMaxCrossFeatureIssue,
     maximum_selection,
     minimum_selection,
     read_in_features,
+    report_min_max_against_number_to_select_structured,
+    report_min_max_error_details_structured,
     write_features,
 )
 
@@ -495,6 +498,118 @@ class TestReadInFeaturesErrorHandling:
         _, feature_column_name, _ = read_in_features(head, body, number_to_select=0)
         # really just check no error raised
         assert feature_column_name == "feature"
+
+
+class TestReportMinMaxErrorDetailsStructured:
+    """Tests for the structured version of report_min_max_error_details."""
+
+    def _make_features_raw(self, gender_min, gender_max, age_min, age_max):
+        """Build a FeatureCollection directly, bypassing read_in_features validation."""
+        return CaseInsensitiveDict({
+            "gender": CaseInsensitiveDict({
+                "male": FeatureValueMinMax(min=gender_min, max=gender_max),
+                "female": FeatureValueMinMax(min=gender_min, max=gender_max),
+            }),
+            "age": CaseInsensitiveDict({
+                "young": FeatureValueMinMax(min=age_min, max=age_max),
+                "old": FeatureValueMinMax(min=age_min, max=age_max),
+            }),
+        })
+
+    def test_returns_issues_when_min_exceeds_max(self):
+        """When minimum selection > maximum selection, returns structured issues."""
+        # gender min total = 10, gender max total = 12
+        # age min total = 2, age max total = 4
+        # min_selection (largest min) = 10 (gender), max_selection (smallest max) = 4 (age)
+        features = self._make_features_raw(gender_min=5, gender_max=6, age_min=1, age_max=2)
+        result = report_min_max_error_details_structured(features)
+        assert len(result) == 1
+        issue = result[0]
+        assert isinstance(issue, MinMaxCrossFeatureIssue)
+        assert issue.issue_type == "inconsistent_min_max"
+        assert issue.smallest_maximum_feature == "age"
+        assert issue.smallest_maximum_value == 4
+        assert issue.largest_minimum_feature == "gender"
+        assert issue.largest_minimum_value == 10
+        assert "Inconsistent" in issue.message
+
+    def test_returns_empty_for_consistent_features(self):
+        """When min/max are consistent, returns empty list."""
+        features = self._make_features_raw(gender_min=1, gender_max=5, age_min=1, age_max=3)
+        result = report_min_max_error_details_structured(features)
+        assert result == []
+
+    def test_returns_empty_for_empty_features(self):
+        """Empty feature collection returns empty list."""
+        from requests.structures import CaseInsensitiveDict
+
+        result = report_min_max_error_details_structured(CaseInsensitiveDict())
+        assert result == []
+
+
+class TestReportMinMaxAgainstNumberToSelectStructured:
+    """Tests for the structured version of report_min_max_against_number_to_select."""
+
+    def _make_single_feature(self, min_val, max_val):
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {"feature": "gender", "value": "male", "min": str(min_val), "max": str(max_val)},
+            {"feature": "gender", "value": "female", "min": str(min_val), "max": str(max_val)},
+        ]
+        features, _, _ = read_in_features(head, body)
+        return features
+
+    def test_min_exceeds_number_to_select(self):
+        """Feature min sum > number_to_select returns structured issue."""
+        features = self._make_single_feature(5, 6)  # min total = 10, max total = 12
+        result = report_min_max_against_number_to_select_structured(features, 8)
+        assert len(result) == 1
+        issue = result[0]
+        assert isinstance(issue, MinMaxCrossFeatureIssue)
+        assert issue.feature_name == "gender"
+        assert issue.issue_type == "min_exceeds_number_to_select"
+        assert issue.feature_sum == 10
+        assert issue.limit == 8
+
+    def test_max_below_number_to_select(self):
+        """Feature max sum < number_to_select returns structured issue."""
+        features = self._make_single_feature(5, 6)  # min total = 10, max total = 12
+        result = report_min_max_against_number_to_select_structured(features, 15)
+        assert len(result) == 1
+        issue = result[0]
+        assert issue.feature_name == "gender"
+        assert issue.issue_type == "max_below_number_to_select"
+        assert issue.feature_sum == 12
+        assert issue.limit == 15
+
+    def test_multiple_features_with_issues(self):
+        """Multiple features can each have issues."""
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {"feature": "gender", "value": "male", "min": "5", "max": "6"},
+            {"feature": "gender", "value": "female", "min": "5", "max": "6"},
+            {"feature": "age", "value": "young", "min": "5", "max": "6"},
+            {"feature": "age", "value": "old", "min": "5", "max": "6"},
+        ]
+        features, _, _ = read_in_features(head, body)
+        # Both have min total = 10, max total = 12. number_to_select = 8 means min > nts for both
+        result = report_min_max_against_number_to_select_structured(features, 8)
+        feature_names = {issue.feature_name for issue in result}
+        assert "gender" in feature_names
+        assert "age" in feature_names
+
+    def test_no_issues_when_within_range(self):
+        """No issues when number_to_select is within all feature ranges."""
+        features = self._make_single_feature(5, 6)  # min total = 10, max total = 12
+        result = report_min_max_against_number_to_select_structured(features, 11)
+        assert result == []
+
+    def test_empty_features(self):
+        """Empty feature collection returns empty list."""
+        from requests.structures import CaseInsensitiveDict
+
+        result = report_min_max_against_number_to_select_structured(CaseInsensitiveDict(), 10)
+        assert result == []
 
 
 class TestReadInFeaturesDataTypes:

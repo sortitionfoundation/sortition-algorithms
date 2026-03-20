@@ -58,6 +58,32 @@ class FeatureValueMinMax:
             self.max_flex = max_flex
 
 
+@define(kw_only=True, slots=True, eq=True)
+class MinMaxCrossFeatureIssue:
+    """A structured result for a cross-feature min/max validation issue.
+
+    For 'inconsistent_min_max' issues (from report_min_max_error_details):
+      - smallest_maximum_feature/value and largest_minimum_feature/value are set
+      - feature_name, feature_sum, and limit are not used
+
+    For 'min_exceeds_number_to_select' and 'max_below_number_to_select' issues:
+      - feature_name, feature_sum, and limit are set
+      - smallest_maximum_*/largest_minimum_* are not used
+    """
+
+    issue_type: str
+    message: str
+    # Fields for inconsistent_min_max
+    smallest_maximum_feature: str = ""
+    smallest_maximum_value: int = 0
+    largest_minimum_feature: str = ""
+    largest_minimum_value: int = 0
+    # Fields for per-feature number_to_select issues
+    feature_name: str = ""
+    feature_sum: int = 0
+    limit: int = 0
+
+
 FeatureCollection: TypeAlias = MutableMapping[str, MutableMapping[str, FeatureValueMinMax]]  # noqa: UP040
 # TODO: when python3.11 is dropped, change to:
 # type FeatureCollection = MutableMapping[str, MutableMapping[str, FeatureValueMinMax]]
@@ -106,21 +132,94 @@ def maximum_selection(fc: FeatureCollection) -> int:
     return min(_fv_maximum_selection(fv) for fv in fc.values())
 
 
-def report_min_max_error_details(fc: FeatureCollection, feature_column_name: str = "feature") -> list[str]:
-    """
-    Return a list of problems in detail, so that the user can debug the errors in detail
+def report_min_max_error_details_structured(
+    fc: FeatureCollection, feature_column_name: str = "feature"
+) -> list[MinMaxCrossFeatureIssue]:
+    """Return structured data about inconsistent min/max across features.
+
+    Returns an empty list if features are consistent (minimum_selection <= maximum_selection).
     """
     if not fc:
         return []
 
+    min_sel = minimum_selection(fc)
+    max_sel = maximum_selection(fc)
+    if min_sel <= max_sel:
+        return []
+
     max_feature, max_val = min(((key, _fv_maximum_selection(fv)) for key, fv in fc.items()), key=lambda x: x[1])
     min_feature, min_val = max(((key, _fv_minimum_selection(fv)) for key, fv in fc.items()), key=lambda x: x[1])
+    message = (
+        f"Inconsistent numbers in min and max in the {feature_column_name} input: "
+        f"The smallest maximum is {max_val} for {feature_column_name} '{max_feature}', "
+        f"the largest minimum is {min_val} for {feature_column_name} '{min_feature}'. "
+        f"You need to reduce the minimums for {min_feature} or increase the maximums for {max_feature}."
+    )
+    return [
+        MinMaxCrossFeatureIssue(
+            issue_type="inconsistent_min_max",
+            message=message,
+            smallest_maximum_feature=str(max_feature),
+            smallest_maximum_value=max_val,
+            largest_minimum_feature=str(min_feature),
+            largest_minimum_value=min_val,
+        )
+    ]
+
+
+def report_min_max_error_details(fc: FeatureCollection, feature_column_name: str = "feature") -> list[str]:
+    """
+    Return a list of problems in detail, so that the user can debug the errors in detail
+    """
+    issues = report_min_max_error_details_structured(fc, feature_column_name)
+    if not issues:
+        return []
+    issue = issues[0]
     return [
         f"Inconsistent numbers in min and max in the {feature_column_name} input:",
-        f"The smallest maximum is {max_val} for {feature_column_name} '{max_feature}'",
-        f"The largest minimum is {min_val} for {feature_column_name} '{min_feature}'",
-        f"You need to reduce the minimums for {min_feature} or increase the maximums for {max_feature}.",
+        f"The smallest maximum is {issue.smallest_maximum_value} for {feature_column_name} '{issue.smallest_maximum_feature}'",
+        f"The largest minimum is {issue.largest_minimum_value} for {feature_column_name} '{issue.largest_minimum_feature}'",
+        f"You need to reduce the minimums for {issue.largest_minimum_feature} or increase the maximums for {issue.smallest_maximum_feature}.",
     ]
+
+
+def report_min_max_against_number_to_select_structured(
+    fc: FeatureCollection, number_to_select: int, feature_column_name: str = "feature"
+) -> list[MinMaxCrossFeatureIssue]:
+    """Return structured data about features whose min/max conflict with number_to_select."""
+    if not fc:
+        return []
+    issues: list[MinMaxCrossFeatureIssue] = []
+    for key, fv in fc.items():
+        feature_minimum = _fv_minimum_selection(fv)
+        feature_maximum = _fv_maximum_selection(fv)
+        if feature_minimum > number_to_select:
+            issues.append(
+                MinMaxCrossFeatureIssue(
+                    issue_type="min_exceeds_number_to_select",
+                    message=(
+                        f"Minimum for {feature_column_name} {key} ({feature_minimum}) "
+                        f"is more than number to select ({number_to_select})"
+                    ),
+                    feature_name=str(key),
+                    feature_sum=feature_minimum,
+                    limit=number_to_select,
+                )
+            )
+        if feature_maximum < number_to_select:
+            issues.append(
+                MinMaxCrossFeatureIssue(
+                    issue_type="max_below_number_to_select",
+                    message=(
+                        f"Maximum for {feature_column_name} {key} ({feature_maximum}) "
+                        f"is less than number to select ({number_to_select})"
+                    ),
+                    feature_name=str(key),
+                    feature_sum=feature_maximum,
+                    limit=number_to_select,
+                )
+            )
+    return issues
 
 
 def report_min_max_against_number_to_select(
@@ -130,23 +229,8 @@ def report_min_max_against_number_to_select(
     If any combined minimum is > number_to_select we have a problem.
     If any combined maximum is < number_to_select we have a problem.
     """
-    if not fc:
-        return []
-    errors: list[str] = []
-    for key, fv in fc.items():
-        feature_minimum = _fv_minimum_selection(fv)
-        feature_maximum = _fv_maximum_selection(fv)
-        if feature_minimum > number_to_select:
-            errors.append(
-                f"Minimum for {feature_column_name} {key} ({feature_minimum}) "
-                f"is more than number to select ({number_to_select})"
-            )
-        if feature_maximum < number_to_select:
-            errors.append(
-                f"Maximum for {feature_column_name} {key} ({feature_maximum}) "
-                f"is less than number to select ({number_to_select})"
-            )
-    return errors
+    issues = report_min_max_against_number_to_select_structured(fc, number_to_select, feature_column_name)
+    return [issue.message for issue in issues]
 
 
 def check_min_max(fc: FeatureCollection, number_to_select: int = 0, feature_column_name: str = "feature") -> None:

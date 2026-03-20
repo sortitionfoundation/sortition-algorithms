@@ -3,10 +3,13 @@ import pytest
 from sortition_algorithms import errors
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import (
+    FeatureValueCountCheck,
     People,
     _check_columns_exist_or_multiple,
     check_enough_people_for_every_feature_value,
     check_for_duplicate_people,
+    check_people_per_feature_value,
+    count_people_per_feature_value,
     exclude_matching_selected_addresses,
     read_in_people,
 )
@@ -1312,3 +1315,76 @@ class TestCheckEnoughPeopleForEveryFeatureValue:
             check_enough_people_for_every_feature_value(features, people)
         assert "value 'female' in category 'gender'" in str(excinfo.value)
         assert "minimum is 10 but we only have 4" in str(excinfo.value)
+
+
+class TestCountPeoplePerFeatureValue:
+    def test_count_people_per_feature_value_balanced(self):
+        """With balanced people, each feature value should have equal counts."""
+        features, people, _ = create_test_scenario(people_count=4)
+        result = count_people_per_feature_value(features, people)
+        assert result == {
+            "gender": {"male": 2, "female": 2},
+            "age": {"young": 2, "old": 2},
+        }
+
+    def test_count_people_per_feature_value_unbalanced(self):
+        """When all people have the same value, other values should have count 0."""
+        features, people, _ = create_test_scenario(people_count=4)
+        for _, person_dict in people.items():
+            person_dict["gender"] = "male"
+        result = count_people_per_feature_value(features, people)
+        assert result["gender"] == {"male": 4, "female": 0}
+
+    def test_count_people_per_feature_value_empty_people(self):
+        """With no people, all counts should be 0."""
+        features, people, _ = create_test_scenario(people_count=0)
+        result = count_people_per_feature_value(features, people)
+        assert result == {
+            "gender": {"male": 0, "female": 0},
+            "age": {"young": 0, "old": 0},
+        }
+
+
+class TestCheckPeoplePerFeatureValue:
+    def test_all_sufficient(self):
+        """When there are enough people for all values, returns empty list."""
+        features, people, _ = create_test_scenario(people_count=4)
+        result = check_people_per_feature_value(features, people)
+        assert result == []
+
+    def test_one_insufficient(self):
+        """When one value has too few people, returns a single issue."""
+        features, people, _ = create_test_scenario(people_count=4)
+        for _, person_dict in people.items():
+            person_dict["gender"] = "male"
+        result = check_people_per_feature_value(features, people)
+        assert len(result) == 1
+        issue = result[0]
+        assert isinstance(issue, FeatureValueCountCheck)
+        assert issue.feature_name == "gender"
+        assert issue.value_name == "female"
+        assert issue.min_required == 1
+        assert issue.actual_count == 0
+
+    def test_multiple_insufficient(self):
+        """When multiple values have too few people, returns multiple issues."""
+        features, people, _ = create_test_scenario(people_count=8)
+        features["gender"]["female"].min = 10
+        features["gender"]["female"].max = 10
+        features["age"]["old"].min = 10
+        features["age"]["old"].max = 10
+        result = check_people_per_feature_value(features, people)
+        assert len(result) == 2
+        feature_values = {(issue.feature_name, issue.value_name) for issue in result}
+        assert ("gender", "female") in feature_values
+        assert ("age", "old") in feature_values
+
+    def test_zero_min_ignored(self):
+        """Values with min=0 should not appear in results even if count is 0."""
+        features, people, _ = create_test_scenario(people_count=4)
+        features["gender"]["female"].min = 0
+        for _, person_dict in people.items():
+            person_dict["gender"] = "male"
+        result = check_people_per_feature_value(features, people)
+        # female has 0 people but min=0, so no issue
+        assert all((issue.feature_name, issue.value_name) != ("gender", "female") for issue in result)
