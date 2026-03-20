@@ -1,0 +1,6 @@
+Validation: PASS
+Sum of Probs: 44.0000 (Target k=44)
+Average Time: 1.62s
+Gini Fairness: 52.7260%
+Min Prob: 0.085937
+Max Prob: 1.000000

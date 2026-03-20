@@ -297,7 +297,7 @@ def find_distribution_maximin(
 
     # Find initial committees that cover every possible agent
     committees, covered_agents, init_report = generate_initial_committees(
-        new_committee_solver, agent_vars, people.count
+        new_committee_solver, agent_vars, len(people)
     )
     report.add_report(init_report)
 
