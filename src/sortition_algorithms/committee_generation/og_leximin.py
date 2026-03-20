@@ -23,7 +23,6 @@ from sortition_algorithms.committee_generation.common import (
 from sortition_algorithms.committee_generation.solver import Solver, SolverSense, solver_sum
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger
 
 
@@ -283,7 +282,7 @@ def find_distribution_leximin(
     people: People,
     number_people_wanted: int,
     check_same_address_columns: list[str],
-    solver_backend: str = DEFAULT_BACKEND,
+    solver_backend: str = "highspy",
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected
     (just like maximin), but breaks ties to maximize the second-lowest probability, breaks further ties to maximize the
@@ -295,7 +294,7 @@ def find_distribution_leximin(
         number_people_wanted: desired size of the panel
         check_same_address_columns: Address columns for household identification, or empty
                                     if no address checking to be done.
-        solver_backend: solver backend to use - see settings.SOLVER_BACKENDS for full list
+        solver_backend: solver backend to use ("highspy" or "mip") for committee discovery.
                         Note: The dual LP still uses Gurobi.
 
     Returns:
