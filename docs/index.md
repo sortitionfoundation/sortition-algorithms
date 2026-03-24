@@ -9,11 +9,11 @@ Welcome to the documentation for **sortition-algorithms** - a Python library for
 
 ## What is Sortition?
 
-**Sortition** is the random selection of representatives from a larger population, designed to create panels that reflect the demographic composition of the whole group. Unlike simple random sampling, sortition uses **stratified random selection** to ensure demographic balance while maintaining the randomness essential for fairness.
+**Sortition** is the random selection of representatives from a larger population, designed to create panels that reflect the demographic composition of the whole group. Unlike simple random sampling, sortition uses **stratified random selection** to ensure demographic balance while maintaining the randomness essential for fairness. [Read more about sortition on Wikipedia](https://en.wikipedia.org/wiki/Sortition)
 
 This library provides algorithms for:
 
-- **Citizens' Assemblies**: Representative groups for policy deliberation
+- **Citizens' Assemblies**: Representative groups for policy deliberation. [Read more on Wikipedia](https://en.wikipedia.org/wiki/Citizens%27_assembly)
 - **Deliberative Polls**: Research panels reflecting population diversity
 - **Jury Selection**: Fair selection respecting demographic quotas
 - **Participatory Democracy**: Community engagement with guaranteed representation

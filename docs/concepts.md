@@ -4,13 +4,13 @@ Understanding these fundamental concepts is essential for effectively using sort
 
 ## What is Sortition?
 
-**Sortition** is the random selection of representatives from a larger population, designed to create panels that reflect the demographic composition of the whole group. Unlike simple random sampling (which could accidentally select all men or all young people), sortition uses **stratified random selection** to ensure demographic balance.
+**Sortition** is the random selection of representatives from a larger population, designed to create panels that reflect the demographic composition of the whole group. Unlike simple random sampling (which could accidentally select all men or all young people), sortition uses **stratified random selection** to ensure demographic balance. [Read more about sortition on Wikipedia](https://en.wikipedia.org/wiki/Sortition)
 
 ### Historical Context
 
 Sortition has ancient roots in Athenian democracy, where citizens were chosen by lot to serve in government. Modern applications include:
 
-- **Citizens' Assemblies**: Groups that deliberate on policy issues
+- **Citizens' Assemblies**: Groups that deliberate on policy issues. [Read more on Wikipedia](https://en.wikipedia.org/wiki/Citizens%27_assembly)
 - **Deliberative Polls**: Representative samples for public opinion research
 - **Jury Selection**: Court juries selected from voter rolls
 - **Participatory Budgeting**: Community members deciding budget priorities
