@@ -1,15 +1,17 @@
 """Selection algorithms for stratified sampling."""
 
+import logging
 from collections.abc import MutableMapping
 from copy import deepcopy
 
 from attrs import define
 
 from sortition_algorithms import errors
+from sortition_algorithms.committee_generation.common import check_category_selected
 from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.people_features import iterate_select_collection, select_from_feature_collection
-from sortition_algorithms.utils import RunReport, random_provider
+from sortition_algorithms.utils import ReportLevel, RunReport, random_provider
 
 
 @define(kw_only=True, slots=True)
@@ -225,18 +227,24 @@ class PeopleFeatures:
         return report
 
 
-def find_random_sample_legacy(
+def find_random_sample_legacy_single_attempt(
     people: People,
     features: FeatureCollection,
     number_people_wanted: int,
     check_same_address_columns: list[str] | None = None,
 ) -> tuple[list[frozenset[str]], RunReport]:
     """
-    Legacy stratified random selection algorithm.
+    Legacy stratified random selection algorithm — single attempt.
 
     Implements the original algorithm that uses greedy selection based on priority ratios.
     Always selects from the most urgently needed category first (highest ratio of
     (min-selected)/remaining), then randomly picks within that category.
+
+    This is a single attempt of the algorithm. It may fail with a retryable
+    error, and the returned committee is not guaranteed to satisfy feature
+    quotas (the greedy approach can get unlucky). Call
+    ``_legacy_retry_loop`` if you want retries and the post-selection quota
+    check; ``run_stratification`` uses that path by default.
 
     Args:
         people: People collection
@@ -252,6 +260,7 @@ def find_random_sample_legacy(
 
     Raises:
         SelectionError: If selection becomes impossible (not enough people, etc.)
+        RetryableSelectionError: If this attempt failed but a retry might succeed.
     """
     report = RunReport()
     report.add_message("using_legacy_algorithm")
@@ -310,3 +319,70 @@ def find_random_sample_legacy(
 
     # Return in legacy format: list containing single frozenset
     return [frozenset(people_selected)], report
+
+
+def find_random_sample_legacy(
+    people: People,
+    features: FeatureCollection,
+    number_people_wanted: int,
+    check_same_address_columns: list[str] | None = None,
+    *,
+    max_attempts: int,
+) -> tuple[list[frozenset[str]], RunReport]:
+    """
+    Run ``find_random_sample_legacy_single_attempt`` up to ``max_attempts`` times with retry
+    handling and post-selection quota checking.
+
+    The legacy greedy algorithm occasionally produces a committee that fails
+    the min/max quota checks; in that case we retry from scratch. This wrapper
+    is what ``run_stratification`` uses to drive legacy. Direct callers of the
+    legacy algorithm should use ``find_random_sample_legacy_single_attempt`` instead, which
+    is a single attempt without any post-check.
+
+    Args:
+        people: People collection
+        features: Feature definitions with min/max targets
+        number_people_wanted: Number of people to select
+        check_same_address_columns: Address columns for household identification, or empty
+                                    if no address checking to be done.
+        max_attempts: Maximum number of attempts before giving up.
+
+    Returns:
+        Tuple of (selected_committees, report).
+
+    Raises:
+        SelectionError: If all attempts fail, or a non-retryable error occurs.
+    """
+    report = RunReport()
+    last_error: errors.SelectionError | None = None
+
+    for trial in range(max_attempts):
+        report.add_message_and_log("trial_number", logging.WARNING, trial=trial + 1)
+        try:
+            committees, attempt_report = find_random_sample_legacy_single_attempt(
+                people,
+                features,
+                number_people_wanted,
+                check_same_address_columns,
+            )
+            # Post-selection check: the legacy greedy algorithm can
+            # occasionally produce a committee that doesn't hit every target.
+            check_category_selected(features, people, committees, number_selections=1)
+        except errors.SelectionError as serr:
+            if serr.is_retryable:
+                report.add_error(serr, is_fatal=False)
+                report.add_message("retry_after_error", error=str(serr))
+                last_error = serr
+                continue
+            # Non-retryable: propagate immediately.
+            raise
+
+        report.add_report(attempt_report)
+        return committees, report
+
+    # Exhausted all attempts.
+    report.add_message("selection_failed", ReportLevel.IMPORTANT, attempts=max_attempts)
+    if last_error is None:
+        # Should only happen if max_attempts <= 0.
+        raise errors.SelectionError(f"Legacy algorithm did not run (max_attempts={max_attempts}).")
+    raise last_error

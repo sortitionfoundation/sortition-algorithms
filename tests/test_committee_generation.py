@@ -12,8 +12,8 @@ from sortition_algorithms.committee_generation import (
     find_distribution_maximin,
     find_distribution_nash,
 )
+from sortition_algorithms.committee_generation.common import check_category_selected
 from sortition_algorithms.committee_generation.diversimax import DIVERSIMAX_AVAILABLE, find_distribution_diversimax
-from sortition_algorithms.core import _check_category_selected
 from sortition_algorithms.features import FeatureCollection, FeatureValueMinMax
 from sortition_algorithms.people import People
 from sortition_algorithms.utils import normalise_dict
@@ -617,7 +617,7 @@ def test_diversimax_no_address_example1() -> None:
         address_columns,
     )
 
-    _check_category_selected(features, people, [selected_ids], 1)
+    check_category_selected(features, people, [selected_ids], 1)
 
 
 @pytest.mark.slow
@@ -635,7 +635,7 @@ def test_diversimax_with_address_example1() -> None:
         example1.address_columns,
     )
 
-    _check_category_selected(features, people, [selected_ids], 1)
+    check_category_selected(features, people, [selected_ids], 1)
 
 
 @pytest.mark.slow
@@ -653,7 +653,7 @@ def test_diversimax_no_address_example3() -> None:
         example3.no_address_columns,
     )
 
-    _check_category_selected(features, people, [selected_ids], 1)
+    check_category_selected(features, people, [selected_ids], 1)
 
 
 @pytest.mark.slow
@@ -684,7 +684,7 @@ def test_diversimax_no_address_example5() -> None:
         example5.no_address_columns,
     )
 
-    _check_category_selected(features, people, [selected_ids], 1)
+    check_category_selected(features, people, [selected_ids], 1)
 
 
 @pytest.mark.slow
@@ -702,4 +702,4 @@ def test_diversimax_no_address_example6() -> None:
         example6.no_address_columns,
     )
 
-    _check_category_selected(features, people, [selected_ids], 1)
+    check_category_selected(features, people, [selected_ids], 1)

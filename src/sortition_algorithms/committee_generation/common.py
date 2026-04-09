@@ -17,6 +17,11 @@ from sortition_algorithms.committee_generation.solver import (
 from sortition_algorithms.errors import SelectionError
 from sortition_algorithms.features import FeatureCollection, feature_value_pairs, iterate_feature_collection
 from sortition_algorithms.people import People
+from sortition_algorithms.people_features import (
+    iterate_select_collection,
+    select_from_feature_collection,
+    simple_add_selected,
+)
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger, random_provider
 
@@ -504,3 +509,51 @@ def generate_initial_committees(
         report.add_message_and_log("all_agents_in_feasible_committees", logging.INFO)
 
     return committees, frozenset(covered_agents), report
+
+
+def check_category_selected(
+    features: FeatureCollection,
+    people: People,
+    people_selected: list[frozenset[str]],
+    number_selections: int,
+) -> None:
+    """Check if selected committee meets all feature value targets.
+
+    Args:
+        features: FeatureCollection with min/max targets
+        people: People object with pool members
+        people_selected: List of selected committees
+        number_selections: Number of selections made
+
+    Returns:
+        None. Raises error if targets not hit.
+    """
+    if number_selections > 1:
+        return
+
+    if len(people_selected) != 1:
+        return
+
+    # Make working copy and count selected people
+    select_collection = select_from_feature_collection(features)
+    simple_add_selected(people_selected[0], people, select_collection)
+
+    # Check if quotas are met
+    feature_fails: list[str] = []
+    for feature_name, fvalue_name, select_counts in iterate_select_collection(select_collection):
+        if not select_counts.hit_target:
+            feature_fails.append(
+                f"{feature_name}/{fvalue_name} actual: {select_counts.selected} "
+                f"min: {select_counts.min_max.min} max: {select_counts.min_max.max}"
+            )
+
+    if not feature_fails:
+        return
+
+    raise errors.SelectionMultilineError(
+        [
+            "Failed to get minimum or got more than maximum in categories:",
+            *feature_fails,
+        ],
+        is_retryable=True,
+    )

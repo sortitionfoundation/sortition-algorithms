@@ -52,16 +52,19 @@ def test_run_stratification_infeasible_quotas():
 
 
 @pytest.mark.slow
-def test_run_stratification_multiple_attempts():
-    """Test run_stratification with retry logic."""
-    # Create test scenario that should succeed
+def test_run_stratification_maximin_single_attempt():
+    """ILP-based algorithms run once and do not retry.
+
+    Only the legacy algorithm retries; this test exercises a maximin run and
+    asserts that no trial-number messages appear in the report (trial numbers
+    are now emitted only by legacy's retry wrapper).
+    """
     features, people, settings = create_test_scenario(
         people_count=6,
         max_attempts=3,
         selection_algorithm="maximin",
     )
 
-    # Run stratification with a feasible request
     success, committees, report = run_stratification(
         features=features,
         people=people,
@@ -69,10 +72,33 @@ def test_run_stratification_multiple_attempts():
         settings=settings,
     )
 
-    # Should succeed
     assert success is True
     assert len(committees) == 1
     assert len(committees[0]) == 4
 
-    # Check that it attempted at least one trial
+    # No trial-number messages should appear for non-legacy algorithms.
+    assert "Trial number" not in report.as_text()
+
+
+@pytest.mark.slow
+def test_run_stratification_legacy_emits_trial_messages():
+    """Legacy runs inside run_stratification should emit trial-number messages."""
+    features, people, settings = create_test_scenario(
+        people_count=8,
+        max_attempts=10,
+        selection_algorithm="legacy",
+    )
+
+    success, committees, report = run_stratification(
+        features=features,
+        people=people,
+        number_people_wanted=4,
+        settings=settings,
+    )
+
+    assert success is True
+    assert len(committees) == 1
+    assert len(committees[0]) == 4
+
+    # Legacy's retry wrapper emits at least one trial-number message.
     assert "Trial number" in report.as_text()

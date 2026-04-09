@@ -255,6 +255,7 @@ def find_random_sample(
     test_selection: bool = False,
     number_selections: int = 1,
     max_seconds: int = 30,
+    max_attempts: int = 1,
 ) -> tuple[list[frozenset[str]], RunReport]:
     """Main algorithm to find one or multiple random committees.
 
@@ -273,6 +274,8 @@ def find_random_sample(
             should be drawn uniformly at random from the returned list.
         max_seconds: the maximum number of seconds to spend searching, for those algorithms that support it.
             Currently only diversimax supports this.
+        max_attempts: maximum number of attempts for the legacy algorithm, which is the only algorithm
+            that retries. Ignored by all other algorithms.
 
     Returns:
         tuple of (committee_lottery, report)
@@ -325,6 +328,7 @@ def find_random_sample(
             features,
             number_people_wanted,
             check_same_address_columns,
+            max_attempts=max_attempts,
         )
     elif selection_algorithm == "leximin":
         committees, probabilities, new_report = find_distribution_leximin(
@@ -462,56 +466,6 @@ def _category_info_table(
     return report
 
 
-def _check_category_selected(
-    features: FeatureCollection,
-    people: People,
-    people_selected: list[frozenset[str]],
-    number_selections: int,
-) -> None:
-    """Check if selected committee meets all feature value targets.
-
-    Args:
-        features: FeatureCollection with min/max targets
-        people: People object with pool members
-        people_selected: List of selected committees
-        number_selections: Number of selections made
-
-    Returns:
-        None. Raises error if targets not hit.
-    """
-    report = RunReport()
-    if number_selections > 1:
-        report.add_message("no_target_checks_multiple")
-        return
-
-    if len(people_selected) != 1:
-        return
-
-    # Make working copy and count selected people
-    select_collection = select_from_feature_collection(features)
-    simple_add_selected(people_selected[0], people, select_collection)
-
-    # Check if quotas are met
-    feature_fails: list[str] = []
-    for feature_name, fvalue_name, select_counts in iterate_select_collection(select_collection):
-        if not select_counts.hit_target:
-            feature_fails.append(
-                f"{feature_name}/{fvalue_name} actual: {select_counts.selected} "
-                f"min: {select_counts.min_max.min} max: {select_counts.min_max.max}"
-            )
-
-    if not feature_fails:
-        return
-
-    raise errors.SelectionMultilineError(
-        [
-            "Failed to get minimum or got more than maximum in categories:",
-            *feature_fails,
-        ],
-        is_retryable=True,
-    )
-
-
 def run_stratification(
     features: FeatureCollection,
     people: People,
@@ -523,7 +477,12 @@ def run_stratification(
     already_selected: People | None = None,
     max_seconds: int = 30,
 ) -> tuple[bool, list[frozenset[str]], RunReport]:
-    """Run stratified random selection with retry logic.
+    """Run stratified random selection.
+
+    For the legacy algorithm, ``settings.max_attempts`` controls how many retries
+    are permitted on transient failures. For all other algorithms the selection
+    is deterministic with respect to the input — they run once and any failure
+    is treated as fatal.
 
     Args:
         features: FeatureCollection with min/max quotas for each feature value
@@ -537,7 +496,7 @@ def run_stratification(
 
     Returns:
         Tuple of (success, selected_committees, report)
-        - success: Whether selection succeeded within max attempts
+        - success: Whether selection succeeded
         - selected_committees: List of committees (frozensets of person IDs)
         - report: contains debug and status messages
 
@@ -547,7 +506,6 @@ def run_stratification(
         RuntimeError: If required solver is not available
         InfeasibleQuotasError: If quotas cannot be satisfied
     """
-    success = False
     report = RunReport()
     people_selected: list[frozenset[str]] = []
 
@@ -576,49 +534,24 @@ def run_stratification(
     report.add_message("initial_state", ReportLevel.IMPORTANT)
     report.add_report(_initial_category_info_table(features, working_people))
 
-    tries = 0
-    for tries in range(settings.max_attempts):
-        people_selected = []
+    try:
+        people_selected, new_report = find_random_sample(
+            features,
+            working_people,
+            number_people_wanted,
+            settings.normalised_address_columns,
+            selection_algorithm=settings.selection_algorithm,
+            solver_backend=settings.solver_backend,
+            test_selection=test_selection,
+            number_selections=number_selections,
+            max_seconds=max_seconds,
+            max_attempts=settings.max_attempts,
+        )
+        report.add_report(new_report)
+    except (errors.SelectionError, ValueError, RuntimeError, errors.InfeasibleQuotasCantRelaxError) as error:
+        report.add_error(error)
+        return False, people_selected, report
 
-        report.add_message_and_log("trial_number", logging.WARNING, trial=tries + 1)
-
-        try:
-            people_selected, new_report = find_random_sample(
-                features,
-                working_people,
-                number_people_wanted,
-                settings.normalised_address_columns,
-                selection_algorithm=settings.selection_algorithm,
-                solver_backend=settings.solver_backend,
-                test_selection=test_selection,
-                number_selections=number_selections,
-                max_seconds=max_seconds,
-            )
-            report.add_report(new_report)
-
-            # Check if targets were met (only works for number_selections = 1)
-            # This raises an error if we did not select properly
-            _check_category_selected(features, working_people, people_selected, number_selections)
-
-            report.add_message("selection_success", ReportLevel.IMPORTANT)
-            report.add_report(_category_info_table(features, working_people, people_selected, number_people_wanted))
-            success = True
-            break
-
-        except errors.SelectionError as serr:
-            if serr.is_retryable:
-                report.add_error(serr, is_fatal=False)
-                report.add_message("retry_after_error", error=str(serr))
-                # we do not break here, we try again.
-            else:
-                report.add_error(serr)
-                break
-        # these are all fatal errors
-        except (ValueError, RuntimeError, errors.InfeasibleQuotasCantRelaxError) as err:
-            report.add_error(err)
-            break
-
-    if not success:
-        report.add_message("selection_failed", ReportLevel.IMPORTANT, attempts=tries + 1)
-
-    return success, people_selected, report
+    report.add_message("selection_success", ReportLevel.IMPORTANT)
+    report.add_report(_category_info_table(features, working_people, people_selected, number_people_wanted))
+    return True, people_selected, report

@@ -1,7 +1,7 @@
 import pytest
 
 from sortition_algorithms import errors
-from sortition_algorithms.committee_generation.legacy import find_random_sample_legacy
+from sortition_algorithms.committee_generation.legacy import find_random_sample_legacy_single_attempt
 from sortition_algorithms.features import read_in_features
 from sortition_algorithms.utils import RunReport
 from tests.helpers import (
@@ -13,8 +13,8 @@ from tests.helpers import (
 )
 
 
-class TestFindRandomSampleLegacy:
-    """Test the find_random_sample_legacy function."""
+class TestFindRandomSampleLegacySingleAttempt:
+    """Test the find_random_sample_legacy_single_attempt function."""
 
     def create_test_data(self, person_count: int = 6):
         """Create test people and features for selection testing."""
@@ -27,7 +27,7 @@ class TestFindRandomSampleLegacy:
         """Test basic selection without address checking."""
         people, features = self.create_test_data()
 
-        committees, report = find_random_sample_legacy(people, features, 2)
+        committees, report = find_random_sample_legacy_single_attempt(people, features, 2)
 
         # Should return one committee with 2 people
         assert len(committees) == 1
@@ -47,7 +47,7 @@ class TestFindRandomSampleLegacy:
         for _ in range(5):
             # Create fresh test data each time since legacy function modifies it
             people, features = self.create_test_data(8)
-            committees, _ = find_random_sample_legacy(people, features, 4)
+            committees, _ = find_random_sample_legacy_single_attempt(people, features, 4)
             selected_people = committees[0]
 
             # Count selections by category
@@ -75,7 +75,7 @@ class TestFindRandomSampleLegacy:
 
         # Try to select more people than exist
         with pytest.raises(errors.SelectionError, match="Selection failed"):
-            find_random_sample_legacy(people, features, 10)
+            find_random_sample_legacy_single_attempt(people, features, 10)
 
     def test_impossible_quotas_error(self):
         """Test error when quotas are impossible to satisfy."""
@@ -90,7 +90,7 @@ class TestFindRandomSampleLegacy:
             person_data["gender"] = "male"
 
         with pytest.raises(errors.SelectionError):
-            find_random_sample_legacy(people, features, 3)
+            find_random_sample_legacy_single_attempt(people, features, 3)
 
     def create_test_data_with_addresses(self):
         """Create test data with address information for household testing."""
@@ -103,7 +103,7 @@ class TestFindRandomSampleLegacy:
         """Test selection with address checking enabled."""
         people, features = self.create_test_data_with_addresses()
 
-        committees, report = find_random_sample_legacy(
+        committees, report = find_random_sample_legacy_single_attempt(
             people,
             features,
             2,
@@ -132,7 +132,7 @@ class TestFindRandomSampleLegacy:
         """Test selection with address checking disabled."""
         people, features = self.create_test_data_with_addresses()
 
-        committees, report = find_random_sample_legacy(
+        committees, report = find_random_sample_legacy_single_attempt(
             people,
             features,
             2,
@@ -149,7 +149,7 @@ class TestFindRandomSampleLegacy:
         """Test edge case of selecting zero people."""
         people, features = self.create_test_data()
 
-        committees, report = find_random_sample_legacy(people, features, 0)
+        committees, report = find_random_sample_legacy_single_attempt(people, features, 0)
 
         assert len(committees) == 1
         assert len(committees[0]) == 0
@@ -173,7 +173,7 @@ class TestFindRandomSampleLegacy:
         person_data = people.get_person_dict("1")
         person_data["gender"] = "female"
 
-        committees, _ = find_random_sample_legacy(people, features, 2)
+        committees, _ = find_random_sample_legacy_single_attempt(people, features, 2)
 
         # Should only select males (Jane should be pruned)
         selected_people = committees[0]
@@ -184,7 +184,7 @@ class TestFindRandomSampleLegacy:
         """Test that return format matches legacy expectations."""
         people, features = self.create_test_data()
 
-        committees, report = find_random_sample_legacy(people, features, 1)
+        committees, report = find_random_sample_legacy_single_attempt(people, features, 1)
 
         # Should return list of frozensets (legacy format for multi-committee compatibility)
         assert isinstance(committees, list)
@@ -201,7 +201,7 @@ class TestFindRandomSampleLegacy:
         # Run selection multiple times and check for variation
         all_selections = []
         for _ in range(10):
-            committees, _ = find_random_sample_legacy(people, features, 2)
+            committees, _ = find_random_sample_legacy_single_attempt(people, features, 2)
             all_selections.append(tuple(sorted(committees[0])))
 
         # Should have some variation in selections (not all identical)
@@ -213,7 +213,7 @@ class TestFindRandomSampleLegacy:
         people, features = self.create_test_data(8)
 
         # This should work with the given quotas
-        committees, _ = find_random_sample_legacy(people, features, 4)
+        committees, _ = find_random_sample_legacy_single_attempt(people, features, 4)
 
         # Verify we got exactly 4 people
         assert len(committees[0]) == 4
