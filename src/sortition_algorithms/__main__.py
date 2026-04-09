@@ -1,9 +1,14 @@
 import logging
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import click
 
 from sortition_algorithms import adapters, core, people
+from sortition_algorithms.progress import ProgressReporter
+from sortition_algorithms.progress_rich import RichProgressReporter
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport, set_log_level
 
@@ -15,6 +20,18 @@ def echo_all(msgs: list[str]) -> None:
 
 def echo_report(report: RunReport) -> None:
     click.echo(report.as_text())
+
+
+@contextmanager
+def _cli_progress_reporter(no_progress: bool) -> Iterator[ProgressReporter | None]:
+    """Yield a RichProgressReporter when stdout is a TTY and progress is not
+    suppressed; otherwise yield None so the library uses its no-op default.
+    """
+    if no_progress or not sys.stdout.isatty():
+        yield None
+        return
+    with RichProgressReporter() as reporter:
+        yield reporter
 
 
 @click.group()
@@ -79,6 +96,11 @@ def cli() -> None:
     is_flag=True,
     help="If used, produce extra detailed logging.",
 )
+@click.option(
+    "--no-progress",
+    is_flag=True,
+    help="Suppress the live progress display even when stdout is a TTY.",
+)
 def csv(
     settings: str,
     features_csv: str,
@@ -88,6 +110,7 @@ def csv(
     remaining_csv: str,
     number_wanted: int,
     verbose: bool,
+    no_progress: bool,
 ) -> None:
     """Do sortition with CSV files."""
     if verbose:
@@ -114,13 +137,15 @@ def csv(
     already_selected, report = select_data.load_already_selected(settings_obj)
     echo_report(report)
 
-    success, people_selected, report = core.run_stratification(
-        features=features,
-        people=people,
-        number_people_wanted=number_wanted,
-        settings=settings_obj,
-        already_selected=already_selected,
-    )
+    with _cli_progress_reporter(no_progress) as reporter:
+        success, people_selected, report = core.run_stratification(
+            features=features,
+            people=people,
+            number_people_wanted=number_wanted,
+            settings=settings_obj,
+            already_selected=already_selected,
+            progress_reporter=reporter,
+        )
     echo_report(report)
     if not success:
         raise click.ClickException("Selection not successful, no files written.")
@@ -192,6 +217,11 @@ def csv(
     is_flag=True,
     help="If used, produce extra detailed logging.",
 )
+@click.option(
+    "--no-progress",
+    is_flag=True,
+    help="Suppress the live progress display even when stdout is a TTY.",
+)
 def gsheet(
     settings: str,
     auth_json_file: str,
@@ -202,6 +232,7 @@ def gsheet(
     already_selected_tab_name: str,
     number_wanted: int,
     verbose: bool,
+    no_progress: bool,
 ) -> None:
     """Do sortition with Google Spreadsheets."""
     if verbose:
@@ -231,13 +262,15 @@ def gsheet(
     already_selected, report = select_data.load_already_selected(settings_obj)
     echo_report(report)
 
-    success, people_selected, report = core.run_stratification(
-        features=features,
-        people=people,
-        number_people_wanted=number_wanted,
-        settings=settings_obj,
-        already_selected=already_selected,
-    )
+    with _cli_progress_reporter(no_progress) as reporter:
+        success, people_selected, report = core.run_stratification(
+            features=features,
+            people=people,
+            number_people_wanted=number_wanted,
+            settings=settings_obj,
+            already_selected=already_selected,
+            progress_reporter=reporter,
+        )
     echo_report(report)
     if not success:
         raise click.ClickException("Selection not successful, nothing written to spreadsheet.")

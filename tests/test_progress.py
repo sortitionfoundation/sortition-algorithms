@@ -20,6 +20,7 @@ from sortition_algorithms.progress import (
     coerce_reporter,
     phase,
 )
+from sortition_algorithms.progress_rich import RichProgressReporter
 from tests.helpers import create_simple_features, create_simple_people, create_test_settings
 
 
@@ -377,3 +378,35 @@ class TestRaisingReporterDoesNotBreakSelection:
         assert len(committees) >= 1
         assert abs(sum(probabilities) - 1.0) < 1e-5
         assert any("Progress reporter raised" in r.message for r in caplog.records)
+
+
+class TestRichProgressReporter:
+    def test_satisfies_protocol(self):
+        assert isinstance(RichProgressReporter(), ProgressReporter)
+
+    def test_context_manager_handles_full_lifecycle(self):
+        with RichProgressReporter() as reporter:
+            reporter.start_phase("phase_a", total=10, message="starting")
+            reporter.update(5, message="halfway")
+            reporter.update(10, message="done")
+            reporter.end_phase()
+
+    def test_handles_phase_with_no_total(self):
+        with RichProgressReporter() as reporter:
+            reporter.start_phase("phase_b", total=None, message="convergence loop")
+            reporter.update(1)
+            reporter.update(2)
+            reporter.end_phase()
+
+    def test_phase_replacement(self):
+        with RichProgressReporter() as reporter:
+            reporter.start_phase("phase_a", total=5, message="first")
+            reporter.update(2)
+            reporter.start_phase("phase_b", total=10, message="second")
+            reporter.update(3)
+            reporter.end_phase()
+
+    def test_end_phase_before_start_is_noop(self):
+        with RichProgressReporter() as reporter:
+            reporter.end_phase()
+            reporter.update(1)

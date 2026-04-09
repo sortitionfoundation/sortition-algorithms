@@ -1,11 +1,13 @@
 import csv
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
-from sortition_algorithms.__main__ import cli
+from sortition_algorithms.__main__ import _cli_progress_reporter, cli
+from sortition_algorithms.progress_rich import RichProgressReporter
 from tests.helpers import candidates_csv_path, create_settings_file_for_fixtures, features_csv_path
 
 
@@ -42,6 +44,48 @@ def test_csv_happy_path(tmp_path):
 
     selected_rows = get_rows_from_csv(selected_csv_path)
     assert len(selected_rows) == 22
+
+
+@pytest.mark.slow
+def test_csv_with_no_progress_flag(tmp_path):
+    runner = CliRunner()
+    settings_file = tmp_path / "settings.toml"
+    create_settings_file_for_fixtures(settings_file)
+
+    selected_csv_path = tmp_path / "selected.csv"
+    remaining_csv_path = tmp_path / "remaining.csv"
+
+    result = runner.invoke(
+        cli,
+        [
+            "csv",
+            f"--settings={settings_file}",
+            f"--features-csv={features_csv_path}",
+            f"--people-csv={candidates_csv_path}",
+            f"--selected-csv={selected_csv_path}",
+            f"--remaining-csv={remaining_csv_path}",
+            "--number-wanted=22",
+            "--no-progress",
+        ],
+    )
+    assert result.exit_code == 0, f"Exit code: {result.exit_code}, output: {result.output}"
+
+    selected_rows = get_rows_from_csv(selected_csv_path)
+    assert len(selected_rows) == 22
+
+
+class TestCliProgressReporterHelper:
+    def test_no_progress_flag_yields_none(self):
+        with patch("sys.stdout.isatty", return_value=True), _cli_progress_reporter(no_progress=True) as reporter:
+            assert reporter is None
+
+    def test_non_tty_yields_none(self):
+        with patch("sys.stdout.isatty", return_value=False), _cli_progress_reporter(no_progress=False) as reporter:
+            assert reporter is None
+
+    def test_tty_with_progress_yields_rich_reporter(self):
+        with patch("sys.stdout.isatty", return_value=True), _cli_progress_reporter(no_progress=False) as reporter:
+            assert isinstance(reporter, RichProgressReporter)
 
 
 def test_gen_sample_happy_path(tmp_path):

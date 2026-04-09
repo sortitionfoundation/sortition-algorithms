@@ -11,12 +11,12 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-02T11:49:44.627294068Z"
+exclude-newer = "2026-04-02T14:46:44.864655866Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
-mip = { timestamp = "2026-04-04T11:49:44.627762442Z", span = "P5D" }
-cbcbox = { timestamp = "2026-04-04T11:49:44.628058912Z", span = "P5D" }
+mip = { timestamp = "2026-04-04T14:46:44.864673569Z", span = "P5D" }
+cbcbox = { timestamp = "2026-04-04T14:46:44.864683929Z", span = "P5D" }
 
 [[package]]
 name = "attrs"
@@ -1917,6 +1917,7 @@ dependencies = [
 [package.optional-dependencies]
 cli = [
     { name = "click" },
+    { name = "rich" },
 ]
 diversimax = [
     { name = "pandas" },
@@ -1958,6 +1959,7 @@ requires-dist = [
     { name = "oauth2client", specifier = ">=4.1.3" },
     { name = "pandas", marker = "extra == 'diversimax'", specifier = ">=2.3.3" },
     { name = "requests", specifier = ">=2.32.0" },
+    { name = "rich", marker = "extra == 'cli'", specifier = ">=13.0.0" },
     { name = "scikit-learn", marker = "extra == 'diversimax'", specifier = ">=1.7.2" },
     { name = "tabulate", specifier = ">=0.9.0" },
 ]
