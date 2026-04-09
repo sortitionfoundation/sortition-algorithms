@@ -14,6 +14,7 @@ nav:
   - Algorithm Walk Through: walkthrough.md
   - CLI: cli.md
   - Adapters: adapters.md
+  - Progress Reporting: progress.md
   - Internationalisation: i18n.md
   - Advanced: advanced.md
   - Benchmarking: benchmarking.md

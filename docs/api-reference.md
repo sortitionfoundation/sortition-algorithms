@@ -14,10 +14,13 @@ def run_stratification(
     people: People,
     number_people_wanted: int,
     settings: Settings,
+    *,
     test_selection: bool = False,
     number_selections: int = 1,
     already_selected: People | None = None,
-) -> tuple[bool, list[frozenset[str]], list[str]]:
+    max_seconds: int = 30,
+    progress_reporter: ProgressReporter | None = None,
+) -> tuple[bool, list[frozenset[str]], RunReport]:
 ```
 
 **Parameters:**
@@ -29,6 +32,10 @@ def run_stratification(
 - `test_selection`: If True, don't randomize (for testing only)
 - `number_selections`: Number of panels to return (usually 1)
 - `already_selected`: People selected in a previous round of selection
+- `max_seconds`: Maximum seconds to spend searching (diversimax only)
+- `progress_reporter`: Optional `ProgressReporter` to receive live phase
+  events while the selection runs. See
+  [Progress Reporting](progress.md) for details and recipes.
 
 **Returns:**
 
@@ -62,16 +69,24 @@ def find_random_sample(
     features: FeatureCollection,
     people: People,
     number_people_wanted: int,
-    settings: Settings,
+    check_same_address_columns: list[str],
+    *,
     selection_algorithm: str = "maximin",
+    solver_backend: str = "highspy",
     test_selection: bool = False,
     number_selections: int = 1,
-) -> tuple[list[frozenset[str]], list[str]]:
+    max_seconds: int = 30,
+    max_attempts: int = 1,
+    progress_reporter: ProgressReporter | None = None,
+) -> tuple[list[frozenset[str]], RunReport]:
 ```
 
 **Parameters:**
 
-- `selection_algorithm`: One of "maximin", "leximin", "nash", or "legacy"
+- `selection_algorithm`: One of "maximin", "leximin", "nash", "diversimax", or "legacy"
+- `progress_reporter`: Optional `ProgressReporter` to receive live phase
+  events while the selection runs. See
+  [Progress Reporting](progress.md) for details and recipes.
 - Other parameters same as `run_stratification()`
 
 **Returns:**
@@ -457,6 +472,61 @@ def override_logging_handlers(
 ) -> None
 
 def set_log_level(log_level: int) -> None
+```
+
+## Progress Reporting
+
+Long-running selection algorithms can take 10+ minutes on real-world pools.
+The library emits structured progress events while it runs so calling
+applications can show live feedback to users. See
+[Progress Reporting](progress.md) for the full guide and recipes.
+
+### ProgressReporter
+
+A protocol any reporter can satisfy without inheriting:
+
+```python
+class ProgressReporter(Protocol):
+    def start_phase(
+        self,
+        name: str,
+        total: int | None = None,
+        *,
+        message: str | None = None,
+    ) -> None: ...
+
+    def update(self, current: int, *, message: str | None = None) -> None: ...
+
+    def end_phase(self) -> None: ...
+```
+
+Phases are flat: each `start_phase` implicitly ends the previous one.
+
+### Built-in reporters
+
+- `NullProgressReporter` — no-op default. Used automatically when no
+  reporter is supplied.
+- `ErrorSwallowingReporter` — wraps a delegate so any exception in the
+  delegate's methods is caught and logged via `logger.warning(...,
+  exc_info=True)`. Applied automatically by the library to caller-supplied
+  reporters via `coerce_reporter`.
+- `RichProgressReporter` (in `sortition_algorithms.progress_rich`) — uses
+  [rich](https://rich.readthedocs.io/) to render a single-line spinner +
+  bar + ETA. Use as a context manager. The CLI auto-enables it on a TTY.
+
+### Example
+
+```python
+from sortition_algorithms.progress_rich import RichProgressReporter
+
+with RichProgressReporter() as reporter:
+    success, panels, report = run_stratification(
+        features=features,
+        people=people,
+        number_people_wanted=100,
+        settings=settings,
+        progress_reporter=reporter,
+    )
 ```
 
 ## Data Sources

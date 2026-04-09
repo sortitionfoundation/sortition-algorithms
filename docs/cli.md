@@ -74,8 +74,30 @@ Options:
   -s, --selected-csv FILE         Output: selected people [required]
   -r, --remaining-csv FILE        Output: remaining people [required]
   -n, --number-wanted INTEGER     Number of people to select [required]
+  -v, --verbose                   Produce extra detailed logging.
+  --no-progress                   Suppress the live progress display.
   --help                          Show this message and exit.
 ```
+
+### Live progress display
+
+When stdout is a terminal the CLI shows a single-line progress display
+backed by [rich](https://rich.readthedocs.io/) — spinner, phase
+description, bar, completion count, and elapsed time. It updates in place
+as the selection runs through each algorithm phase, so you can see at a
+glance whether a long run is healthy or wedged.
+
+The display is suppressed automatically when stdout is piped or
+redirected, and you can force-suppress it on a TTY with `--no-progress`
+(useful for log scraping or when you want plain text only). `--verbose`
+controls log verbosity and is independent of the progress display.
+
+The progress display is powered by `RichProgressReporter` from
+`sortition_algorithms.progress_rich`, which is also available for use
+from your own scripts. If you're embedding the library in another
+application, see [Progress Reporting](progress.md) for the full
+`ProgressReporter` protocol and recipes for routing events to a
+database, WebSocket, or other sink.
 
 ### Example Files
 

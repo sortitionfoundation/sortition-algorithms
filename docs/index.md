@@ -46,6 +46,7 @@ python -m sortition_algorithms csv \
 
 - **[CLI Usage](cli.md)** - Command line interface for common operations
 - **[Data Adapters](adapters.md)** - Working with CSV, Google Sheets, and custom data sources
+- **[Progress Reporting](progress.md)** - Receive live progress events from long-running selections
 - **[API Reference](api-reference.md)** - Extended documentation of key functions and classes
 - **[Modules](modules.md)** - Complete documentation of all functions and classes
 
