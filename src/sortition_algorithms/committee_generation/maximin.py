@@ -19,7 +19,7 @@ from sortition_algorithms.committee_generation.solver import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.progress import ProgressReporter, coerce_reporter
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter, phase
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport
 
@@ -220,54 +220,65 @@ def _run_maximin_optimization_loop(
     Returns:
         tuple of (committees, probabilities, output_lines)
     """
-    while True:
-        incremental_solver.set_objective(upper_bound_var, SolverSense.MINIMIZE)
-        status = incremental_solver.optimize()
-        assert status == SolverStatus.OPTIMAL
+    reporter = coerce_reporter(progress_reporter)
+    iteration = 0
 
-        # currently optimal values for y_e
-        entitlement_weights = {
-            agent_id: incremental_solver.get_value(incr_agent_vars[agent_id]) for agent_id in covered_agents
-        }
-        upper = incremental_solver.get_value(upper_bound_var)  # currently optimal value for z
+    with phase(reporter, "maximin_optimization", total=None, message="Optimizing maximin distribution"):
+        while True:
+            iteration += 1
+            incremental_solver.set_objective(upper_bound_var, SolverSense.MINIMIZE)
+            status = incremental_solver.optimize()
+            assert status == SolverStatus.OPTIMAL
 
-        # For these fixed y_e, find the feasible committee B with maximal Σ_{i ∈ B} y_{e(i)}
-        new_committee_solver.set_objective(
-            solver_sum(entitlement_weights[agent_id] * agent_vars[agent_id] for agent_id in covered_agents),
-            SolverSense.MAXIMIZE,
-        )
-        new_committee_solver.optimize()
-        new_set = ilp_results_to_committee(new_committee_solver, agent_vars)
-        value = sum(entitlement_weights[agent_id] for agent_id in new_set)
+            # currently optimal values for y_e
+            entitlement_weights = {
+                agent_id: incremental_solver.get_value(incr_agent_vars[agent_id]) for agent_id in covered_agents
+            }
+            upper = incremental_solver.get_value(upper_bound_var)  # currently optimal value for z
 
-        _add_report_update(report, value, upper, committees)
-        if value <= upper + EPS:
-            # No feasible committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z (at least up to EPS, to prevent rounding errors)
-            # Thus, we have enough committees
-            committee_list = list(committees)
-            probabilities = _find_maximin_primal(committee_list, covered_agents, solver_backend)
-            return committee_list, probabilities, report
+            # For these fixed y_e, find the feasible committee B with maximal Σ_{i ∈ B} y_{e(i)}
+            new_committee_solver.set_objective(
+                solver_sum(entitlement_weights[agent_id] * agent_vars[agent_id] for agent_id in covered_agents),
+                SolverSense.MAXIMIZE,
+            )
+            new_committee_solver.optimize()
+            new_set = ilp_results_to_committee(new_committee_solver, agent_vars)
+            value = sum(entitlement_weights[agent_id] for agent_id in new_set)
 
-        # Some committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z. We add B to `committees` and recurse
-        assert new_set not in committees
-        committees.add(new_set)
-        incremental_solver.add_constr(solver_sum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound_var)
+            _add_report_update(report, value, upper, committees)
+            reporter.update(
+                iteration,
+                message=(f"Maximin iteration {iteration}: {len(committees)} committees, gap {value - upper:.2%}"),
+            )
+            if value <= upper + EPS:
+                # No feasible committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z (at least up to EPS, to prevent rounding errors)
+                # Thus, we have enough committees
+                committee_list = list(committees)
+                probabilities = _find_maximin_primal(committee_list, covered_agents, solver_backend)
+                return committee_list, probabilities, report
 
-        # Run heuristic to find additional committees
-        counter = _run_maximin_heuristic_for_additional_committees(
-            new_committee_solver,
-            agent_vars,
-            incremental_solver,
-            incr_agent_vars,
-            upper_bound_var,
-            committees,
-            covered_agents,
-            entitlement_weights,
-            upper,
-            value,
-        )
-        if counter > 0:
-            report.add_message_and_log("heuristic_generated_committees", logging.INFO, count=counter)
+            # Some committee B violates Σ_{i ∈ B} y_{e(i)} ≤ z. We add B to `committees` and recurse
+            assert new_set not in committees
+            committees.add(new_set)
+            incremental_solver.add_constr(
+                solver_sum(incr_agent_vars[agent_id] for agent_id in new_set) <= upper_bound_var
+            )
+
+            # Run heuristic to find additional committees
+            counter = _run_maximin_heuristic_for_additional_committees(
+                new_committee_solver,
+                agent_vars,
+                incremental_solver,
+                incr_agent_vars,
+                upper_bound_var,
+                committees,
+                covered_agents,
+                entitlement_weights,
+                upper,
+                value,
+            )
+            if counter > 0:
+                report.add_message_and_log("heuristic_generated_committees", logging.INFO, count=counter)
 
 
 def find_distribution_maximin(

@@ -22,7 +22,7 @@ from sortition_algorithms.people_features import (
     select_from_feature_collection,
     simple_add_selected,
 )
-from sortition_algorithms.progress import ProgressReporter
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter, phase
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger, random_provider
 
@@ -404,6 +404,7 @@ def _run_multiplicative_weights_phase(
     Returns:
         tuple of (committees, covered_agents) - sets of committees found and agents covered
     """
+    reporter = coerce_reporter(progress_reporter)
     committees: set[frozenset[str]] = set()
     covered_agents: set[str] = set()
 
@@ -411,28 +412,40 @@ def _run_multiplicative_weights_phase(
     # Note that if all start with weight `1` then we can end up with some committees having wrong number of results
     weights = {agent_id: random_provider().uniform(0.99, 1.0) for agent_id in agent_vars}
 
-    for i in range(multiplicative_weights_rounds):
-        # Find a feasible committee such that the sum of weights of its members is maximal
-        solver.set_objective(
-            solver_sum(weights[agent_id] * agent_vars[agent_id] for agent_id in agent_vars), SolverSense.MAXIMIZE
-        )
-        solver.optimize()
-        new_committee = ilp_results_to_committee(solver, agent_vars)
+    with phase(
+        reporter,
+        "multiplicative_weights",
+        total=multiplicative_weights_rounds,
+        message=f"Searching for diverse committees ({multiplicative_weights_rounds} rounds)",
+    ):
+        for i in range(multiplicative_weights_rounds):
+            # Find a feasible committee such that the sum of weights of its members is maximal
+            solver.set_objective(
+                solver_sum(weights[agent_id] * agent_vars[agent_id] for agent_id in agent_vars), SolverSense.MAXIMIZE
+            )
+            solver.optimize()
+            new_committee = ilp_results_to_committee(solver, agent_vars)
 
-        # Check if this is a new committee
-        is_new_committee = new_committee not in committees
-        if is_new_committee:
-            committees.add(new_committee)
-            for agent_id in new_committee:
-                covered_agents.add(agent_id)
+            # Check if this is a new committee
+            is_new_committee = new_committee not in committees
+            if is_new_committee:
+                committees.add(new_committee)
+                for agent_id in new_committee:
+                    covered_agents.add(agent_id)
 
-        # Update weights based on whether we found a new committee
-        _update_multiplicative_weights_after_committee_found(weights, new_committee, agent_vars, not is_new_committee)
+            # Update weights based on whether we found a new committee
+            _update_multiplicative_weights_after_committee_found(
+                weights, new_committee, agent_vars, not is_new_committee
+            )
 
-        logger.debug(
-            f"Multiplicative weights phase, round {i + 1}/{multiplicative_weights_rounds}. "
-            f"Discovered {len(committees)} committees so far."
-        )
+            reporter.update(
+                i + 1,
+                message=f"Round {i + 1}/{multiplicative_weights_rounds}: {len(committees)} committees found",
+            )
+            logger.debug(
+                f"Multiplicative weights phase, round {i + 1}/{multiplicative_weights_rounds}. "
+                f"Discovered {len(committees)} committees so far."
+            )
 
     return committees, covered_agents
 

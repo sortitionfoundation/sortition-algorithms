@@ -23,7 +23,7 @@ from sortition_algorithms.committee_generation.common import (
 from sortition_algorithms.committee_generation.solver import Solver, SolverSense, solver_sum
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.progress import ProgressReporter, coerce_reporter
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter, phase
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger
 
@@ -250,33 +250,49 @@ def _run_leximin_main_loop(
     Returns:
         dict mapping agent_id to fixed probability
     """
+    reporter = coerce_reporter(progress_reporter)
     fixed_probabilities: dict[str, float] = {}
     reduction_counter = 0
 
-    while len(fixed_probabilities) < people.count:
-        logger.debug(f"Fixed {len(fixed_probabilities)}/{people.count} probabilities.")
+    with phase(
+        reporter,
+        "leximin_outer",
+        total=people.count,
+        message=f"Fixing probabilities ({people.count} agents)",
+    ):
+        while len(fixed_probabilities) < people.count:
+            logger.debug(f"Fixed {len(fixed_probabilities)}/{people.count} probabilities.")
+            reporter.update(
+                len(fixed_probabilities),
+                message=f"Fixed {len(fixed_probabilities)}/{people.count} probabilities",
+            )
 
-        dual_model, dual_agent_vars, dual_cap_var = _dual_leximin_stage(
-            people,
-            committees,
-            fixed_probabilities,
-        )
+            dual_model, dual_agent_vars, dual_cap_var = _dual_leximin_stage(
+                people,
+                committees,
+                fixed_probabilities,
+            )
 
-        # Run column generation inner loop
-        should_break, reduction_counter = _run_leximin_column_generation_loop(
-            new_committee_solver,
-            agent_vars,
-            dual_model,
-            dual_agent_vars,
-            dual_cap_var,
-            committees,
-            fixed_probabilities,
-            people,
-            reduction_counter,
-            report,
+            # Run column generation inner loop
+            should_break, reduction_counter = _run_leximin_column_generation_loop(
+                new_committee_solver,
+                agent_vars,
+                dual_model,
+                dual_agent_vars,
+                dual_cap_var,
+                committees,
+                fixed_probabilities,
+                people,
+                reduction_counter,
+                report,
+            )
+            if should_break:
+                break
+
+        reporter.update(
+            len(fixed_probabilities),
+            message=f"Fixed {len(fixed_probabilities)}/{people.count} probabilities",
         )
-        if should_break:
-            break
 
     return fixed_probabilities
 

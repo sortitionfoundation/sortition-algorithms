@@ -9,6 +9,10 @@ from typing import Any
 import pytest
 
 from sortition_algorithms import progress
+from sortition_algorithms.committee_generation import find_distribution_maximin, find_distribution_nash
+from sortition_algorithms.committee_generation.diversimax import DIVERSIMAX_AVAILABLE, find_distribution_diversimax
+from sortition_algorithms.committee_generation.legacy import find_random_sample_legacy
+from sortition_algorithms.committee_generation.leximin import GUROBI_AVAILABLE, find_distribution_leximin
 from sortition_algorithms.progress import (
     ErrorSwallowingReporter,
     NullProgressReporter,
@@ -16,6 +20,7 @@ from sortition_algorithms.progress import (
     coerce_reporter,
     phase,
 )
+from tests.helpers import create_simple_features, create_simple_people, create_test_settings
 
 
 @dataclass
@@ -191,3 +196,184 @@ class TestPhaseContextManager:
             pass
 
         assert recording.events[0] == ("start_phase", ("p", None), {"message": None})
+
+
+def _phase_names(reporter: "RecordingProgressReporter") -> list[str]:
+    return [e[1][0] for e in reporter.events if e[0] == "start_phase"]
+
+
+def _events_of_type(reporter: "RecordingProgressReporter", kind: str) -> list[tuple]:
+    return [e for e in reporter.events if e[0] == kind]
+
+
+def _make_simple_selection_data(person_count: int = 8):
+    features = create_simple_features(gender_min=1, gender_max=4, age_min=1, age_max=4)
+    settings = create_test_settings(columns_to_keep=["name", "email"])
+    people = create_simple_people(features, settings, count=person_count)
+    return features, people
+
+
+class TestLegacyProgressEvents:
+    def test_records_phase_events_for_successful_run(self):
+        features, people = _make_simple_selection_data()
+        reporter = RecordingProgressReporter()
+
+        find_random_sample_legacy(
+            people, features, 4, check_same_address_columns=[], max_attempts=5, progress_reporter=reporter
+        )
+
+        names = _phase_names(reporter)
+        assert names == ["legacy_attempt"]
+
+        starts = _events_of_type(reporter, "start_phase")
+        assert starts[0] == (
+            "start_phase",
+            ("legacy_attempt", 5),
+            {"message": "Running legacy algorithm (up to 5 attempts)"},
+        )
+
+        updates = _events_of_type(reporter, "update")
+        assert len(updates) >= 1
+        assert updates[0][1] == (1,)
+        assert "Legacy algorithm attempt 1/5" in updates[0][2]["message"]
+
+        ends = _events_of_type(reporter, "end_phase")
+        assert len(ends) == 1
+
+    def test_legacy_emits_diagnostic_log_lines(self, caplog: pytest.LogCaptureFixture):
+        features, people = _make_simple_selection_data()
+        reporter = RecordingProgressReporter()
+
+        with caplog.at_level(logging.WARNING, logger="sortition_algorithms_user"):
+            find_random_sample_legacy(
+                people, features, 4, check_same_address_columns=[], max_attempts=3, progress_reporter=reporter
+            )
+
+        assert any("Trial number" in r.message for r in caplog.records)
+
+
+@pytest.mark.slow
+class TestMaximinProgressEvents:
+    def test_records_phase_events(self):
+        features, people = _make_simple_selection_data()
+        reporter = RecordingProgressReporter()
+
+        find_distribution_maximin(features, people, 4, check_same_address_columns=[], progress_reporter=reporter)
+
+        names = _phase_names(reporter)
+        assert "multiplicative_weights" in names
+        assert "maximin_optimization" in names
+        # multiplicative_weights phase runs before maximin_optimization
+        assert names.index("multiplicative_weights") < names.index("maximin_optimization")
+
+        # multiplicative_weights starts with the right total (people.count)
+        mw_start = next(e for e in reporter.events if e[0] == "start_phase" and e[1][0] == "multiplicative_weights")
+        assert mw_start[1][1] == people.count
+
+        # maximin_optimization is a convergence loop, total=None
+        mx_start = next(e for e in reporter.events if e[0] == "start_phase" and e[1][0] == "maximin_optimization")
+        assert mx_start[1][1] is None
+
+        # both phases end
+        ends = _events_of_type(reporter, "end_phase")
+        assert len(ends) == 2
+
+    def test_maximin_emits_diagnostic_log_lines(self, caplog: pytest.LogCaptureFixture):
+        features, people = _make_simple_selection_data()
+        reporter = RecordingProgressReporter()
+
+        with caplog.at_level(logging.DEBUG, logger="sortition_algorithms"):
+            find_distribution_maximin(features, people, 4, check_same_address_columns=[], progress_reporter=reporter)
+
+        assert any("Multiplicative weights phase" in r.message for r in caplog.records)
+
+
+@pytest.mark.slow
+class TestNashProgressEvents:
+    def test_records_phase_events(self):
+        features, people = _make_simple_selection_data()
+        reporter = RecordingProgressReporter()
+
+        find_distribution_nash(features, people, 4, check_same_address_columns=[], progress_reporter=reporter)
+
+        names = _phase_names(reporter)
+        assert "multiplicative_weights" in names
+        assert "nash_optimization" in names
+        assert names.index("multiplicative_weights") < names.index("nash_optimization")
+
+        nash_start = next(e for e in reporter.events if e[0] == "start_phase" and e[1][0] == "nash_optimization")
+        assert nash_start[1][1] is None
+
+        ends = _events_of_type(reporter, "end_phase")
+        assert len(ends) == 2
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not GUROBI_AVAILABLE, reason="Leximin requires Gurobi")
+class TestLeximinProgressEvents:
+    def test_records_phase_events(self):
+        features, people = _make_simple_selection_data()
+        reporter = RecordingProgressReporter()
+
+        find_distribution_leximin(features, people, 4, check_same_address_columns=[], progress_reporter=reporter)
+
+        names = _phase_names(reporter)
+        assert "multiplicative_weights" in names
+        assert "leximin_outer" in names
+
+        leximin_start = next(e for e in reporter.events if e[0] == "start_phase" and e[1][0] == "leximin_outer")
+        assert leximin_start[1][1] == people.count
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not DIVERSIMAX_AVAILABLE, reason="Diversimax optional dependencies missing")
+class TestDiversimaxProgressEvents:
+    def test_records_single_phase_no_updates(self):
+        features, people = _make_simple_selection_data()
+        reporter = RecordingProgressReporter()
+
+        find_distribution_diversimax(features, people, 4, check_same_address_columns=[], progress_reporter=reporter)
+
+        names = _phase_names(reporter)
+        assert names == ["diversimax"]
+
+        start = next(e for e in reporter.events if e[0] == "start_phase")
+        assert start[1] == ("diversimax", None)
+        assert start[2]["message"].startswith("Running diversimax")
+
+        # diversimax should emit no per-iteration updates
+        updates = _events_of_type(reporter, "update")
+        assert updates == []
+
+        ends = _events_of_type(reporter, "end_phase")
+        assert len(ends) == 1
+
+
+class TestRaisingReporterDoesNotBreakSelection:
+    def test_legacy_run_succeeds_with_raising_reporter(self, caplog: pytest.LogCaptureFixture):
+        features, people = _make_simple_selection_data()
+        raising = RaisingProgressReporter()
+
+        with caplog.at_level(logging.WARNING, logger="sortition_algorithms"):
+            committees, _ = find_random_sample_legacy(
+                people, features, 4, check_same_address_columns=[], max_attempts=5, progress_reporter=raising
+            )
+
+        assert len(committees) == 1
+        assert len(committees[0]) == 4
+        # exceptions from the reporter should have been swallowed and logged
+        assert any("Progress reporter raised" in r.message for r in caplog.records)
+
+    @pytest.mark.slow
+    def test_maximin_run_succeeds_with_raising_reporter(self, caplog: pytest.LogCaptureFixture):
+        features, people = _make_simple_selection_data()
+        raising = RaisingProgressReporter()
+
+        with caplog.at_level(logging.WARNING, logger="sortition_algorithms"):
+            committees, probabilities, _ = find_distribution_maximin(
+                features, people, 4, check_same_address_columns=[], progress_reporter=raising
+            )
+
+        assert len(committees) >= 1
+        assert abs(sum(probabilities) - 1.0) < 1e-5
+        assert any("Progress reporter raised" in r.message for r in caplog.records)

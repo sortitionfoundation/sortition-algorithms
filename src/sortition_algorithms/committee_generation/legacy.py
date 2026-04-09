@@ -11,7 +11,7 @@ from sortition_algorithms.committee_generation.common import check_category_sele
 from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.people_features import iterate_select_collection, select_from_feature_collection
-from sortition_algorithms.progress import ProgressReporter
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter, phase
 from sortition_algorithms.utils import ReportLevel, RunReport, random_provider
 
 
@@ -356,31 +356,42 @@ def find_random_sample_legacy(
         SelectionError: If all attempts fail, or a non-retryable error occurs.
     """
     report = RunReport()
+    reporter = coerce_reporter(progress_reporter)
     last_error: errors.SelectionError | None = None
 
-    for trial in range(max_attempts):
-        report.add_message_and_log("trial_number", logging.WARNING, trial=trial + 1)
-        try:
-            committees, attempt_report = find_random_sample_legacy_single_attempt(
-                people,
-                features,
-                number_people_wanted,
-                check_same_address_columns,
+    with phase(
+        reporter,
+        "legacy_attempt",
+        total=max_attempts,
+        message=f"Running legacy algorithm (up to {max_attempts} attempts)",
+    ):
+        for trial in range(max_attempts):
+            report.add_message_and_log("trial_number", logging.WARNING, trial=trial + 1)
+            reporter.update(
+                trial + 1,
+                message=f"Legacy algorithm attempt {trial + 1}/{max_attempts}",
             )
-            # Post-selection check: the legacy greedy algorithm can
-            # occasionally produce a committee that doesn't hit every target.
-            check_category_selected(features, people, committees, number_selections=1)
-        except errors.SelectionError as serr:
-            if serr.is_retryable:
-                report.add_error(serr, is_fatal=False)
-                report.add_message("retry_after_error", error=str(serr))
-                last_error = serr
-                continue
-            # Non-retryable: propagate immediately.
-            raise
+            try:
+                committees, attempt_report = find_random_sample_legacy_single_attempt(
+                    people,
+                    features,
+                    number_people_wanted,
+                    check_same_address_columns,
+                )
+                # Post-selection check: the legacy greedy algorithm can
+                # occasionally produce a committee that doesn't hit every target.
+                check_category_selected(features, people, committees, number_selections=1)
+            except errors.SelectionError as serr:
+                if serr.is_retryable:
+                    report.add_error(serr, is_fatal=False)
+                    report.add_message("retry_after_error", error=str(serr))
+                    last_error = serr
+                    continue
+                # Non-retryable: propagate immediately.
+                raise
 
-        report.add_report(attempt_report)
-        return committees, report
+            report.add_report(attempt_report)
+            return committees, report
 
     # Exhausted all attempts.
     report.add_message("selection_failed", ReportLevel.IMPORTANT, attempts=max_attempts)

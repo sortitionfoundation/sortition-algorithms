@@ -23,7 +23,7 @@ from sortition_algorithms.committee_generation.common import _relax_infeasible_q
 from sortition_algorithms.committee_generation.solver import SolverSense, SolverStatus, create_solver, solver_sum
 from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.people import People
-from sortition_algorithms.progress import ProgressReporter
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter, phase
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger, random_provider
 
@@ -73,10 +73,17 @@ def find_distribution_diversimax(
 
     report = RunReport()
     report.add_line_and_log("Using Diversimax algorithm.", log_level=logging.INFO)
+    reporter = coerce_reporter(progress_reporter)
     optimizer = DiversityOptimizer(people, features, number_people_wanted, check_same_address_columns, solver_backend)
     optimizer.log_problem_stats()
 
-    status, selected_ids, gap = optimizer.optimize(max_seconds=max_seconds)
+    with phase(
+        reporter,
+        "diversimax",
+        total=None,
+        message=f"Running diversimax (up to {max_seconds}s)",
+    ):
+        status, selected_ids, gap = optimizer.optimize(max_seconds=max_seconds)
 
     # ===== HANDLE BOTH OPTIMAL AND FEASIBLE AS SUCCESS =====
     if status in [SolverStatus.OPTIMAL, SolverStatus.FEASIBLE]:

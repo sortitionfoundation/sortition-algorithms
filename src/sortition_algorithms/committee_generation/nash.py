@@ -17,7 +17,7 @@ from sortition_algorithms.committee_generation.common import (
 from sortition_algorithms.committee_generation.solver import Solver, SolverSense, solver_sum
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
-from sortition_algorithms.progress import ProgressReporter, coerce_reporter
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter, phase
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger
 
@@ -192,42 +192,51 @@ def _run_nash_optimization_loop(
     Returns:
         tuple of (committees, probabilities, output_lines)
     """
+    reporter = coerce_reporter(progress_reporter)
     start_lambdas = [1 / len(committees) for _ in committees]
+    iteration = 0
 
-    while True:
-        # Solve Nash welfare optimization for current committees
-        lambdas, entitled_reciprocals, differentials = _solve_nash_welfare_optimization(
-            committees,
-            entitlements,
-            contributes_to_entitlement,
-            start_lambdas,
-            number_people_wanted,
-            report,
-        )
+    with phase(reporter, "nash_optimization", total=None, message="Optimizing Nash welfare distribution"):
+        while True:
+            iteration += 1
+            # Solve Nash welfare optimization for current committees
+            lambdas, entitled_reciprocals, differentials = _solve_nash_welfare_optimization(
+                committees,
+                entitlements,
+                contributes_to_entitlement,
+                start_lambdas,
+                number_people_wanted,
+                report,
+            )
 
-        # Find the best new committee
-        new_set, value = _find_best_new_committee_for_nash(
-            solver,
-            agent_vars,
-            entitled_reciprocals,
-            contributes_to_entitlement,
-            covered_agents,
-        )
+            # Find the best new committee
+            new_set, value = _find_best_new_committee_for_nash(
+                solver,
+                agent_vars,
+                entitled_reciprocals,
+                contributes_to_entitlement,
+                covered_agents,
+            )
 
-        # Check convergence condition
-        if value <= differentials.max() + EPS_NASH:
-            probabilities = np.array(lambdas.value).clip(0, 1)
-            probabilities_normalised = list(probabilities / sum(probabilities))
-            return committees, probabilities_normalised, report
+            reporter.update(
+                iteration,
+                message=f"Nash iteration {iteration}: {len(committees)} committees",
+            )
 
-        # Add new committee and continue
-        logger.debug(
-            f"nash committee: value: {value}, max differentials: {differentials.max()}, value - max: {value - differentials.max()}"
-        )
-        assert new_set not in committees
-        committees.append(new_set)
-        # Add 0 probability for new committee
-        start_lambdas = [*list(np.array(lambdas.value)), 0]
+            # Check convergence condition
+            if value <= differentials.max() + EPS_NASH:
+                probabilities = np.array(lambdas.value).clip(0, 1)
+                probabilities_normalised = list(probabilities / sum(probabilities))
+                return committees, probabilities_normalised, report
+
+            # Add new committee and continue
+            logger.debug(
+                f"nash committee: value: {value}, max differentials: {differentials.max()}, value - max: {value - differentials.max()}"
+            )
+            assert new_set not in committees
+            committees.append(new_set)
+            # Add 0 probability for new committee
+            start_lambdas = [*list(np.array(lambdas.value)), 0]
 
 
 def find_distribution_nash(
