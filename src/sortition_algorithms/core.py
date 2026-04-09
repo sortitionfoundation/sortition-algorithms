@@ -26,6 +26,7 @@ from sortition_algorithms.people_features import (
     select_from_feature_collection,
     simple_add_selected,
 )
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter
 from sortition_algorithms.settings import DEFAULT_BACKEND, Settings
 from sortition_algorithms.utils import ReportLevel, RunReport, logger, random_provider, set_random_provider
 
@@ -256,6 +257,7 @@ def find_random_sample(
     number_selections: int = 1,
     max_seconds: int = 30,
     max_attempts: int = 1,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[list[frozenset[str]], RunReport]:
     """Main algorithm to find one or multiple random committees.
 
@@ -315,6 +317,7 @@ def find_random_sample(
         return find_any_committee(features, people, number_people_wanted, check_same_address_columns, solver_backend)
 
     report = RunReport()
+    reporter = coerce_reporter(progress_reporter)
 
     # Check if Gurobi is available for leximin
     if selection_algorithm == "leximin" and not GUROBI_AVAILABLE:
@@ -329,18 +332,34 @@ def find_random_sample(
             number_people_wanted,
             check_same_address_columns,
             max_attempts=max_attempts,
+            progress_reporter=reporter,
         )
     elif selection_algorithm == "leximin":
         committees, probabilities, new_report = find_distribution_leximin(
-            features, people, number_people_wanted, check_same_address_columns, solver_backend
+            features,
+            people,
+            number_people_wanted,
+            check_same_address_columns,
+            solver_backend,
+            progress_reporter=reporter,
         )
     elif selection_algorithm == "maximin":
         committees, probabilities, new_report = find_distribution_maximin(
-            features, people, number_people_wanted, check_same_address_columns, solver_backend
+            features,
+            people,
+            number_people_wanted,
+            check_same_address_columns,
+            solver_backend,
+            progress_reporter=reporter,
         )
     elif selection_algorithm == "nash":
         committees, probabilities, new_report = find_distribution_nash(
-            features, people, number_people_wanted, check_same_address_columns, solver_backend
+            features,
+            people,
+            number_people_wanted,
+            check_same_address_columns,
+            solver_backend,
+            progress_reporter=reporter,
         )
     elif selection_algorithm == "diversimax":
         selected_ids, new_report = find_distribution_diversimax(
@@ -350,6 +369,7 @@ def find_random_sample(
             check_same_address_columns,
             max_seconds=max_seconds,
             solver_backend=solver_backend,
+            progress_reporter=reporter,
         )
         report.add_report(new_report)
         return [selected_ids], report
@@ -476,6 +496,7 @@ def run_stratification(
     number_selections: int = 1,
     already_selected: People | None = None,
     max_seconds: int = 30,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[bool, list[frozenset[str]], RunReport]:
     """Run stratified random selection.
 
@@ -507,6 +528,7 @@ def run_stratification(
         InfeasibleQuotasError: If quotas cannot be satisfied
     """
     report = RunReport()
+    reporter = coerce_reporter(progress_reporter)
     people_selected: list[frozenset[str]] = []
 
     try:
@@ -546,6 +568,7 @@ def run_stratification(
             number_selections=number_selections,
             max_seconds=max_seconds,
             max_attempts=settings.max_attempts,
+            progress_reporter=reporter,
         )
         report.add_report(new_report)
     except (errors.SelectionError, ValueError, RuntimeError, errors.InfeasibleQuotasCantRelaxError) as error:

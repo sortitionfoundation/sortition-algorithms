@@ -19,6 +19,7 @@ from sortition_algorithms.committee_generation.solver import (
 )
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport
 
@@ -199,6 +200,8 @@ def _run_maximin_optimization_loop(
     covered_agents: frozenset[str],
     report: RunReport,
     solver_backend: str = DEFAULT_BACKEND,
+    *,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Run the main maximin optimization loop with column generation.
 
@@ -273,6 +276,8 @@ def find_distribution_maximin(
     number_people_wanted: int,
     check_same_address_columns: list[str],
     solver_backend: str = DEFAULT_BACKEND,
+    *,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected.
 
@@ -292,6 +297,7 @@ def find_distribution_maximin(
     """
     report = RunReport()
     report.add_message_and_log("using_maximin_algorithm", logging.INFO)
+    reporter = coerce_reporter(progress_reporter)
 
     # Set up an ILP that can be used for discovering new feasible committees
     new_committee_solver, agent_vars = setup_committee_generation(
@@ -300,7 +306,7 @@ def find_distribution_maximin(
 
     # Find initial committees that cover every possible agent
     committees, covered_agents, init_report = generate_initial_committees(
-        new_committee_solver, agent_vars, people.count
+        new_committee_solver, agent_vars, people.count, progress_reporter=reporter
     )
     report.add_report(init_report)
 
@@ -320,4 +326,5 @@ def find_distribution_maximin(
         covered_agents,
         report,
         solver_backend,
+        progress_reporter=reporter,
     )

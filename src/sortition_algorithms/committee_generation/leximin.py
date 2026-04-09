@@ -23,6 +23,7 @@ from sortition_algorithms.committee_generation.common import (
 from sortition_algorithms.committee_generation.solver import Solver, SolverSense, solver_sum
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger
 
@@ -231,6 +232,8 @@ def _run_leximin_main_loop(
     committees: set[frozenset[str]],
     people: People,
     report: RunReport,
+    *,
+    progress_reporter: ProgressReporter | None = None,
 ) -> dict[str, float]:
     """Run the main leximin optimization loop that fixes probabilities iteratively.
 
@@ -284,6 +287,8 @@ def find_distribution_leximin(
     number_people_wanted: int,
     check_same_address_columns: list[str],
     solver_backend: str = DEFAULT_BACKEND,
+    *,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the minimum probability of an agent being selected
     (just like maximin), but breaks ties to maximize the second-lowest probability, breaks further ties to maximize the
@@ -314,6 +319,7 @@ def find_distribution_leximin(
     report = RunReport()
     report.add_message_and_log("using_leximin_algorithm", logging.INFO)
     grb.setParam("OutputFlag", 0)
+    reporter = coerce_reporter(progress_reporter)
 
     # Set up an ILP that can be used for discovering new feasible committees
     new_committee_solver, agent_vars = setup_committee_generation(
@@ -322,12 +328,14 @@ def find_distribution_leximin(
 
     # Find initial committees that cover every possible agent
     committees, covered_agents, initial_report = generate_initial_committees(
-        new_committee_solver, agent_vars, 3 * people.count
+        new_committee_solver, agent_vars, 3 * people.count, progress_reporter=reporter
     )
     report.add_report(initial_report)
 
     # Run the main leximin optimization loop to fix agent probabilities
-    fixed_probabilities = _run_leximin_main_loop(new_committee_solver, agent_vars, committees, people, report)
+    fixed_probabilities = _run_leximin_main_loop(
+        new_committee_solver, agent_vars, committees, people, report, progress_reporter=reporter
+    )
 
     # Convert fixed agent probabilities to committee probabilities
     probabilities_normalised = _solve_leximin_primal_for_final_probabilities(committees, fixed_probabilities)

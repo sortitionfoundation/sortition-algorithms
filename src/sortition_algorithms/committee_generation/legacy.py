@@ -11,6 +11,7 @@ from sortition_algorithms.committee_generation.common import check_category_sele
 from sortition_algorithms.features import FeatureCollection, iterate_feature_collection
 from sortition_algorithms.people import People
 from sortition_algorithms.people_features import iterate_select_collection, select_from_feature_collection
+from sortition_algorithms.progress import ProgressReporter
 from sortition_algorithms.utils import ReportLevel, RunReport, random_provider
 
 
@@ -328,6 +329,7 @@ def find_random_sample_legacy(
     check_same_address_columns: list[str] | None = None,
     *,
     max_attempts: int,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[list[frozenset[str]], RunReport]:
     """
     Run ``find_random_sample_legacy_single_attempt`` up to ``max_attempts`` times with retry

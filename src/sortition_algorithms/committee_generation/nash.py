@@ -17,6 +17,7 @@ from sortition_algorithms.committee_generation.common import (
 from sortition_algorithms.committee_generation.solver import Solver, SolverSense, solver_sum
 from sortition_algorithms.features import FeatureCollection
 from sortition_algorithms.people import People
+from sortition_algorithms.progress import ProgressReporter, coerce_reporter
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger
 
@@ -173,6 +174,8 @@ def _run_nash_optimization_loop(
     covered_agents: frozenset[str],
     number_people_wanted: int,
     report: RunReport,
+    *,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Run the main Nash welfare optimization loop.
 
@@ -233,6 +236,8 @@ def find_distribution_nash(
     number_people_wanted: int,
     check_same_address_columns: list[str],
     solver_backend: str = DEFAULT_BACKEND,
+    *,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[list[frozenset[str]], list[float], RunReport]:
     """Find a distribution over feasible committees that maximizes the Nash welfare, i.e., the product of
     selection probabilities over all persons.
@@ -257,6 +262,7 @@ def find_distribution_nash(
     """
     report = RunReport()
     report.add_message_and_log("using_nash_algorithm", logging.INFO)
+    reporter = coerce_reporter(progress_reporter)
 
     # Set up an ILP used for discovering new feasible committees
     solver, agent_vars = setup_committee_generation(
@@ -264,7 +270,9 @@ def find_distribution_nash(
     )
 
     # Find initial committees that include every possible agent
-    committee_set, covered_agents, initial_report = generate_initial_committees(solver, agent_vars, 2 * people.count)
+    committee_set, covered_agents, initial_report = generate_initial_committees(
+        solver, agent_vars, 2 * people.count, progress_reporter=reporter
+    )
     committees = list(committee_set)
     report.add_report(initial_report)
 
@@ -281,4 +289,5 @@ def find_distribution_nash(
         covered_agents,
         number_people_wanted,
         report,
+        progress_reporter=reporter,
     )

@@ -22,6 +22,7 @@ from sortition_algorithms.people_features import (
     select_from_feature_collection,
     simple_add_selected,
 )
+from sortition_algorithms.progress import ProgressReporter
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger, random_provider
 
@@ -390,6 +391,8 @@ def _run_multiplicative_weights_phase(
     solver: Solver,
     agent_vars: dict[str, Any],
     multiplicative_weights_rounds: int,
+    *,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[set[frozenset[str]], set[str]]:
     """Run the multiplicative weights algorithm to find an initial diverse set of committees.
 
@@ -473,6 +476,8 @@ def generate_initial_committees(
     solver: Solver,
     agent_vars: dict[str, Any],
     multiplicative_weights_rounds: int,
+    *,
+    progress_reporter: ProgressReporter | None = None,
 ) -> tuple[set[frozenset[str]], frozenset[str], RunReport]:
     """To speed up the main iteration of the maximin and Nash algorithms, start from a diverse set of feasible
     committees. In particular, each agent that can be included in any committee will be included in at least one of
@@ -493,7 +498,12 @@ def generate_initial_committees(
     report = RunReport()
 
     # Phase 1: Use multiplicative weights algorithm to find diverse committees
-    committees, covered_agents = _run_multiplicative_weights_phase(solver, agent_vars, multiplicative_weights_rounds)
+    committees, covered_agents = _run_multiplicative_weights_phase(
+        solver,
+        agent_vars,
+        multiplicative_weights_rounds,
+        progress_reporter=progress_reporter,
+    )
 
     # Phase 2: Find committees for any agents not yet covered
     additional_committees, covered_agents, coverage_report = _find_committees_for_uncovered_agents(
