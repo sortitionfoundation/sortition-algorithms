@@ -25,7 +25,7 @@ jobs:
       - name: Set up the environment
         uses: ./.github/actions/setup-python-env
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       - name: Run checks
         run: just check
