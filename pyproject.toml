@@ -87,6 +87,9 @@ exclude-newer = "1 week"
 # cbcbox dependency version, so they need to have the same value.
 mip = "5 days"
 cbcbox = "5 days"
+# for security updates, remove after 2026-04-19
+cryptography = "0 days"
+uv = "0 days"
 
 
 [tool.mypy]
