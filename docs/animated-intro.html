@@ -708,28 +708,28 @@
                     <div class="funnel" style="margin-top:16px">
                         <div class="funnel-step" style="width:30%">
                             <div class="num">~400</div>
-                            <div class="label">responses (about 4%)</div>
+                            <div class="label">responses</div>
                         </div>
                     </div>
                 </div>
                 <div class="scene">
                     <p>
-                        The assembly only has room for around <span class="hl">50 panellists</span>. So from these ~400 responses, we need to choose 50 people in a way that is both <span class="hl-green">representative</span> &mdash; reflecting the wider population &mdash; and <span class="hl-accent">fair</span> &mdash; giving everyone a reasonable chance of being selected. What exactly these words mean can vary by context, but both matter.
+                        The assembly only has room for around <span class="hl">50 participants</span>. So from these ~400 responses, we need to choose 50 people in a way that is both <span class="hl-green">representative</span> &mdash; reflecting the wider population &mdash; and <span class="hl-accent">fair</span> &mdash; giving everyone a reasonable chance of being selected. What exactly these words mean can vary by context, but both matter.
                     </p>
                     <div class="term-box">
                         <dl>
-                            <dt>Candidates</dt>
+                            <dt>Respondents</dt>
                             <dd>
                                 The people who responded &mdash; the pool we choose from.
                             </dd>
-                            <dt>Panellists</dt>
+                            <dt>Participants</dt>
                             <dd>
-                                The people who are selected to serve on the assembly.
+                                The respondents who are selected to serve on the assembly.
                             </dd>
                         </dl>
                     </div>
                     <p>
-                        For the rest of this walkthrough, we'll use a simplified example: <span class="hl">16 candidates</span>, from which we need to select <span class="hl">8 panellists</span>.
+                        For the rest of this walkthrough, we'll use a simplified example: <span class="hl">16 respondents</span>, from which we need to select <span class="hl">8 participants</span>.
                     </p>
                 </div>
             </div>
@@ -749,7 +749,7 @@
                         </div>
                     </div>
                     <p>
-                        Here are our 16 candidates. Each has three demographic attributes: <span class="hl">Gender</span>, <span class="hl">Region</span>, and <span class="hl">Age</span>.
+                        Here are our 16 respondents. Each has three demographic attributes: <span class="hl">Gender</span>, <span class="hl">Region</span>, and <span class="hl">Age</span>.
                     </p>
                 </div>
                 <div class="scene">
@@ -765,14 +765,14 @@
                 <div class="scene">
                     <h3>Looking at intersections</h3>
                     <p>
-                        Another way to see the skew is to look at <em>combinations</em> of categories. Some intersections have many candidates, others have very few.
+                        Another way to see the skew is to look at <em>combinations</em> of categories. Some intersections have many respondents, others have very few.
                     </p>
                 </div>
                 <div class="scene">
                     <p style="text-align:center;
                               font-size:14px;
                               color:var(--muted);
-                              margin-bottom:8px">Count of candidates in each intersection</p>
+                              margin-bottom:8px">Count of respondents in each intersection</p>
                     <div id="intersection-north"></div>
                     <div id="intersection-south" style="margin-top:4px"></div>
                 </div>
@@ -798,7 +798,7 @@
                 <div class="scene">
                     <h3>Precise balance</h3>
                     <p>
-                        We might decide that some categories should precisely reflect the population. Gender in our city is roughly 50/50, and we're selecting 8 people, so we might want <strong>exactly 4 Male and 4 Female</strong> panellists. Same for age: <strong>exactly 4 Young and 4 Senior</strong>.
+                        We might decide that some categories should precisely reflect the population. Gender in our city is roughly 50/50, and we're selecting 8 people, so we might want <strong>exactly 4 Male and 4 Female</strong> selected participants. Same for age: <strong>exactly 4 Young and 4 Senior</strong>.
                     </p>
                     <div class="nl-group" id="nl-exact"></div>
                 </div>
@@ -892,7 +892,7 @@
                 </div>
                 <div class="scene">
                     <p>
-                        Real assemblies might have <span class="hl">400 candidates</span>, <span class="hl">15 demographic categories</span>, and need to select <span class="hl">50 panellists</span>. The maths gets complicated fast &mdash; far beyond what a spreadsheet can handle.
+                        Real assemblies might have <span class="hl">400 respondents</span>, <span class="hl">15 demographic categories</span>, and need to select <span class="hl">50 participants</span>. The maths gets complicated fast &mdash; far beyond what a spreadsheet can handle.
                     </p>
                     <p>
                         The good news: mathematicians have developed algorithms that handle both representativeness and fairness. Let's see how they work.
