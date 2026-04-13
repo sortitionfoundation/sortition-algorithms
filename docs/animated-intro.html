@@ -343,55 +343,6 @@
   .bar-verdict.pass { color: var(--green); }
   .bar-verdict.fail { color: var(--red); }
 
-  /* ── Intersection grid ───────────────────────────────── */
-  .ix-grid {
-    display: grid;
-    grid-template-columns: 70px 1fr 1fr;
-    gap: 4px;
-    margin: 24px auto;
-    max-width: 600px;
-  }
-  .ix-header {
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--muted);
-    text-align: center;
-    padding: 6px;
-  }
-  .ix-row-label {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-right: 8px;
-  }
-  .ix-cell {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px;
-    text-align: center;
-    background: var(--surface);
-    transition: background 0.3s;
-  }
-  .ix-cell .ix-count {
-    font-family: var(--mono);
-    font-size: 24px;
-    font-weight: 800;
-  }
-  .ix-cell .ix-names {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 4px;
-    line-height: 1.3;
-  }
-  .ix-cell.ix-abundant .ix-count { color: var(--green); }
-  .ix-cell.ix-scarce .ix-count { color: var(--red); }
-  .ix-cell.ix-moderate .ix-count { color: var(--yellow); }
-
   /* ── Scorecard ───────────────────────────────────────── */
   .draw-card {
     border: 1px solid var(--border);
@@ -763,22 +714,8 @@
                     </p>
                 </div>
                 <div class="scene">
-                    <h3>Looking at intersections</h3>
-                    <p>
-                        Another way to see the skew is to look at <em>combinations</em> of categories. Some intersections have many respondents, others have very few.
-                    </p>
-                </div>
-                <div class="scene">
-                    <p style="text-align:center;
-                              font-size:14px;
-                              color:var(--muted);
-                              margin-bottom:8px">Count of respondents in each intersection</p>
-                    <div id="intersection-north"></div>
-                    <div id="intersection-south" style="margin-top:4px"></div>
-                </div>
-                <div class="scene">
                     <div class="key-message">
-                        The pool doesn't look like the population. <span class="hl-red">Omar</span> is the only Young Southern Male. <span class="hl-red">Priya</span> is the only Young Southern Female. Meanwhile, there are <span class="hl-green">4</span> Senior Northern Males. If we pick randomly from this pool, our selection will inherit the same skew.
+                        The pool doesn't look like the population. If we pick randomly from this pool, our selection will inherit the same skew.
                     </div>
                 </div>
             </div>
@@ -1108,49 +1045,6 @@ function renderDemographics() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// RENDER — intersection grid (Act 2)
-// ─────────────────────────────────────────────────────────────────
-function renderIntersections() {
-  const groups = [
-    { region: "North", data: [
-      { gender: "Male",   age: "Young",  names: ["Hassan", "Ivan"], count: 2 },
-      { gender: "Female", age: "Young",  names: ["Jun", "Keiko"], count: 2 },
-      { gender: "Male",   age: "Senior", names: ["Adam", "Ben", "Chen", "Dmitri"], count: 4 },
-      { gender: "Female", age: "Senior", names: ["Elena", "Fatima", "Grace"], count: 3 },
-    ]},
-    { region: "South", data: [
-      { gender: "Male",   age: "Young",  names: ["Omar"], count: 1 },
-      { gender: "Female", age: "Young",  names: ["Priya"], count: 1 },
-      { gender: "Male",   age: "Senior", names: ["Leo"], count: 1 },
-      { gender: "Female", age: "Senior", names: ["Mia", "Nadia"], count: 2 },
-    ]},
-  ];
-
-  for (const g of groups) {
-    const el = document.getElementById(`intersection-${g.region.toLowerCase()}`);
-    let html = `<div class="ix-grid">`;
-    html += `<div class="ix-header">${g.region}</div>`;
-    html += `<div class="ix-header">Male</div>`;
-    html += `<div class="ix-header">Female</div>`;
-
-    for (const age of ["Young", "Senior"]) {
-      html += `<div class="ix-row-label">${age}</div>`;
-      for (const gender of ["Male", "Female"]) {
-        const cell = g.data.find(d => d.gender === gender && d.age === age);
-        const cls = cell.count >= 3 ? "ix-abundant" : cell.count === 2 ? "ix-moderate" : "ix-scarce";
-        html += `<div class="ix-cell ${cls}">
-          <div class="ix-count">${cell.count}</div>
-          <div class="ix-names">${cell.names.join(", ")}</div>
-        </div>`;
-      }
-    }
-
-    html += `</div>`;
-    el.innerHTML = html;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────
 // RENDER — naive draws (Act 4)
 // ─────────────────────────────────────────────────────────────────
 function renderNaiveDraws() {
@@ -1395,7 +1289,6 @@ function setupScrollProgress() {
 // ─────────────────────────────────────────────────────────────────
 renderPoolGrid();
 renderDemographics();
-renderIntersections();
 renderNaiveDraws();
 renderTargets();
 renderAct5();
