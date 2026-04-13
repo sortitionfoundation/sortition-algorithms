@@ -271,77 +271,77 @@
   .p-card.is-north { border-color: var(--north-border); }
   .p-card.is-south { border-color: var(--south-border); }
 
-  /* ── Bar charts ──────────────────────────────────────── */
-  .bar-chart {
+  /* ── Demographics pies ───────────────────────────────── */
+  .pie-chart {
     margin: 16px 0;
   }
-  .bar-group-title {
+  .pie-group {
+    margin-bottom: 20px;
+  }
+  .pie-group-title {
     font-size: 13px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--muted);
-    margin: 16px 0 6px;
+    margin: 0 0 8px;
+    text-align: center;
   }
-  .bar-row {
+  .pie-row {
     display: flex;
+    justify-content: center;
+    gap: 20px;
+    align-items: center;
+  }
+  .pie-item {
+    text-align: center;
+  }
+  .pie-center {
+    display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 10px;
+    min-width: 120px;
+  }
+  .pie-item-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
     margin-bottom: 6px;
   }
-  .bar-label {
-    width: 60px;
-    text-align: right;
-    font-size: 14px;
-    font-weight: 600;
-    flex-shrink: 0;
+  .pie-svg {
+    width: 165px;
+    height: 165px;
+    display: block;
   }
-  .bar-track {
-    flex: 1;
-    height: 26px;
-    background: var(--surface);
-    border-radius: 4px;
-    overflow: hidden;
-    position: relative;
-  }
-  .bar-fill {
-    height: 100%;
-    border-radius: 4px;
+  .pie-legend {
     display: flex;
-    align-items: center;
-    padding-left: 8px;
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 700;
-    color: #fff;
-    transition: width 0.6s ease;
-  }
-  .bar-fill.ok { background: var(--green); }
-  .bar-fill.skewed { background: var(--orange); }
-  .bar-fill.bad { background: var(--red); }
-  .bar-pop {
+    justify-content: center;
+    gap: 10px;
+    margin-top: 6px;
     font-size: 12px;
-    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .pie-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pie-legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
     flex-shrink: 0;
-    width: 80px;
   }
-  .bar-pop-marker {
-    position: absolute;
-    top: 0;
-    height: 100%;
-    width: 2px;
-    background: var(--text);
-    opacity: 0.5;
-  }
-  .bar-verdict {
-    text-align: right;
+  .pie-verdict {
+    text-align: center;
     font-size: 13px;
     font-weight: 700;
-    margin-top: 2px;
-    margin-bottom: 8px;
   }
-  .bar-verdict.pass { color: var(--green); }
-  .bar-verdict.fail { color: var(--red); }
+  .pie-verdict.pass { color: var(--green); }
+  .pie-verdict.fail { color: var(--red); }
 
   /* ── Scorecard ───────────────────────────────────────── */
   .draw-card {
@@ -708,7 +708,7 @@
                 </div>
                 <div class="scene">
                     <h3>How does our pool compare to the population?</h3>
-                    <div class="bar-chart" id="demographics-chart"></div>
+                    <div class="pie-chart" id="demographics-chart"></div>
                     <p>
                         Why is the pool skewed? Self-selection bias. Older people may have more time to respond. People in the South &mdash; perhaps a poorer area &mdash; may feel less able to participate, or less confident that the assembly will listen to them. The reasons vary, but the result is the same: the pool doesn't look like the city.
                     </p>
@@ -994,52 +994,101 @@ function renderPoolGrid() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// RENDER — demographics bar chart (Act 2)
+// RENDER — demographics pies (Act 2)
 // ─────────────────────────────────────────────────────────────────
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const a = (angleDeg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+}
+
+function piePath(cx, cy, r, startAngle, endAngle) {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const large = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${cx},${cy} L ${start.x},${start.y} A ${r},${r} 0 ${large} 0 ${end.x},${end.y} Z`;
+}
+
+function pieSvg(slices) {
+  const cx = 55, cy = 55, r = 50;
+  const total = slices.reduce((s, x) => s + x.value, 0);
+  if (total === 0) return `<svg class="pie-svg" viewBox="0 0 110 110"></svg>`;
+
+  let paths = "";
+  const nonZero = slices.filter(s => s.value > 0);
+  if (nonZero.length === 1) {
+    paths = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${nonZero[0].color}"/>`;
+  } else {
+    let angle = 0;
+    for (const s of slices) {
+      const sweep = (s.value / total) * 360;
+      paths += `<path d="${piePath(cx, cy, r, angle - sweep, angle)}" fill="${s.color}"/>`;
+      angle -= sweep;
+    }
+  }
+  return `<svg class="pie-svg" viewBox="0 0 110 110" aria-hidden="true">${paths}</svg>`;
+}
+
 function renderDemographics() {
   const el = document.getElementById("demographics-chart");
+  const total = 16;
 
   const categories = [
     {
       title: "Gender",
-      bars: [
-        { label: "Male", count: 8, total: 16, popPct: 50, balanced: true },
-        { label: "Female", count: 8, total: 16, popPct: 50, balanced: true },
+      values: [
+        { label: "Male",   color: "#548eb4", popCount: 8, poolCount: 8 },
+        { label: "Female", color: "#e40f7d", popCount: 8, poolCount: 8 },
       ],
     },
     {
       title: "Region",
-      bars: [
-        { label: "North", count: 11, total: 16, popPct: 50, balanced: false },
-        { label: "South", count: 5, total: 16, popPct: 50, balanced: false },
+      values: [
+        { label: "North",  color: "#548eb4", popCount: 8, poolCount: 11 },
+        { label: "South",  color: "#fda135", popCount: 8, poolCount: 5 },
       ],
     },
     {
       title: "Age",
-      bars: [
-        { label: "Young", count: 6, total: 16, popPct: 50, balanced: false },
-        { label: "Senior", count: 10, total: 16, popPct: 50, balanced: false },
+      values: [
+        { label: "Young",  color: "#70a311", popCount: 8, poolCount: 6 },
+        { label: "Senior", color: "#fe5734", popCount: 8, poolCount: 10 },
       ],
     },
   ];
 
   let html = "";
   for (const cat of categories) {
-    const isBalanced = cat.bars.every(b => b.balanced);
-    html += `<div class="bar-group-title">${cat.title}</div>`;
-    for (const b of cat.bars) {
-      const pct = Math.round((b.count / b.total) * 100);
-      const cls = b.balanced ? "ok" : "skewed";
-      html += `<div class="bar-row">
-        <span class="bar-label">${b.label}</span>
-        <div class="bar-track">
-          <div class="bar-fill ${cls}" style="width:${pct}%">${b.count}</div>
-          <div class="bar-pop-marker" style="left:${b.popPct}%"></div>
+    const isBalanced = cat.values.every(v => v.poolCount === v.popCount);
+
+    const popSlices  = cat.values.map(v => ({ value: v.popCount,  color: v.color }));
+    const poolSlices = cat.values.map(v => ({ value: v.poolCount, color: v.color }));
+
+    const legend = cat.values.map(v =>
+      `<span class="pie-legend-item"><span class="pie-legend-swatch" style="background:${v.color}"></span>${v.label}</span>`
+    ).join("");
+
+    const poolCounts = cat.values.map(v => `${v.label} ${v.poolCount}`).join(" · ");
+    const popCounts  = cat.values.map(v => `${v.label} ${v.popCount}`).join(" · ");
+
+    html += `<div class="pie-group">
+      <div class="pie-group-title">${cat.title}</div>
+      <div class="pie-row">
+        <div class="pie-item">
+          <div class="pie-item-label">Population</div>
+          ${pieSvg(popSlices)}
+          <div class="pie-legend"><span style="color:var(--muted)">${popCounts}</span></div>
         </div>
-        <span class="bar-pop">pop: ~${b.popPct}%</span>
-      </div>`;
-    }
-    html += `<div class="bar-verdict ${isBalanced ? "pass" : "fail"}">${isBalanced ? "Balanced" : "Skewed"}</div>`;
+        <div class="pie-center">
+          <div class="pie-legend">${legend}</div>
+          <div class="pie-verdict ${isBalanced ? "pass" : "fail"}">${isBalanced ? "Balanced" : "Skewed"}</div>
+        </div>
+        <div class="pie-item">
+          <div class="pie-item-label">Pool</div>
+          ${pieSvg(poolSlices)}
+          <div class="pie-legend"><span style="color:var(--muted)">${poolCounts}</span></div>
+        </div>
+      </div>
+    </div>`;
   }
   el.innerHTML = html;
 }
