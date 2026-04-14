@@ -39,6 +39,11 @@ ERROR_MESSAGES = {
     "tab_not_found": N_(
         "Error in Google sheet: no tab called '%(tab_name)s' found in spreadsheet '%(spreadsheet_title)s'."
     ),
+    "not_native_gsheet": N_(
+        "The file '%(file_name)s' is a %(common_name)s (mimetype %(mimetype)s), "
+        "not a native Google Sheet. Open it in Google Sheets and choose "
+        "File \u2192 Save as Google Sheets, then use that new file."
+    ),
     "variables_without_value": N_("It seems like some variables do not have a value. Original exception: %(error)s."),
     "already_selected_duplicate_headers": N_(
         "the header row in the %(tab_name)s tab contains duplicates: %(duplicates)s"

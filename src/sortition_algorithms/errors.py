@@ -1,7 +1,9 @@
 import html
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from attrs import define, field
+
+from sortition_algorithms.error_messages import get_message
 
 if TYPE_CHECKING:
     # this is done to avoid circular imports
@@ -39,6 +41,49 @@ class ConfigurationError(SortitionBaseError):
 
 class SelectionError(SortitionBaseError):
     """Generic error for things that happen in selection"""
+
+
+class NotNativeGoogleSheetError(SelectionError):
+    """
+    Raised when a Google Drive file is not a native Google Sheet.
+
+    The common cause is a user uploading a .xlsx (or similar) to Drive without
+    converting it to Sheets. Callers can catch this specifically to render
+    conversion instructions, or consult the ``MIMETYPE_COMMON_NAMES`` mapping
+    to produce localised messages using ``error_code`` + ``error_params``.
+    """
+
+    NATIVE_GSHEET_MIMETYPE: ClassVar[str] = "application/vnd.google-apps.spreadsheet"
+
+    MIMETYPE_COMMON_NAMES: ClassVar[dict[str, str]] = {
+        "application/vnd.google-apps.spreadsheet": "Google Sheet",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel spreadsheet (.xlsx)",
+        "application/vnd.ms-excel": "Excel spreadsheet (.xls)",
+        "application/vnd.oasis.opendocument.spreadsheet": "OpenDocument spreadsheet (.ods)",
+        "text/csv": "CSV file",
+        "text/tab-separated-values": "TSV file",
+    }
+
+    def __init__(self, mimetype: str, file_name: str = "") -> None:
+        self.mimetype = mimetype
+        self.file_name = file_name
+        params: dict[str, str | int] = {
+            "mimetype": mimetype,
+            "file_name": file_name,
+            "common_name": self.common_name_for(mimetype),
+        }
+        super().__init__(
+            message=get_message("not_native_gsheet", **params),
+            error_code="not_native_gsheet",
+            error_params=params,
+        )
+
+    @classmethod
+    def common_name_for(cls, mimetype: str) -> str:
+        return cls.MIMETYPE_COMMON_NAMES.get(mimetype, mimetype)
+
+    def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
+        return (self.__class__, (self.mimetype, self.file_name))
 
 
 class RetryableSelectionError(SelectionError):

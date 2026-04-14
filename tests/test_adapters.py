@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -14,6 +15,7 @@ from sortition_algorithms.adapters import (
 from sortition_algorithms.committee_generation import DIVERSIMAX_AVAILABLE, GUROBI_AVAILABLE
 from sortition_algorithms.core import run_stratification
 from sortition_algorithms.errors import (
+    NotNativeGoogleSheetError,
     ParseTableErrorMsg,
     ParseTableMultiError,
     ParseTableMultiValueErrorMsg,
@@ -844,6 +846,79 @@ def test_csv_string_load_already_selected_with_data_with_column_mismatch():
     # note that everything is converted to lower case
     assert people.get_address("p1", settings.check_same_address_columns) == ("1 high street", "e1a 1aa")
     assert people.get_address("p2", settings.check_same_address_columns) == ("15 new lane", "w2b 2bb")
+
+
+def _make_gsheet_source_with_mocked_client(mimetype: str, file_name: str = "Some File") -> GSheetDataSource:
+    source = GSheetDataSource(feature_tab_name="Categories", people_tab_name="Respondents", auth_json_path=Path("/"))
+    mock_client = MagicMock()
+    # Drive API response
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"mimeType": mimetype, "name": file_name}
+    mock_client.http_client.request.return_value = mock_response
+    # open_by_url / open both return a fake Spreadsheet
+    fake_spreadsheet = MagicMock()
+    fake_spreadsheet.id = "abc123"
+    fake_spreadsheet.title = file_name
+    mock_client.open_by_url.return_value = fake_spreadsheet
+    mock_client.open.return_value = fake_spreadsheet
+    source._client = mock_client
+    return source
+
+
+def test_gsheet_spreadsheet_native_mimetype_opens_by_url():
+    source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet", file_name="My Sheet")
+    source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/abc123/edit")
+    sheet = source.spreadsheet
+    assert sheet.title == "My Sheet"
+    source._client.open_by_url.assert_called_once()
+    # Drive API called exactly once, and not re-called on subsequent access.
+    assert source._client.http_client.request.call_count == 1
+    _ = source.spreadsheet
+    assert source._client.http_client.request.call_count == 1
+
+
+def test_gsheet_spreadsheet_xlsx_mimetype_raises_by_url():
+    source = _make_gsheet_source_with_mocked_client(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        file_name="upload.xlsx",
+    )
+    source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/abc123/edit")
+    with pytest.raises(NotNativeGoogleSheetError) as excinfo:
+        _ = source.spreadsheet
+    err = excinfo.value
+    assert err.mimetype == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert err.file_name == "upload.xlsx"
+    assert err.error_code == "not_native_gsheet"
+    assert "Excel spreadsheet (.xlsx)" in str(err)
+    assert "upload.xlsx" in str(err)
+    # Should not have attempted to actually open the sheet.
+    source._client.open_by_url.assert_not_called()
+
+
+def test_gsheet_spreadsheet_ods_mimetype_raises_by_name():
+    source = _make_gsheet_source_with_mocked_client(
+        "application/vnd.oasis.opendocument.spreadsheet", file_name="data.ods"
+    )
+    source.set_g_sheet_name("data.ods")  # not a URL -> name branch
+    with pytest.raises(NotNativeGoogleSheetError) as excinfo:
+        _ = source.spreadsheet
+    assert excinfo.value.error_params["common_name"] == "OpenDocument spreadsheet (.ods)"
+
+
+def test_not_native_gsheet_error_common_name_fallback():
+    err = NotNativeGoogleSheetError(mimetype="application/x-weird", file_name="thing")
+    assert err.common_name_for("application/x-weird") == "application/x-weird"
+    assert err.error_params["mimetype"] == "application/x-weird"
+    assert err.error_params["common_name"] == "application/x-weird"
+
+
+def test_not_native_gsheet_error_mimetype_map_contents():
+    names = NotNativeGoogleSheetError.MIMETYPE_COMMON_NAMES
+    assert names["application/vnd.google-apps.spreadsheet"] == "Google Sheet"
+    assert "xlsx" in names["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
+    assert "ods" in names["application/vnd.oasis.opendocument.spreadsheet"]
+    assert names["text/csv"] == "CSV file"
+    assert names["text/tab-separated-values"] == "TSV file"
 
 
 # Tests for GSheetDataAdapter.find_header_row()

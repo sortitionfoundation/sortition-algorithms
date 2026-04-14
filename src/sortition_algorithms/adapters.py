@@ -16,10 +16,12 @@ from pathlib import Path
 from typing import Any, ClassVar, TextIO
 
 import gspread
-from gspread.utils import ValueRenderOption
+from gspread.urls import DRIVE_FILES_API_V3_URL
+from gspread.utils import ValueRenderOption, extract_id_from_url
 from oauth2client.service_account import ServiceAccountCredentials
 
 from sortition_algorithms.errors import (
+    NotNativeGoogleSheetError,
     ParseTableErrorMsg,
     ParseTableMultiError,
     SelectionError,
@@ -539,6 +541,7 @@ class GSheetDataSource(AbstractDataSource):
         self.auth_json_path = auth_json_path
         self._client: gspread.client.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
+        self._native_checked: bool = False
         self.new_tab_default_size_rows = 2
         self.new_tab_default_size_cols = 40
         self._g_sheet_name = ""
@@ -571,15 +574,39 @@ class GSheetDataSource(AbstractDataSource):
         if self._open_g_sheet_name != self._g_sheet_name:
             # reset the spreadsheet if the name changed
             self._spreadsheet = None
+            self._native_checked = False
             self.tab_namer.reset()
         if self._spreadsheet is None:
             if self._g_sheet_name.startswith("https://"):
+                # Check mimetype before opening - for URLs we can extract the
+                # file id without an API call, and a non-native file (e.g. an
+                # uploaded .xlsx) would fail to open with a cryptic Sheets API
+                # error. Checking first lets us raise a helpful error instead.
+                file_id = extract_id_from_url(self._g_sheet_name)
+                self._verify_native_gsheet(file_id)
                 self._spreadsheet = self.client.open_by_url(self._g_sheet_name)
             else:
                 self._spreadsheet = self.client.open(self._g_sheet_name)
+                # open-by-name filters to native Sheets via Drive search, so a
+                # non-native match is unlikely - but verify as cheap insurance.
+                self._verify_native_gsheet(self._spreadsheet.id)
+            self._native_checked = True
             self._open_g_sheet_name = self._g_sheet_name
             self._report.add_message_and_log("opened_gsheet", logging.INFO, title=self._spreadsheet.title)
         return self._spreadsheet
+
+    def _verify_native_gsheet(self, file_id: str) -> None:
+        if self._native_checked:
+            return
+        response = self.client.http_client.request(
+            "get",
+            f"{DRIVE_FILES_API_V3_URL}/{file_id}",
+            params={"supportsAllDrives": True, "fields": "mimeType,name"},
+        )
+        metadata = response.json()
+        mimetype = metadata.get("mimeType", "")
+        if mimetype != NotNativeGoogleSheetError.NATIVE_GSHEET_MIMETYPE:
+            raise NotNativeGoogleSheetError(mimetype=mimetype, file_name=metadata.get("name", ""))
 
     def _get_tab(self, tab_name: str) -> gspread.Worksheet | None:
         if not self._g_sheet_name:
@@ -609,6 +636,7 @@ class GSheetDataSource(AbstractDataSource):
         # if we're changing spreadsheet, reset the spreadsheet object
         if self._g_sheet_name != g_sheet_name:
             self._spreadsheet = None
+            self._native_checked = False
             self._g_sheet_name = g_sheet_name
             self.tab_namer.reset()
 
