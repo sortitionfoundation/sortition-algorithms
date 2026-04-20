@@ -2,6 +2,7 @@ import logging
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from http.client import HTTPConnection
 from pathlib import Path
 
 import click
@@ -215,7 +216,12 @@ def csv(
     "-v",
     "--verbose",
     is_flag=True,
-    help="If used, produce extra detailed logging.",
+    help="If used, produce detailed logging.",
+)
+@click.option(
+    "--requests-debug",
+    is_flag=True,
+    help="If used, switch on VERY detailed logging of every request to the Google API.",
 )
 @click.option(
     "--no-progress",
@@ -232,11 +238,14 @@ def gsheet(
     already_selected_tab_name: str,
     number_wanted: int,
     verbose: bool,
+    requests_debug: bool,
     no_progress: bool,
 ) -> None:
     """Do sortition with Google Spreadsheets."""
     if verbose:
         set_log_level(logging.DEBUG)
+    if requests_debug:
+        HTTPConnection.debuglevel = 1
     settings_obj, report = Settings.load_from_file(Path(settings))
     data_source = adapters.GSheetDataSource(
         feature_tab_name=feature_tab_name,
