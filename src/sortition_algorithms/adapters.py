@@ -525,6 +525,7 @@ class GSheetDataSource(AbstractDataSource):
         already_selected_tab_name: str = "",
         id_column: str = "not_set",
         auth_json_path: Path,
+        request_timeout: float | tuple[float, float] | None = 60,
     ) -> None:
         """
         Args:
@@ -533,12 +534,15 @@ class GSheetDataSource(AbstractDataSource):
         - already_selected_tab_name (optional) - the name of the tab/worksheet containing people who have already been selected
         - id_column (optional) - the name of the column containing the ID. Only required if already_selected_tab_name is set
         - auth_json_path - path to the file containing the google service account details.
+        - request_timeout - How long to wait for the server to send data before giving up, as a float,
+          or a (connect timeout, read timeout) tuple. Value for timeout is in seconds.
         """
         self.feature_tab_name = feature_tab_name
         self.people_tab_name = people_tab_name
         self.already_selected_tab_name = already_selected_tab_name
         self.id_column = id_column
         self.auth_json_path = auth_json_path
+        self._request_timeout = request_timeout
         self._client: gspread.client.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
         self._native_checked: bool = False
@@ -567,6 +571,7 @@ class GSheetDataSource(AbstractDataSource):
             # by using the BackOffHTTPClient, that will sleep and retry
             # if it gets an error related to API usage rate limits.
             self._client = gspread.authorize(creds, http_client=gspread.BackOffHTTPClient)
+            self._client.set_timeout(self._request_timeout)
         return self._client
 
     @property
