@@ -133,12 +133,12 @@ To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookie
 
 ## Releasing a new version
 
-- Create an API Token on [PyPI](https://pypi.org/).
-- Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/sortitionfoundation/sortition-algorithms/settings/secrets/actions/new).
+Releases are published to PyPI via [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) — no API token is stored in the repo. To cut a release:
+
 - Create a [new release](https://github.com/sortitionfoundation/sortition-algorithms/releases/new) on Github.
 - Create a new tag in the form `*.*.*`.
 
-For more details, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/cicd/#how-to-trigger-a-release).
+For one-time setup (or if the trusted publisher needs reconfiguring), see [docs/pypi-trusted-publisher-setup.md](docs/pypi-trusted-publisher-setup.md).
 
 ---
 
