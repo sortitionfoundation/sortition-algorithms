@@ -72,7 +72,9 @@ jobs:
       - name: Check out
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          persist-credentials: false
+          # mkdocs gh-deploy pushes to the gh-pages branch, so it needs the
+          # GITHUB_TOKEN written into git config (paired with contents: write above).
+          persist-credentials: true
 
       - name: Set up the environment
         uses: ./.github/actions/setup-python-env
