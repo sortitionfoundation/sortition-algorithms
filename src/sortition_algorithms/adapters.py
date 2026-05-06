@@ -30,7 +30,7 @@ from sortition_algorithms.errors import (
 from sortition_algorithms.features import FeatureCollection, read_in_features
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
-from sortition_algorithms.utils import RunReport, get_cell_name, user_logger
+from sortition_algorithms.utils import RunReport, get_cell_name, normalise_iter, user_logger
 
 
 def _stringify_records(
@@ -199,7 +199,7 @@ class SelectionData:
         report = RunReport()
         with self.data_source.read_people_data(report) as headers_body:
             headers_iter, body = headers_body
-            headers = list(headers_iter)
+            headers = normalise_iter(headers_iter)
             try:
                 people, report = read_in_people(
                     people_head=headers,
@@ -218,7 +218,7 @@ class SelectionData:
         report = RunReport()
         with self.data_source.read_already_selected_data(report) as headers_body:
             headers_iter, body = headers_body
-            headers = list(headers_iter)
+            headers = normalise_iter(headers_iter)
             # we can return empty if there is nothing to load, so return empty People
             if not headers:
                 return People(columns_to_keep=settings.columns_to_keep), report

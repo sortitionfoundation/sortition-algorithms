@@ -401,6 +401,14 @@ def strip_str_int(value: str | int | float) -> str:
     return str(value).strip()
 
 
+def normalise_iter(original: Iterable[str | int | float]) -> list[str]:
+    """
+    Wraps a list/iterable, and whenever we get a value from it, we convert to str and
+    strip() whitespace
+    """
+    return [strip_str_int(value) for value in original]
+
+
 def normalise_dict(original: Mapping[str, str] | Mapping[str, str | int]) -> MutableMapping[str, str]:
     """
     Wraps a dict, and whenever we get a value from it, we convert to str and
@@ -408,7 +416,7 @@ def normalise_dict(original: Mapping[str, str] | Mapping[str, str | int]) -> Mut
     """
     new_dict: MutableMapping[str, str] = CaseInsensitiveDict()
     for key, original_value in original.items():
-        new_dict[key] = strip_str_int(original_value)
+        new_dict[strip_str_int(key)] = strip_str_int(original_value)
     return new_dict
 
 

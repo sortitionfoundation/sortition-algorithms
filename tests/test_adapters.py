@@ -1,10 +1,14 @@
+from collections.abc import Generator, Iterable
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from sortition_algorithms import core
 from sortition_algorithms.adapters import (
+    AbstractDataSource,
     CSVFileDataSource,
     CSVStringDataSource,
     GSheetDataSource,
@@ -29,6 +33,7 @@ from tests.helpers import (
     candidates_csv_path,
     candidates_lower_csv_path,
     create_simple_features,
+    create_test_settings,
     features_csv_path,
     get_settings_for_fixtures,
 )
@@ -1256,3 +1261,120 @@ def test_check_header_duplicates_error_message_format():
     assert "AlreadySelectedTab" in error.message
     assert "duplicate" in error.message.lower()
     assert error.error_code == "already_selected_duplicate_headers"
+
+
+class FakeDataSource(AbstractDataSource):
+    """
+    A test double that yields whatever headers/body we set on it.
+
+    Lets us simulate awkward upstream behaviour - in particular Google Sheets
+    returning a non-string value in the header row (e.g. a formula cell that
+    evaluates to a number).
+    """
+
+    def __init__(
+        self,
+        feature_headers: Iterable[Any] | None = None,
+        feature_body: Iterable[dict[str, str]] | None = None,
+        people_headers: Iterable[Any] | None = None,
+        people_body: Iterable[dict[str, str]] | None = None,
+        already_selected_headers: Iterable[Any] | None = None,
+        already_selected_body: Iterable[dict[str, str]] | None = None,
+    ) -> None:
+        self.feature_headers: list[Any] = list(feature_headers or [])
+        self.feature_body: list[dict[str, str]] = list(feature_body or [])
+        self.people_headers: list[Any] = list(people_headers or [])
+        self.people_body: list[dict[str, str]] = list(people_body or [])
+        self.already_selected_headers: list[Any] = list(already_selected_headers or [])
+        self.already_selected_body: list[dict[str, str]] = list(already_selected_body or [])
+
+    @property
+    def people_data_container(self) -> str:
+        return "fake people data"
+
+    @property
+    def already_selected_data_container(self) -> str:
+        return "fake already selected data"
+
+    @contextmanager
+    def read_feature_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        yield self.feature_headers, self.feature_body
+
+    @contextmanager
+    def read_people_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        yield self.people_headers, self.people_body
+
+    @contextmanager
+    def read_already_selected_data(
+        self, report: RunReport
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
+        yield self.already_selected_headers, self.already_selected_body
+
+    def write_selected(self, selected: list[list[str]], report: RunReport) -> None:
+        pass
+
+    def write_remaining(self, remaining: list[list[str]], report: RunReport) -> None:
+        pass
+
+    def highlight_dupes(self, dupes: list[int]) -> None:
+        pass
+
+    def customise_features_parse_error(self, error, headers):
+        return error
+
+    def customise_people_parse_error(self, error, headers):
+        return error
+
+    def customise_already_selected_parse_error(self, error, headers):
+        return error
+
+
+def test_load_people_with_non_string_header():
+    """
+    Defends against a Google sheet whose header row contains a formula that
+    evaluates to a non-string value (e.g. a number). The header iterable
+    returned from the data source must be normalised to strings, or
+    `_check_columns_exist_or_multiple` in people.py blows up calling
+    `.lower()` on the int.
+    """
+    features = create_simple_features()
+    settings = create_test_settings(id_column="id", columns_to_keep=["name"])
+
+    # The `0` here simulates a formula cell that evaluated to an int.
+    data_source = FakeDataSource(
+        people_headers=["id", "name", "gender", "age", 0],
+        people_body=[
+            {"id": "p1", "name": "Alice", "gender": "male", "age": "young", 0: "x"},
+            {"id": "p2", "name": "Bob", "gender": "female", "age": "old", 0: "x"},
+        ],
+    )
+    select_data = SelectionData(data_source)
+
+    people, _ = select_data.load_people(settings, features)
+
+    assert people.count == 2
+
+
+def test_load_already_selected_with_non_string_header():
+    """
+    As above, but for the already-selected tab. `read_already_selected_data`
+    in GSheetDataSource uses ValueRenderOption.unformatted so this is the
+    path most likely to surface non-string header values in production.
+    """
+    settings = create_test_settings(id_column="id", columns_to_keep=["name"])
+
+    data_source = FakeDataSource(
+        already_selected_headers=["id", "name", 0],
+        already_selected_body=[
+            {"id": "p1", "name": "Alice", 0: "x"},
+        ],
+    )
+    select_data = SelectionData(data_source)
+
+    people, _ = select_data.load_already_selected(settings)
+
+    assert people.count == 1
