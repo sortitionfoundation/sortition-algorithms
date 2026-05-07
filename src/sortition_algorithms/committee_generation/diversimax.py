@@ -1,22 +1,23 @@
 # ABOUTME: Diversimax algorithm for committee generation.
 # ABOUTME: Maximizes diversity across intersections of demographic features.
 
+from __future__ import annotations
+
+import importlib.util
 import itertools
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import numpy as np
+# numpy, pandas and sklearn are imported lazily inside the methods that use them,
+# so importing this module does not pull them in.
+# import numpy as np
+# import pandas as pd
+# from sklearn.preprocessing import OneHotEncoder
 
-try:
-    import pandas as pd
-    from sklearn.preprocessing import OneHotEncoder  # type: ignore[import-untyped]
-
-    DIVERSIMAX_AVAILABLE = True
-except ImportError:
-    DIVERSIMAX_AVAILABLE = False
-    pd = None  # type: ignore[assignment]
-    OneHotEncoder = None
+if TYPE_CHECKING:
+    import numpy as np
 
 from sortition_algorithms import errors
 from sortition_algorithms.committee_generation.common import _relax_infeasible_quotas
@@ -26,6 +27,10 @@ from sortition_algorithms.people import People
 from sortition_algorithms.progress import ProgressReporter, coerce_reporter, phase
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger, random_provider
+
+DIVERSIMAX_AVAILABLE = (
+    importlib.util.find_spec("pandas") is not None and importlib.util.find_spec("sklearn") is not None
+)
 
 InteractionNamesTuple = tuple[str, ...]
 
@@ -123,6 +128,8 @@ class DiversityOptimizer:
             msg = "Diversimax algorithm requires the optional 'diversimax' dependencies, which are not available"
             raise RuntimeError(msg, "diversimax_not_available", {})
 
+        import pandas as pd
+
         self.people = people
         # convert people to dataframe
         people_df = pd.DataFrame.from_dict(dict(people.items()), orient="index")
@@ -166,6 +173,8 @@ class DiversityOptimizer:
         all_dims_combs is a list of all the intersections of all categories of all features.
         (e.g. [(age,), (income,), (education level,), (income, education level), (age, income, education level)])
         """
+        import numpy as np
+
         all_dims_combs_iterators = [
             itertools.combinations(self.pool_members_df.columns, r=i)
             for i in range(1, self.pool_members_df.shape[1] + 1)
@@ -190,6 +199,8 @@ class DiversityOptimizer:
         The values are 0/1 if the person is in that intersection or not.
         i.e. The number of columns is the number of combinations we have between the features: product of their sizes.
         """
+        from sklearn.preprocessing import OneHotEncoder  # type: ignore[import-untyped]
+
         all_ohe: list[np.ndarray] = []
         for dims in self.intersections_data.all_dims_combs:
             intersection_data: IntersectionData = self.intersections_data.data[dims]

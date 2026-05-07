@@ -1,12 +1,19 @@
 # ABOUTME: Nash welfare algorithm for committee generation.
 # ABOUTME: Maximizes the product of selection probabilities (Nash social welfare).
 
+from __future__ import annotations
+
 import logging
 from math import log
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import cvxpy as cp
-import numpy as np
+# cvxpy and numpy are imported lazily inside the functions that use them,
+# so importing this module does not pull them in.
+# import cvxpy as cp
+# import numpy as np
+
+if TYPE_CHECKING:
+    import numpy as np
 
 from sortition_algorithms.committee_generation.common import (
     EPS2,
@@ -67,6 +74,8 @@ def _committees_to_matrix(
         numpy array of shape (len(entitlements), len(committees)) where entry (i,j)
         is 1 if agent entitlements[i] is in committee j, 0 otherwise
     """
+    import numpy as np
+
     columns = []
     for committee in committees:
         column = [0 for _ in entitlements]
@@ -98,6 +107,8 @@ def _solve_nash_welfare_optimization(
     Returns:
         tuple of (lambdas variable, entitled_reciprocals, differentials)
     """
+    import cvxpy as cp
+
     lambdas = cp.Variable(len(committees))  # probability of outputting a specific committee
     lambdas.value = start_lambdas
 
@@ -192,6 +203,8 @@ def _run_nash_optimization_loop(
     Returns:
         tuple of (committees, probabilities, output_lines)
     """
+    import numpy as np
+
     reporter = coerce_reporter(progress_reporter)
     start_lambdas = [1 / len(committees) for _ in committees]
     iteration = 0

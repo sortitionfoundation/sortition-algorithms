@@ -1,19 +1,14 @@
 # ABOUTME: Leximin algorithm for committee generation.
 # ABOUTME: Maximizes minimum probability, breaking ties by second-lowest, third-lowest, etc.
 
+import importlib.util
 import logging
 from typing import Any
 
-import numpy
-
-try:
-    import gurobipy as grb
-
-    GUROBI_AVAILABLE = True
-except ImportError:
-    GUROBI_AVAILABLE = False
-    grb = None
-
+# numpy and gurobipy are imported lazily inside the functions that use them,
+# so importing this module does not pull them in.
+# import numpy
+# import gurobipy as grb
 from sortition_algorithms.committee_generation.common import (
     EPS,
     generate_initial_committees,
@@ -26,6 +21,8 @@ from sortition_algorithms.people import People
 from sortition_algorithms.progress import ProgressReporter, coerce_reporter, phase
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import RunReport, logger
+
+GUROBI_AVAILABLE = importlib.util.find_spec("gurobipy") is not None
 
 
 def _dual_leximin_stage(
@@ -54,6 +51,8 @@ def _dual_leximin_stage(
     if not GUROBI_AVAILABLE:
         msg = "Leximin algorithm requires Gurobi solver which is not available"
         raise RuntimeError(msg, "gurobi_not_available", {})
+
+    import gurobipy as grb
 
     assert len(committees) != 0
 
@@ -139,6 +138,8 @@ def _run_leximin_column_generation_loop(
     Returns:
         tuple of (should_break_outer_loop, updated_reduction_counter)
     """
+    import gurobipy as grb
+
     while True:
         dual_model.optimize()
         if dual_model.status != grb.GRB.OPTIMAL:
@@ -207,6 +208,9 @@ def _solve_leximin_primal_for_final_probabilities(
     Returns:
         list of normalized probabilities for each committee
     """
+    import gurobipy as grb
+    import numpy
+
     primal = grb.Model()
     # Variables for the output probabilities of the different panels
     committee_vars = [primal.addVar(vtype=grb.GRB.CONTINUOUS, lb=0.0) for _ in committees]
@@ -331,6 +335,8 @@ def find_distribution_leximin(
     if not GUROBI_AVAILABLE:
         msg = "Leximin algorithm requires Gurobi solver which is not available"
         raise RuntimeError(msg, "gurobi_not_available", {})
+
+    import gurobipy as grb
 
     report = RunReport()
     report.add_message_and_log("using_leximin_algorithm", logging.INFO)

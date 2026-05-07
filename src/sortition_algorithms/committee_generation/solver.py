@@ -1,22 +1,20 @@
 # ABOUTME: Abstraction layer for LP/MIP solvers (HiGHS, python-mip).
 # ABOUTME: Provides a unified interface for committee generation algorithms.
 
+import importlib.util
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any
 
+# Heavy solver libraries are imported lazily inside the solver __init__ methods,
+# so importing this module never pulls them in unless a solver is actually used.
+# import highspy
+# import mip
 from sortition_algorithms.errors import ConfigurationError
 from sortition_algorithms.settings import DEFAULT_BACKEND
 from sortition_algorithms.utils import random_provider
 
-# Check if python-mip is available (optional dependency)
-try:
-    import mip as _mip_module
-
-    MIP_AVAILABLE = True
-except ImportError:
-    MIP_AVAILABLE = False
-    _mip_module = None
+MIP_AVAILABLE = importlib.util.find_spec("mip") is not None
 
 
 class SolverStatus(Enum):
@@ -299,7 +297,9 @@ class MipSolver(Solver):
             msg = "python-mip is not installed. Install it with: pip install mip"
             raise RuntimeError(msg)
 
-        self._mip = _mip_module
+        import mip
+
+        self._mip = mip
         # Default to MAXIMIZE, will be changed when set_objective is called
         # As of mip 1.17, we can choose the HIGHS solver instead of the default CBC - solver name sets this
         self._model = self._mip.Model(solver_name=solver_name)
