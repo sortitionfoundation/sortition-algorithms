@@ -33,6 +33,9 @@ class People:
     def count(self) -> int:
         return len(self._full_data)
 
+    def __len__(self) -> int:
+        return len(self._full_data)
+
     def __iter__(self) -> Iterator[str]:
         return iter(self._full_data)
 

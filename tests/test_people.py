@@ -137,6 +137,22 @@ class TestPeople:
         assert len(person_keys) == 3
         assert set(person_keys) == {"0", "1", "2"}
 
+    def test_people_supports_len(self):
+        """People should support len() so it can be treated as a standard collection."""
+        people = People(["name"])
+        features = create_simple_test_features()
+
+        assert len(people) == 0
+
+        for i, name in enumerate(["John", "Jane", "Bob"]):
+            person_data = normalise_dict({"id": str(i), "name": name, "gender": "male"})
+            people.add(str(i), person_data, features, i)
+
+        assert len(people) == 3
+
+        people.remove("1")
+        assert len(people) == 2
+
 
 class TestHelperFunctions:
     """Test helper functions in people.py."""
