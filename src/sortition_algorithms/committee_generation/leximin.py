@@ -105,7 +105,7 @@ def _run_leximin_column_generation_loop(
     people: People,
     reduction_counter: int,
     report: RunReport,
-) -> tuple[bool, int]:
+) -> int:
     """Run the column generation inner loop for leximin optimization.
 
     The primal LP being solved by column generation, with a variable x_P for each feasible panel P:
@@ -136,7 +136,7 @@ def _run_leximin_column_generation_loop(
         output_lines: list of output messages (modified in-place)
 
     Returns:
-        tuple of (should_break_outer_loop, updated_reduction_counter)
+        updated reduction_counter
     """
     import gurobipy as grb
 
@@ -184,7 +184,7 @@ def _run_leximin_column_generation_loop(
                     # [1] Theorem 3.3 in: Renato Pelessoni. Some remarks on the use of the strict complementarity in
                     # checking coherence and extending coherent probabilities. 1998.
                     fixed_probabilities[agent_id] = max(0, dual_obj)
-            return True, reduction_counter  # Break outer loop
+            return reduction_counter
 
         # Given that Σ_{i ∈ P} yᵢ > ŷ, the current solution to `dual_model` is not yet a solution to the dual.
         # Thus, add the constraint for panel P and recurse.
@@ -278,7 +278,7 @@ def _run_leximin_main_loop(
             )
 
             # Run column generation inner loop
-            should_break, reduction_counter = _run_leximin_column_generation_loop(
+            reduction_counter = _run_leximin_column_generation_loop(
                 new_committee_solver,
                 agent_vars,
                 dual_model,
@@ -290,8 +290,6 @@ def _run_leximin_main_loop(
                 reduction_counter,
                 report,
             )
-            if should_break:
-                break
 
         reporter.update(
             len(fixed_probabilities),
