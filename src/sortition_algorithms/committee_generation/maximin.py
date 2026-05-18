@@ -266,17 +266,17 @@ def _run_maximin_optimization_loop(
 
             # Run heuristic to find additional committees
             counter = _run_maximin_heuristic_for_additional_committees(
-                new_committee_solver,
-                agent_vars,
-                incremental_solver,
-                incr_agent_vars,
-                upper_bound_var,
-                committees,
-                covered_agents,
-                entitlement_weights,
-                new_set,
-                upper,
-                value,
+                new_committee_solver=new_committee_solver,
+                agent_vars=agent_vars,
+                incremental_solver=incremental_solver,
+                incr_agent_vars=incr_agent_vars,
+                upper_bound_var=upper_bound_var,
+                committees=committees,
+                covered_agents=covered_agents,
+                entitlement_weights=entitlement_weights,
+                new_set=new_set,
+                upper=upper,
+                value=value,
             )
             if counter > 0:
                 report.add_message_and_log("heuristic_generated_committees", logging.INFO, count=counter)
@@ -329,14 +329,14 @@ def find_distribution_maximin(
 
     # Run the main optimization loop
     return _run_maximin_optimization_loop(
-        new_committee_solver,
-        agent_vars,
-        incremental_solver,
-        incr_agent_vars,
-        upper_bound_var,
-        committees,
-        covered_agents,
-        report,
-        solver_backend,
+        new_committee_solver=new_committee_solver,
+        agent_vars=agent_vars,
+        incremental_solver=incremental_solver,
+        incr_agent_vars=incr_agent_vars,
+        upper_bound_var=upper_bound_var,
+        committees=committees,
+        covered_agents=covered_agents,
+        report=report,
+        solver_backend=solver_backend,
         progress_reporter=reporter,
     )
