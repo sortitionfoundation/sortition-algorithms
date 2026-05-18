@@ -116,6 +116,7 @@ def _run_maximin_heuristic_for_additional_committees(
     committees: set[frozenset[str]],
     covered_agents: frozenset[str],
     entitlement_weights: dict[str, float],
+    new_set: frozenset[str],
     upper: float,
     value: float,
 ) -> int:
@@ -135,6 +136,7 @@ def _run_maximin_heuristic_for_additional_committees(
         committees: set of committees (modified in-place)
         covered_agents: agents that can be included
         entitlement_weights: current entitlement weights (modified in-place)
+        new_set: committee just added by the outer loop, whose entitlement weights need scaling down
         upper: current upper bound value
         value: current objective value
 
@@ -142,13 +144,11 @@ def _run_maximin_heuristic_for_additional_committees(
         number of additional committees found
     """
     counter = 0
-    new_set = None  # Initialize to avoid UnboundLocalError
 
     for _ in range(10):
         # scale down the y_{e(i)} for i ∈ `new_set` to make Σ_{i ∈ `new_set`} y_{e(i)} ≤ z true
-        if new_set is not None:  # Only scale if we have a new_set from previous iteration
-            for agent_id in new_set:
-                entitlement_weights[agent_id] *= upper / value
+        for agent_id in new_set:
+            entitlement_weights[agent_id] *= upper / value
 
         # This will change Σ_e y_e to be less than 1. We rescale the y_e and z
         sum_weights = sum(entitlement_weights.values())
@@ -274,6 +274,7 @@ def _run_maximin_optimization_loop(
                 committees,
                 covered_agents,
                 entitlement_weights,
+                new_set,
                 upper,
                 value,
             )
