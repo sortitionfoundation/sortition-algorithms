@@ -16,7 +16,6 @@ updates:
     # cooldown is not supported
     cooldown:
       default-days: 7
-      semver-major-days: 14
     directory: "/"
     schedule:
       interval: "weekly"
