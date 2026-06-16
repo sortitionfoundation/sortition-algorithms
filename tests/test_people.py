@@ -288,6 +288,34 @@ class TestReadInPeople:
         assert "blank cell found in ID column" in report_text
         assert "row 5" in report_text  # The 1st row is the header, so the 4th data row is row 5
 
+    def test_read_in_people_trailing_blank_id_rows_with_data(self):
+        """Auto-generated rows can continue past the real data: they have a blank
+        ID column but still have (differing) values in other columns. These should
+        be skipped with a warning, not treated as duplicate (empty) IDs."""
+        features, settings, people_head, people_body = self.create_test_data()
+
+        # three trailing auto-generated rows with blank IDs but differing data
+        for i in range(3):
+            people_body.append({
+                "id": "",
+                "name": f"autogen {i}",
+                "email": "",
+                "gender": "",
+                "age": "",
+            })
+
+        people, report = read_in_people(people_head, people_body, features, settings)
+
+        assert people.count == 3  # only the real rows are kept
+        report_text = report.as_text()
+        # each blank row is skipped with the correct row number (header is row 1)
+        assert "row 5" in report_text
+        assert "row 6" in report_text
+        assert "row 7" in report_text
+        # the blank IDs must not be reported as duplicates
+        assert "Duplicated IDs" not in report_text
+        assert "more than one row" not in report_text
+
     def test_read_in_people_with_whitespace_stripping(self):
         """Test that read_in_people strips whitespace from data."""
         features, settings, people_head, people_body = self.create_test_data()
@@ -949,8 +977,8 @@ class TestPeopleMatchingAddress:
                 "age": "old",
             },
         ]
-        stripped_people_body = [normalise_dict(row) for row in people_body]
-        report = check_for_duplicate_people(stripped_people_body, settings)
+        numbered_people_body = [(i, normalise_dict(row)) for i, row in enumerate(people_body, start=2)]
+        report = check_for_duplicate_people(numbered_people_body, settings)
         assert not report.has_content()
 
     def test_check_for_duplicate_people_with_exact_dupes(self):
@@ -993,11 +1021,12 @@ class TestPeopleMatchingAddress:
                 "age": "old",
             },
         ]
-        stripped_people_body = [normalise_dict(row) for row in people_body]
-        report = check_for_duplicate_people(stripped_people_body, settings)
+        # id "2" is duplicated on rows 3 and 4 (header is row 1)
+        numbered_people_body = [(i, normalise_dict(row)) for i, row in enumerate(people_body, start=2)]
+        report = check_for_duplicate_people(numbered_people_body, settings)
         combined_messages = report.as_text().lower()
         assert "found 1 ids that have more than one row" in combined_messages
-        assert "duplicated ids are: 2" in combined_messages
+        assert "duplicated ids are: 2 (rows 3 and 4)" in combined_messages
         assert "all duplicate rows have identical data" in combined_messages
 
     def test_check_for_duplicate_people_with_dupes_with_mismatching_data(self):
@@ -1047,18 +1076,43 @@ class TestPeopleMatchingAddress:
                 "age": "old",
             },
         ]
-        stripped_people_body = [normalise_dict(row) for row in people_body]
+        # id "2" is duplicated but identical; id "3" is duplicated with differing
+        # data on rows 5 and 6 (header is row 1) - only that should be the error
+        numbered_people_body = [(i, normalise_dict(row)) for i, row in enumerate(people_body, start=2)]
         with pytest.raises(errors.SelectionMultilineError) as exc_context:
-            check_for_duplicate_people(stripped_people_body, settings)
+            check_for_duplicate_people(numbered_people_body, settings)
         combined_messages = str(exc_context.value).lower()
 
-        assert "found 2 ids that have more than one row" in combined_messages
-        assert "duplicated ids are: 2 3" in combined_messages
-        assert "for id '3' one row of data is" in combined_messages
-        assert "bob@example.com" in combined_messages
-        assert "bob42@example.com" in combined_messages
+        assert "found 1 ids that have more than one row with different data" in combined_messages
+        assert "duplicated ids are: 3 (rows 5 and 6)" in combined_messages
+        # the full per-row data dump should no longer be present
+        assert "one row of data is" not in combined_messages
+        assert "bob@example.com" not in combined_messages
+        assert "bob42@example.com" not in combined_messages
 
-        assert "jane@example.com" not in combined_messages
+    def test_check_for_duplicate_people_error_is_succinct(self):
+        """A true duplicate error reports a de-duplicated list of IDs with the
+        rows they appear on, rather than dumping every column of every row."""
+        settings = Settings(
+            id_column="id",
+            columns_to_keep=["name"],
+        )
+
+        people_body = [
+            {"id": "id_1", "name": "John"},
+            {"id": "id_2", "name": "Joan"},
+            {"id": "id_3", "name": "Fred"},
+            {"id": "id_2", "name": "Sally"},
+        ]
+        numbered_people_body = [(i, normalise_dict(row)) for i, row in enumerate(people_body, start=2)]
+        with pytest.raises(errors.SelectionMultilineError) as exc_context:
+            check_for_duplicate_people(numbered_people_body, settings)
+        message = str(exc_context.value)
+
+        assert "id_2 (rows 3 and 5)" in message
+        # we no longer dump the individual rows of data
+        assert "Sally" not in message
+        assert "one row of data is" not in message
 
 
 class TestExcludeMatchingSelectedAddresses:

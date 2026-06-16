@@ -106,6 +106,7 @@ REPORT_MESSAGES = {
     "duplicate_people_header": N_("WARNING: Duplicate people found:"),
     "duplicate_person_details": N_("Person with ID '%(person_id)s' appears %(count)s times in rows: %(rows)s"),
     "duplicate_ids_found": N_("Found %(count)s IDs that have more than one row"),
+    "duplicate_ids_differing_found": N_("Found %(count)s IDs that have more than one row with different data"),
     "duplicate_ids_list": N_("Duplicated IDs are: %(ids)s"),
     "duplicate_rows_identical": N_("All duplicate rows have identical data - processing continuing."),
     "all_agents_in_feasible_committees": N_("All agents are contained in some feasible committee."),
