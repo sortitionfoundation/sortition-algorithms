@@ -250,7 +250,7 @@ class HighsSolver(Solver):
         ):
             # These statuses indicate a feasible (but possibly not optimal) solution was found
             info = self._h.getInfo()
-            if info.primal_solution_status == self._highspy.HighsSolutionStatus.kSolutionStatusFeasible:
+            if info.primal_solution_status == self._highspy.SolutionStatus.kSolutionStatusFeasible:
                 return SolverStatus.FEASIBLE
             return SolverStatus.ERROR
         else:
