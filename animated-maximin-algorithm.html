@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Animated step-by-step visualisation of the Maximin sortition algorithm. -->
+<!-- ABOUTME: Uses synthetic 16-candidate data to show column generation raising the fairness floor. -->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Maximin Algorithm — Step-by-Step Animation</title>
+        <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f0eb;
+    --surface2: #ece5dd;
+    --border: #d9d0c7;
+    --text: #473d3d;
+    --muted: #7a6e6e;
+    --accent: #e40f7d;
+    --green: #70a311;
+    --red: #c7003a;
+    --yellow: #fda135;
+    --orange: #fe5734;
+    --north-border: #3a6adf;
+    --south-border: #d4a843;
+    --min-highlight: #c7003a;
+    --new-committee: #70a311;
+    --radius: 8px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Top bar ────────────────────────────────────────────── */
+  #top-bar {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  #top-bar-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  #header {
+    padding: 10px 20px 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  #header h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  #step-info {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  #step-label { color: var(--yellow); font-weight: 600; }
+  #min-prob-display {
+    font-size: 13px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+  #min-prob-value { color: var(--red); font-weight: 700; font-size: 14px; }
+
+  /* ── Controls ────────────────────────────────────────────── */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 20px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius);
+    padding: 4px 13px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font);
+    transition: background 0.12s, border-color 0.12s;
+  }
+  button:hover:not(:disabled) { background: var(--border); }
+  button:disabled { opacity: 0.35; cursor: default; }
+
+  #logo-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+    background: #ffffff;
+  }
+
+  #btn-play {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    min-width: 88px;
+  }
+  #btn-play:hover:not(:disabled) { background: #c70069; border-color: #c70069; }
+
+  #speed-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  #speed-slider {
+    width: 100px;
+    accent-color: var(--accent);
+  }
+  #progress-slider {
+    flex: 1;
+    min-width: 120px;
+    accent-color: var(--yellow);
+  }
+  #progress-label {
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  /* ── Main layout: left column + narration column ────────── */
+  #main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    padding: 12px 20px;
+    gap: 16px;
+  }
+  #left-column {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  #candidates-section {
+    flex-shrink: 0;
+  }
+
+  /* ── Candidate cards ────────────────────────────────────── */
+  #candidates-section h2 {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .region-group {
+    margin-bottom: 8px;
+  }
+  .region-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+    padding-left: 4px;
+  }
+  .region-label.north { color: var(--north-border); }
+  .region-label.south { color: var(--south-border); }
+
+  .cards-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .candidate-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 5px 7px;
+    width: 115px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .candidate-card.is-minimum {
+    border-color: var(--min-highlight);
+    box-shadow: 0 0 8px rgba(199, 0, 58, 0.25);
+  }
+
+  .card-name {
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 1px;
+  }
+  .card-meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .card-prob-bar {
+    height: 16px;
+    background: var(--surface2);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card-prob-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease, background 0.3s;
+    background: var(--accent);
+  }
+  .candidate-card.is-minimum .card-prob-fill {
+    background: var(--min-highlight);
+  }
+  .card-prob-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(71,61,61,0.15);
+  }
+
+  /* ── Chart panel (selection rules + fairness curve, side by side) */
+  #chart-panel {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+  }
+  #chart-panel > div {
+    flex: 1;
+    min-width: 0;
+  }
+  #chart-panel h2 {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  /* Rules table */
+  #rules-table {
+    border-collapse: collapse;
+    font-size: 12px;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  #rules-table th {
+    background: var(--surface2);
+    padding: 4px 8px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+    color: var(--muted);
+  }
+  #rules-table td {
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  #rules-table tr:last-child td { border-bottom: none; }
+
+  #chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    position: relative;
+    height: 200px;
+  }
+  #prob-chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ── Committee table ────────────────────────────────────── */
+  #committee-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #committee-panel h2 {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  #committee-table-wrap {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  #committee-table {
+    border-collapse: collapse;
+    font-size: 12px;
+    width: 100%;
+  }
+  #committee-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface2);
+    padding: 3px 5px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 10px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    z-index: 1;
+  }
+  #committee-table th.north-col { color: var(--north-border); }
+  #committee-table th.south-col { color: var(--south-border); }
+  #committee-table th.prob-col { color: var(--yellow); }
+
+  #committee-table td {
+    padding: 2px 5px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  #committee-table tr.new-row {
+    background: rgba(112, 163, 17, 0.08);
+  }
+  #committee-table tr.new-row td {
+    border-bottom-color: var(--new-committee);
+  }
+  .dot-in { color: var(--green); }
+  .dot-out { color: var(--border); }
+  .prob-cell { color: var(--yellow); font-weight: 600; }
+  .prob-cell.zero { color: var(--muted); font-weight: 400; }
+
+  /* ── Final selection: chosen and excluded rows ──────────── */
+  #committee-table tr.chosen-row {
+    background: rgba(112, 163, 17, 0.18);
+    outline: 2px solid var(--green);
+    outline-offset: -1px;
+  }
+  #committee-table tr.chosen-row td {
+    color: var(--text);
+    font-weight: 600;
+  }
+  #committee-table tr.chosen-row td.dot-in {
+    color: var(--green);
+  }
+  #committee-table tr.chosen-row td.prob-cell {
+    color: var(--green);
+  }
+  #committee-table tr.excluded-row {
+    opacity: 0.3;
+  }
+
+  /* ── Narration panel ────────────────────────────────────── */
+  #narration-panel {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #narration-panel h2 {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  #narration-box {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  #narration-box .nar-step {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  #narration-box .nar-step:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+  .nar-heading {
+    font-weight: 700;
+    color: var(--yellow);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+  .nar-body { color: var(--text); }
+  .nar-body .highlight { color: var(--green); font-weight: 600; }
+  .nar-body .low { color: var(--red); font-weight: 600; }
+  .nar-body .name { color: var(--accent); font-weight: 600; }
+
+  /* ── Column highlighting for probability explainer ────── */
+  #committee-table th.highlight-col {
+    background: rgba(228, 15, 125, 0.25);
+    color: var(--accent);
+  }
+  #committee-table td.highlight-col {
+    background: rgba(228, 15, 125, 0.12);
+  }
+  #committee-table td.highlight-col.dot-in {
+    background: rgba(228, 15, 125, 0.25);
+    color: var(--text);
+    font-weight: 700;
+  }
+  #committee-table td.highlight-col.prob-cell {
+    background: rgba(253, 161, 53, 0.18);
+  }
+  .nar-body .calc { color: var(--yellow); font-family: var(--mono); font-size: 12px; }
+
+  /* ── Prob-column highlighting for adjustment explainer ── */
+  #committee-table th.highlight-prob-col {
+    background: rgba(253, 161, 53, 0.3);
+    color: var(--yellow);
+  }
+  #committee-table td.highlight-prob-col {
+    background: rgba(253, 161, 53, 0.15);
+    color: var(--yellow);
+    font-weight: 700;
+  }
+        </style>
+    </head>
+    <body>
+        <div id="top-bar">
+            <div id="top-bar-left">
+                <div id="header">
+                    <a href="animated-intro.html" style="color:var(--muted);font-size:12px;text-decoration:none;margin-right:12px;white-space:nowrap" title="Back to introduction">&larr; Intro</a>
+                    <h1>Maximin Algorithm</h1>
+                    <div id="step-info">
+                        Step <span id="step-label">0</span> of <span id="step-total">0</span>
+                    </div>
+                    <div id="min-prob-display">
+                        Lowest anyone's chance: <span id="min-prob-value">—</span>
+                    </div>
+                </div>
+                <div id="controls">
+                    <button id="btn-start" title="Jump to start">⏮</button>
+                    <button id="btn-prev" title="Previous step">◀</button>
+                    <button id="btn-play">▶ Play</button>
+                    <button id="btn-next" title="Next step">▶</button>
+                    <button id="btn-end" title="Jump to end">⏭</button>
+                    <div id="speed-group">
+                        <label for="speed-slider">Speed</label>
+                        <input type="range" id="speed-slider" min="1" max="10" value="4">
+                    </div>
+                    <input type="range" id="progress-slider" min="0" max="0" value="0">
+                    <div id="progress-label">0 / 0</div>
+                </div>
+            </div>
+            <div id="logo-panel">
+                <a href="https://www.sortitionfoundation.org/"><img src="logosortition.svg" alt="Sortition Foundation" width="256" height="86"></a>
+            </div>
+        </div>
+        <div id="main">
+            <div id="left-column">
+                <div id="candidates-section">
+                    <h2>Candidates — each person's chance of being selected</h2>
+                    <div class="region-group">
+                        <div class="cards-row" id="all-cards"></div>
+                    </div>
+                </div>
+                <div id="chart-panel">
+                    <div>
+                        <h2>Selection Rules</h2>
+                        <table id="rules-table">
+                            <thead>
+                                <tr><th>Feature</th><th>Value</th><th>Required</th></tr>
+                            </thead>
+                            <tbody id="rules-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <h2>Fairness curve &mdash; chances low &rarr; high</h2>
+                        <div id="chart-wrap">
+                            <canvas id="prob-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div id="committee-panel">
+                    <h2>Committees Found So Far</h2>
+                    <div id="committee-table-wrap">
+                        <table id="committee-table">
+                            <thead id="committee-thead">
+                            </thead>
+                            <tbody id="committee-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div id="narration-panel">
+                <h2>What's happening</h2>
+                <div id="narration-box"></div>
+            </div>
+        </div>
+        <script>
+// ─────────────────────────────────────────────────────────────
+// Data: 16 candidates, select 8
+//
+// Three features, all with tight quotas:
+//   Gender:  Male exactly 4, Female exactly 4
+//   Region:  North min=3 max=5, South min=3 max=5
+//   Age:     Young exactly 4, Senior exactly 4
+//
+// Pool is skewed:
+//   North: 11 candidates,  South: 5 candidates
+//   Senior: 10 candidates, Young: 6 candidates
+//
+// The crunch: being a Young Southerner is rare (only 2 exist),
+// while Senior Northerners are abundant (7 exist). The algorithm
+// must work hard to balance these competing pressures.
+// ─────────────────────────────────────────────────────────────
+
+const CANDIDATES = [
+  // North Senior Males (4) — abundant group
+  { id: "adam",    name: "Adam",    gender: "M", region: "North", age: "Senior" },
+  { id: "ben",     name: "Ben",     gender: "M", region: "North", age: "Senior" },
+  { id: "chen",    name: "Chen",    gender: "M", region: "North", age: "Senior" },
+  { id: "dmitri",  name: "Dmitri",  gender: "M", region: "North", age: "Senior" },
+  // North Senior Females (3)
+  { id: "elena",   name: "Elena",   gender: "F", region: "North", age: "Senior" },
+  { id: "fatima",  name: "Fatima",  gender: "F", region: "North", age: "Senior" },
+  { id: "grace",   name: "Grace",   gender: "F", region: "North", age: "Senior" },
+  // North Young Males (2)
+  { id: "hassan",  name: "Hassan",  gender: "M", region: "North", age: "Young" },
+  { id: "ivan",    name: "Ivan",    gender: "M", region: "North", age: "Young" },
+  // North Young Females (2)
+  { id: "jun",     name: "Jun",     gender: "F", region: "North", age: "Young" },
+  { id: "keiko",   name: "Keiko",   gender: "F", region: "North", age: "Young" },
+  // South Senior Males (1) — scarce
+  { id: "leo",     name: "Leo",     gender: "M", region: "South", age: "Senior" },
+  // South Senior Females (2)
+  { id: "mia",     name: "Mia",     gender: "F", region: "South", age: "Senior" },
+  { id: "nadia",   name: "Nadia",   gender: "F", region: "South", age: "Senior" },
+  // South Young Male (1) — very scarce
+  { id: "omar",    name: "Omar",    gender: "M", region: "South", age: "Young" },
+  // South Young Female (1) — very scarce
+  { id: "priya",   name: "Priya",   gender: "F", region: "South", age: "Young" },
+];
+
+const SELECT_COUNT = 8;
+
+// Feature constraints: [featureName, valueName, min, max]
+const CONSTRAINTS = [
+  ["Gender",  "M",       4, 4],
+  ["Gender",  "F",       4, 4],
+  ["Region",  "North",   3, 5],
+  ["Region",  "South",   3, 5],
+  ["Age",     "Young",   4, 4],
+  ["Age",     "Senior",  4, 4],
+];
+
+const CANDIDATE_IDS = CANDIDATES.map(c => c.id);
+const ID_TO_IDX = {};
+CANDIDATES.forEach((c, i) => { ID_TO_IDX[c.id] = i; });
+
+// ─────────────────────────────────────────────────────────────
+// Check if a committee satisfies all constraints
+// ─────────────────────────────────────────────────────────────
+
+function isFeasible(committee) {
+  if (committee.length !== SELECT_COUNT) return false;
+  for (const [feature, value, min, max] of CONSTRAINTS) {
+    let count = 0;
+    for (const id of committee) {
+      const c = CANDIDATES[ID_TO_IDX[id]];
+      if (c[feature.toLowerCase()] === value) count++;
+    }
+    if (count < min || count > max) return false;
+  }
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enumerate all feasible committees
+// We enumerate by choosing 4 males then 4 females, then filter
+// ─────────────────────────────────────────────────────────────
+
+function combinations(arr, k) {
+  if (k === 0) return [[]];
+  if (arr.length < k) return [];
+  const result = [];
+  for (let i = 0; i <= arr.length - k; i++) {
+    const rest = combinations(arr.slice(i + 1), k - 1);
+    for (const combo of rest) {
+      result.push([arr[i], ...combo]);
+    }
+  }
+  return result;
+}
+
+function enumerateFeasibleCommittees() {
+  const males = CANDIDATES.filter(c => c.gender === "M").map(c => c.id);
+  const females = CANDIDATES.filter(c => c.gender === "F").map(c => c.id);
+
+  const maleCombos = combinations(males, 4);
+  const femaleCombos = combinations(females, 4);
+
+  const feasible = [];
+  for (const mc of maleCombos) {
+    for (const fc of femaleCombos) {
+      const committee = [...mc, ...fc];
+      if (isFeasible(committee)) {
+        feasible.push(new Set(committee));
+      }
+    }
+  }
+  return feasible;
+}
+
+const ALL_COMMITTEES = enumerateFeasibleCommittees();
+
+// ─────────────────────────────────────────────────────────────
+// LP Solver — Simplex with Big-M method
+// Solves: maximize c^T x
+//   subject to: A_ub * x <= b_ub
+//               A_eq * x = b_eq
+//               x >= 0
+// Returns { x: number[], obj: number } or null if infeasible
+// ─────────────────────────────────────────────────────────────
+
+function solveLP(c, A_ub, b_ub, A_eq, b_eq) {
+  const m_ub = A_ub ? A_ub.length : 0;
+  const m_eq = A_eq ? A_eq.length : 0;
+  const m = m_ub + m_eq;
+  const n = c.length;
+  const n_slack = m_ub;
+  const n_art = m_eq;
+  const n_total = n + n_slack + n_art;
+  const BIG_M = 1e7;
+
+  // Build tableau: m+1 rows, n_total+1 columns (last col = RHS)
+  const tab = [];
+
+  for (let i = 0; i < m_ub; i++) {
+    const row = new Float64Array(n_total + 1);
+    for (let j = 0; j < n; j++) row[j] = A_ub[i][j];
+    row[n + i] = 1;
+    row[n_total] = b_ub[i];
+    tab.push(row);
+  }
+
+  for (let i = 0; i < m_eq; i++) {
+    const row = new Float64Array(n_total + 1);
+    for (let j = 0; j < n; j++) row[j] = A_eq[i][j];
+    row[n + n_slack + i] = 1;
+    row[n_total] = b_eq[i];
+    tab.push(row);
+  }
+
+  const objRow = new Float64Array(n_total + 1);
+  for (let j = 0; j < n; j++) objRow[j] = -c[j];
+  for (let i = 0; i < n_art; i++) objRow[n + n_slack + i] = BIG_M;
+  tab.push(objRow);
+
+  const basis = new Int32Array(m);
+  for (let i = 0; i < m_ub; i++) basis[i] = n + i;
+  for (let i = 0; i < m_eq; i++) basis[i + m_ub] = n + n_slack + i;
+
+  // Eliminate artificial variables from objective row
+  for (let i = 0; i < m_eq; i++) {
+    const rowIdx = m_ub + i;
+    for (let j = 0; j <= n_total; j++) {
+      tab[m][j] -= BIG_M * tab[rowIdx][j];
+    }
+  }
+
+  // Simplex iterations (Bland's rule for anti-cycling)
+  for (let iter = 0; iter < 10000; iter++) {
+    let entering = -1;
+    for (let j = 0; j < n_total; j++) {
+      if (tab[m][j] < -1e-9) { entering = j; break; }
+    }
+    if (entering === -1) break;
+
+    let leaving = -1;
+    let minRatio = Infinity;
+    for (let i = 0; i < m; i++) {
+      if (tab[i][entering] > 1e-10) {
+        const ratio = tab[i][n_total] / tab[i][entering];
+        if (ratio < minRatio - 1e-12) {
+          minRatio = ratio;
+          leaving = i;
+        } else if (Math.abs(ratio - minRatio) < 1e-10 && leaving >= 0 && basis[i] < basis[leaving]) {
+          leaving = i;
+        }
+      }
+    }
+    if (leaving === -1) return null;
+
+    const pivotVal = tab[leaving][entering];
+    for (let j = 0; j <= n_total; j++) tab[leaving][j] /= pivotVal;
+    for (let i = 0; i <= m; i++) {
+      if (i !== leaving) {
+        const factor = tab[i][entering];
+        if (Math.abs(factor) > 1e-14) {
+          for (let j = 0; j <= n_total; j++) {
+            tab[i][j] -= factor * tab[leaving][j];
+          }
+        }
+      }
+    }
+    basis[leaving] = entering;
+  }
+
+  for (let i = 0; i < m; i++) {
+    if (basis[i] >= n + n_slack) {
+      if (Math.abs(tab[i][n_total]) > 1e-6) return null;
+    }
+  }
+
+  const x = new Array(n).fill(0);
+  for (let i = 0; i < m; i++) {
+    if (basis[i] < n) {
+      x[basis[i]] = Math.max(0, tab[i][n_total]);
+    }
+  }
+  return { x, obj: -tab[m][n_total] };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Maximin primal: maximize the minimum selection probability
+// ─────────────────────────────────────────────────────────────
+
+function solveMaximinPrimal(committeeList) {
+  const K = committeeList.length;
+  const N = CANDIDATES.length;
+
+  // Variables: p_0..p_{K-1}, z.  Maximize z.
+  const c = new Array(K + 1).fill(0);
+  c[K] = 1;
+
+  // z - sum(p_j for j where i in C_j) <= 0, for each agent i
+  const A_ub = [];
+  const b_ub = [];
+  for (let i = 0; i < N; i++) {
+    const row = new Array(K + 1).fill(0);
+    for (let j = 0; j < K; j++) {
+      if (committeeList[j].has(CANDIDATE_IDS[i])) row[j] = -1;
+    }
+    row[K] = 1;
+    A_ub.push(row);
+    b_ub.push(0);
+  }
+
+  // sum(p_j) = 1
+  const eqRow = new Array(K + 1).fill(0);
+  for (let j = 0; j < K; j++) eqRow[j] = 1;
+
+  const result = solveLP(c, A_ub, b_ub, [eqRow], [1]);
+  if (!result) return null;
+
+  const committeeProbabilities = result.x.slice(0, K);
+  const agentProbabilities = {};
+  for (let i = 0; i < N; i++) {
+    let prob = 0;
+    for (let j = 0; j < K; j++) {
+      if (committeeList[j].has(CANDIDATE_IDS[i])) prob += committeeProbabilities[j];
+    }
+    agentProbabilities[CANDIDATE_IDS[i]] = Math.max(0, Math.min(1, prob));
+  }
+  return {
+    committeeProbabilities,
+    agentProbabilities,
+    minProb: Math.min(...Object.values(agentProbabilities)),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Maximin dual: find entitlement weights for column generation
+// ─────────────────────────────────────────────────────────────
+
+function solveMaximinDual(committeeList) {
+  const K = committeeList.length;
+  const N = CANDIDATES.length;
+
+  // Variables: y_0..y_{N-1}, w.  Minimize w (= maximize -w).
+  const c = new Array(N + 1).fill(0);
+  c[N] = -1;
+
+  // sum(y_i for i in C_j) - w <= 0, for each committee j
+  const A_ub = [];
+  const b_ub = [];
+  for (let j = 0; j < K; j++) {
+    const row = new Array(N + 1).fill(0);
+    for (let i = 0; i < N; i++) {
+      if (committeeList[j].has(CANDIDATE_IDS[i])) row[i] = 1;
+    }
+    row[N] = -1;
+    A_ub.push(row);
+    b_ub.push(0);
+  }
+
+  // sum(y_i) = 1
+  const eqRow = new Array(N + 1).fill(0);
+  for (let i = 0; i < N; i++) eqRow[i] = 1;
+
+  const result = solveLP(c, A_ub, b_ub, [eqRow], [1]);
+  if (!result) return null;
+
+  const weights = {};
+  for (let i = 0; i < N; i++) weights[CANDIDATE_IDS[i]] = Math.max(0, result.x[i]);
+  return { weights, upperBound: Math.max(0, result.x[N]) };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Find the feasible committee maximising sum of weights
+// ─────────────────────────────────────────────────────────────
+
+function findMostViolatingCommittee(weights) {
+  let bestValue = -Infinity;
+  let bestCommittee = null;
+  for (const committee of ALL_COMMITTEES) {
+    let value = 0;
+    for (const id of committee) value += (weights[id] || 0);
+    if (value > bestValue) {
+      bestValue = value;
+      bestCommittee = committee;
+    }
+  }
+  return { committee: bestCommittee, value: bestValue };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Seeded PRNG (mulberry32)
+// ─────────────────────────────────────────────────────────────
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Generate initial committees: a small diverse set that covers
+// all candidates, but is deliberately suboptimal
+// ─────────────────────────────────────────────────────────────
+
+function generateInitialCommittees() {
+  const rng = mulberry32(77);
+  const initial = [];
+  const uncovered = new Set(CANDIDATE_IDS);
+
+  // Greedily pick committees that cover uncovered candidates
+  for (let attempt = 0; attempt < 200 && uncovered.size > 0; attempt++) {
+    const idx = Math.floor(rng() * ALL_COMMITTEES.length);
+    const committee = ALL_COMMITTEES[idx];
+
+    let coversNew = 0;
+    for (const id of committee) {
+      if (uncovered.has(id)) coversNew++;
+    }
+    if (coversNew === 0 && initial.length >= 2) continue;
+
+    const isDup = initial.some(c =>
+      c.size === committee.size && [...c].every(id => committee.has(id))
+    );
+    if (!isDup) {
+      initial.push(committee);
+      for (const id of committee) uncovered.delete(id);
+    }
+  }
+
+  // Ensure full coverage
+  while (uncovered.size > 0) {
+    let bestCover = 0, bestIdx = 0;
+    for (let i = 0; i < ALL_COMMITTEES.length; i++) {
+      let cover = 0;
+      for (const id of ALL_COMMITTEES[i]) {
+        if (uncovered.has(id)) cover++;
+      }
+      if (cover > bestCover) { bestCover = cover; bestIdx = i; }
+    }
+    const committee = ALL_COMMITTEES[bestIdx];
+    const isDup = initial.some(c =>
+      c.size === committee.size && [...c].every(id => committee.has(id))
+    );
+    if (!isDup) initial.push(committee);
+    for (const id of committee) uncovered.delete(id);
+  }
+  return initial;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers for narration
+// ─────────────────────────────────────────────────────────────
+
+function committeeKey(c) { return [...c].sort().join(","); }
+
+function candidateTag(id) {
+  const c = CANDIDATES[ID_TO_IDX[id]];
+  return `<span class="name">${c.name}</span>`;
+}
+
+function describeCandidate(id) {
+  const c = CANDIDATES[ID_TO_IDX[id]];
+  return `${c.age} ${c.region} ${c.gender === "M" ? "male" : "female"}`;
+}
+
+function pct(v) { return (v * 100).toFixed(1) + "%"; }
+
+// ─────────────────────────────────────────────────────────────
+// Run column generation, capturing a snapshot at each step
+// ─────────────────────────────────────────────────────────────
+
+function runMaximinColumnGeneration() {
+  const snapshots = [];
+  const committeeList = generateInitialCommittees();
+  const knownKeys = new Set(committeeList.map(committeeKey));
+
+  // ── Step 0: setup ──
+  snapshots.push({
+    type: "setup",
+    committees: committeeList.map(c => new Set(c)),
+    committeeProbabilities: committeeList.map(() => 0),
+    agentProbabilities: Object.fromEntries(CANDIDATE_IDS.map(id => [id, 0])),
+    minProb: 0,
+    newCommitteeIdx: -1,
+    narration: {
+      heading: "Setup",
+      body: `We have <span class="highlight">16 candidates</span> and need to select a committee of <span class="highlight">8</span>. ` +
+        `Every committee must have exactly 4 men, 4 women, exactly 4 Young, exactly 4 Senior, and 3–5 from each region.<br><br>` +
+        `But the pool is uneven: 11 Northerners vs only 5 Southerners, and 10 Senior vs 6 Young. ` +
+        `So a Senior Northern Male has tough odds — 4 of them competing for roughly 1–2 spots.<br><br>` +
+        `Instead of picking just one committee, the maximin algorithm finds a <em>collection of valid committees</em>, ` +
+        `each with a probability of being chosen. It then adjusts those probabilities to make things as fair as possible — ` +
+        `specifically, it raises the <em>lowest</em> individual selection chance as high as it can.`
+    }
+  });
+
+  // ── Step 1: initial committees solved ──
+  let primal = solveMaximinPrimal(committeeList);
+  if (!primal) { console.error("Initial solve failed"); return snapshots; }
+
+  let prevMin = 0;
+  snapshots.push({
+    type: "initial",
+    committees: committeeList.map(c => new Set(c)),
+    committeeProbabilities: [...primal.committeeProbabilities],
+    agentProbabilities: { ...primal.agentProbabilities },
+    minProb: primal.minProb,
+    newCommitteeIdx: -1,
+    narration: {
+      heading: "Initial committees",
+      body: `We start with <span class="highlight">${committeeList.length} committees</span> found by quick initial search. ` +
+        `The algorithm assigns a probability to each committee (they must add up to 100%), ` +
+        `choosing probabilities that make the selection as fair as possible.<br><br>` +
+        `With just these starting committees, the lowest anyone's chance can be is only <span class="low">${pct(primal.minProb)}</span>. ` +
+        `Notice the bars: Priya (the only Young Southern Female) appears in every committee — ` +
+        `she has no substitute, so her chance is 100%. Meanwhile the Senior Northerners, with 7 people competing for a handful of spots, ` +
+        `start with much lower chances.<br><br>` +
+        `Can we do better? The algorithm will now search for new committees to add, ` +
+        `trying to give the worst-off people more options.`
+    }
+  });
+  prevMin = primal.minProb;
+
+  // ── Probability explainer step ──
+  // Pick a person to use as an example for showing how probabilities are calculated.
+  // Choose someone with a middling probability for a clear illustration.
+  {
+    const sortedByProb = [...CANDIDATE_IDS].sort(
+      (a, b) => primal.agentProbabilities[a] - primal.agentProbabilities[b]
+    );
+    const explainId = sortedByProb[Math.floor(sortedByProb.length / 2)];
+    const explainName = CANDIDATES[ID_TO_IDX[explainId]].name;
+
+    // Build the calculation text
+    const inCommittees = [];
+    for (let j = 0; j < committeeList.length; j++) {
+      if (committeeList[j].has(explainId)) {
+        inCommittees.push({ idx: j, prob: primal.committeeProbabilities[j] });
+      }
+    }
+    const nonZero = inCommittees.filter(c => c.prob > 1e-4);
+    const calcParts = nonZero.map(c => `${pct(c.prob)} (committee ${c.idx + 1})`);
+    const totalProb = primal.agentProbabilities[explainId];
+
+    let calcText = `<b>How is each person's chance calculated?</b> ` +
+      `Look at ${candidateTag(explainId)}'s column in the table (highlighted). ` +
+      `Wherever you see a <span class="highlight">●</span>, ${explainName} is in that committee. `;
+    if (nonZero.length > 0) {
+      calcText += `${explainName}'s selection chance is the sum of the probabilities of all the committees containing them:<br><br>`;
+      calcText += `<span class="calc">${calcParts.join(" + ")}<br>= ${pct(totalProb)}</span><br><br>`;
+    }
+    calcText += `This works the same for everyone — add up the "Prob" values for every row where that person has a ●.`;
+
+    snapshots.push({
+      type: "explainer",
+      committees: committeeList.map(c => new Set(c)),
+      committeeProbabilities: [...primal.committeeProbabilities],
+      agentProbabilities: { ...primal.agentProbabilities },
+      minProb: primal.minProb,
+      newCommitteeIdx: -1,
+      highlightPersonId: explainId,
+      narration: { heading: "How probabilities work", body: calcText }
+    });
+  }
+
+  // ── Search for better committees ──
+  let iteration = 0;
+  let prevCommitteeProbs = [...primal.committeeProbabilities];
+
+  while (iteration < 60) {
+    iteration++;
+
+    const dual = solveMaximinDual(committeeList);
+    if (!dual) break;
+
+    const { committee: newCommittee, value: violationValue } = findMostViolatingCommittee(dual.weights);
+    if (!newCommittee) break;
+    if (violationValue <= dual.upperBound + 5e-4) break;
+
+    const key = committeeKey(newCommittee);
+    if (knownKeys.has(key)) break;
+    knownKeys.add(key);
+
+    committeeList.push(new Set(newCommittee));
+    const newIdx = committeeList.length - 1;
+
+    primal = solveMaximinPrimal(committeeList);
+    if (!primal) break;
+
+    // Identify ALL worst-off candidates (those sharing the minimum probability)
+    const minProb = primal.minProb;
+    const worstOffIds = CANDIDATE_IDS.filter(
+      id => primal.agentProbabilities[id] <= minProb + 1e-6
+    );
+
+    const members = [...newCommittee]
+      .sort((a, b) => ID_TO_IDX[a] - ID_TO_IDX[b])
+      .map(id => candidateTag(id))
+      .join(", ");
+
+    const improved = primal.minProb > prevMin + 0.001;
+
+    // Build worst-off description
+    let worstOffText;
+    if (worstOffIds.length === 1) {
+      worstOffText = `Lowest chance: ${candidateTag(worstOffIds[0])} (${describeCandidate(worstOffIds[0])}) at ${pct(minProb)}.`;
+    } else {
+      const worstNames = worstOffIds.map(id => candidateTag(id)).join(", ");
+      worstOffText = `<span class="low">${worstOffIds.length} people</span> share the lowest chance of ${pct(minProb)}: ${worstNames}.`;
+    }
+
+    let bodyText = `The algorithm looks at who currently has the worst chances, then searches for a new committee that includes more of those people.<br><br>` +
+      `New committee found: {${members}}.<br>`;
+    if (improved) {
+      bodyText += `Minimum chance is now <span class="low">${pct(primal.minProb)}</span> — up from ${pct(prevMin)}! `;
+    } else {
+      bodyText += `Minimum chance is still <span class="low">${pct(primal.minProb)}</span>. `;
+    }
+    bodyText += worstOffText;
+
+    snapshots.push({
+      type: "iteration",
+      iteration,
+      committees: committeeList.map(c => new Set(c)),
+      committeeProbabilities: [...primal.committeeProbabilities],
+      agentProbabilities: { ...primal.agentProbabilities },
+      minProb: primal.minProb,
+      newCommitteeIdx: newIdx,
+      narration: { heading: `New committee ${iteration}`, body: bodyText }
+    });
+
+    // ── After the 1st new committee: explain how probabilities are adjusted ──
+    if (iteration === 1) {
+      // Compare old vs new committee probabilities to illustrate the shift
+      const newProbs = primal.committeeProbabilities;
+      // Find committees whose probability changed significantly
+      const changed = [];
+      for (let j = 0; j < prevCommitteeProbs.length; j++) {
+        const oldP = prevCommitteeProbs[j];
+        const newP = newProbs[j];
+        if (Math.abs(oldP - newP) > 0.005) {
+          changed.push({ idx: j, oldP, newP });
+        }
+      }
+      const newCommProb = newProbs[newIdx];
+
+      let adjustText = `<b>Notice the Prob column</b> (highlighted). ` +
+        `When a new committee is added, the algorithm doesn't just give it a fixed share — ` +
+        `it recalculates <em>all</em> the probabilities from scratch, with one goal: ` +
+        `make the lowest anyone's chance as high as possible.<br><br>`;
+      adjustText += `The new committee (row ${newIdx + 1}) was given a probability of <span class="highlight">${pct(newCommProb)}</span>. `;
+      adjustText += `To make room, other committees had their probabilities adjusted`;
+      if (changed.length > 0) {
+        const examples = changed.slice(0, 3).map(
+          c => `committee ${c.idx + 1}: ${pct(c.oldP)} → ${pct(c.newP)}`
+        );
+        adjustText += ` — e.g. <span class="calc">${examples.join(", ")}</span>`;
+      }
+      adjustText += `.<br><br>`;
+      adjustText += `All the probabilities still add up to 100% — they represent the chance of each committee being the one that's actually used. ` +
+        `The algorithm keeps reshuffling these weights each time a new committee is added, always trying to raise the floor for whoever is worst off.`;
+
+      snapshots.push({
+        type: "prob-explainer",
+        committees: committeeList.map(c => new Set(c)),
+        committeeProbabilities: [...primal.committeeProbabilities],
+        agentProbabilities: { ...primal.agentProbabilities },
+        minProb: primal.minProb,
+        newCommitteeIdx: -1,
+        highlightProbCol: true,
+        narration: { heading: "How probabilities are adjusted", body: adjustText }
+      });
+    }
+
+    prevCommitteeProbs = [...primal.committeeProbabilities];
+    prevMin = primal.minProb;
+  }
+
+  // ── Final snapshot ──
+  const finalPrimal = solveMaximinPrimal(committeeList);
+  if (finalPrimal) {
+    const finalMinProb = finalPrimal.minProb;
+    const finalWorstOff = CANDIDATE_IDS.filter(
+      id => finalPrimal.agentProbabilities[id] <= finalMinProb + 1e-6
+    );
+    let maxId = CANDIDATE_IDS[0];
+    for (const id of CANDIDATE_IDS) {
+      if (finalPrimal.agentProbabilities[id] > finalPrimal.agentProbabilities[maxId]) maxId = id;
+    }
+    const nonZero = finalPrimal.committeeProbabilities.filter(p => p > 1e-6).length;
+
+    let worstText;
+    if (finalWorstOff.length === 1) {
+      worstText = `${candidateTag(finalWorstOff[0])} has the lowest chance at ${pct(finalMinProb)}`;
+    } else {
+      const names = finalWorstOff.map(id => candidateTag(id)).join(", ");
+      worstText = `${finalWorstOff.length} people share the lowest chance of ${pct(finalMinProb)}: ${names}`;
+    }
+
+    snapshots.push({
+      type: "converged",
+      committees: committeeList.map(c => new Set(c)),
+      committeeProbabilities: [...finalPrimal.committeeProbabilities],
+      agentProbabilities: { ...finalPrimal.agentProbabilities },
+      minProb: finalPrimal.minProb,
+      newCommitteeIdx: -1,
+      narration: {
+        heading: "Done!",
+        body: `No new committee can improve the lowest chance any further.<br><br>` +
+          `The final result uses <span class="highlight">${nonZero} committees</span> ` +
+          `(out of ${committeeList.length} found during the search). ` +
+          `${worstText}, ` +
+          `while ${candidateTag(maxId)} (${describeCandidate(maxId)}) has the highest at ${pct(finalPrimal.agentProbabilities[maxId])}.<br><br>` +
+          `<b>The guarantee:</b> no matter who you are, ` +
+          `your chance of being selected is at least <span class="highlight">${pct(finalPrimal.minProb)}</span>.`
+      }
+    });
+
+    // ── Final step: pick a committee using the calculated probabilities ──
+    // Use seeded RNG to deterministically pick a committee for the demo
+    const selectionRng = mulberry32(42);
+    const roll = selectionRng();
+    let cumulative = 0;
+    let chosenIdx = 0;
+    for (let j = 0; j < finalPrimal.committeeProbabilities.length; j++) {
+      cumulative += finalPrimal.committeeProbabilities[j];
+      if (roll < cumulative) { chosenIdx = j; break; }
+    }
+
+    const chosenCommittee = committeeList[chosenIdx];
+    const chosenMembers = [...chosenCommittee]
+      .sort((a, b) => ID_TO_IDX[a] - ID_TO_IDX[b])
+      .map(id => candidateTag(id))
+      .join(", ");
+    const zeroCount = finalPrimal.committeeProbabilities.filter(p => p <= 1e-6).length;
+
+    let selectionBody = `Now we pick the actual committee. We roll the dice — using the probabilities from the Prob column — ` +
+      `and select <b>one</b> of the ${nonZero} committees with non-zero probability.<br><br>` +
+      `The chosen committee (highlighted in green) is: {${chosenMembers}}.<br><br>`;
+    if (zeroCount > 0) {
+      selectionBody += `Notice the <b>greyed-out ${zeroCount === 1 ? "row" : "rows"}</b>: ` +
+        `${zeroCount === 1 ? "this committee has" : "these committees have"} a 0% probability. ` +
+        `${zeroCount === 1 ? "It was" : "They were"} considered during the search, ` +
+        `but including ${zeroCount === 1 ? "it" : "them"} in the final mix would have meant ` +
+        `giving someone a lower chance — so ${zeroCount === 1 ? "it is" : "they are"} excluded.<br><br>`;
+    }
+    selectionBody += `By choosing committees this way, we have ensured that every candidate had ` +
+      `a fair shot — nobody's chance of being selected was lower than <span class="highlight">${pct(finalPrimal.minProb)}</span>.`;
+
+    snapshots.push({
+      type: "selection",
+      committees: committeeList.map(c => new Set(c)),
+      committeeProbabilities: [...finalPrimal.committeeProbabilities],
+      agentProbabilities: { ...finalPrimal.agentProbabilities },
+      minProb: finalPrimal.minProb,
+      newCommitteeIdx: -1,
+      chosenCommitteeIdx: chosenIdx,
+      narration: { heading: "Selecting the final committee", body: selectionBody }
+    });
+  }
+
+  return snapshots;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Run the algorithm
+// ─────────────────────────────────────────────────────────────
+
+const SNAPSHOTS = runMaximinColumnGeneration();
+
+// ─────────────────────────────────────────────────────────────
+// Rendering
+// ─────────────────────────────────────────────────────────────
+
+function buildCandidateCards() {
+  const allCards = document.getElementById("all-cards");
+
+  for (const c of CANDIDATES) {
+    const card = document.createElement("div");
+    card.className = "candidate-card";
+    card.id = `card-${c.id}`;
+    const genderIcon = c.gender === "M" ? "♂" : "♀";
+    card.innerHTML = `
+      <div class="card-name">${c.name}</div>
+      <div class="card-meta">${genderIcon} · ${c.region} · ${c.age}</div>
+      <div class="card-prob-bar">
+        <div class="card-prob-fill" id="fill-${c.id}" style="width: 0%"></div>
+        <div class="card-prob-text" id="prob-${c.id}">—</div>
+      </div>
+    `;
+    allCards.appendChild(card);
+  }
+}
+
+function buildCommitteeTableHeader() {
+  const thead = document.getElementById("committee-thead");
+  let html = "<tr><th class='prob-col'>#</th>";
+  for (const c of CANDIDATES) {
+    const label = c.name.length <= 4 ? c.name : c.name.slice(0, 3);
+    html += `<th title="${c.name} (${c.gender}, ${c.age}, ${c.region})">${label}</th>`;
+  }
+  html += `<th class="prob-col">Prob</th></tr>`;
+  thead.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Rendering: build rules table
+// ─────────────────────────────────────────────────────────────
+
+function buildRulesTable() {
+  const tbody = document.getElementById("rules-tbody");
+  let html = "";
+  for (const [feature, value, min, max] of CONSTRAINTS) {
+    const req = min === max ? `exactly ${min}` : `${min} to ${max}`;
+    html += `<tr><td>${feature}</td><td>${value}</td><td>${req}</td></tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Probability chart — sorted curve from lowest to highest
+// ─────────────────────────────────────────────────────────────
+
+function renderChart(snap) {
+  const canvas = document.getElementById("prob-chart");
+  const wrap = document.getElementById("chart-wrap");
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  // Chart area with margins for labels
+  const margin = { top: 10, right: 12, bottom: 42, left: 42 };
+  const cw = w - margin.left - margin.right;
+  const ch = h - margin.top - margin.bottom;
+
+  // Sort people by probability (low to high)
+  const sorted = [...CANDIDATE_IDS]
+    .map(id => ({ id, prob: snap.agentProbabilities[id] || 0 }))
+    .sort((a, b) => a.prob - b.prob);
+
+  // Y-axis range: 0% to 100%
+  const yMax = 1.0;
+  const xCount = sorted.length;
+
+  function xPos(i) { return margin.left + (i / (xCount - 1)) * cw; }
+  function yPos(v) { return margin.top + ch - (v / yMax) * ch; }
+
+  const monoFont = "'Cascadia Code', 'Fira Code', Consolas, monospace";
+  const sansFont = "'Segoe UI', system-ui, -apple-system, sans-serif";
+
+  // ── Grid lines and Y-axis labels ──
+  ctx.strokeStyle = "#d9d0c7";
+  ctx.lineWidth = 0.5;
+  ctx.font = "10px " + monoFont;
+  ctx.fillStyle = "#7a6e6e";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let pVal = 0; pVal <= 100; pVal += 25) {
+    const y = yPos(pVal / 100);
+    ctx.beginPath();
+    ctx.moveTo(margin.left, y);
+    ctx.lineTo(w - margin.right, y);
+    ctx.stroke();
+    ctx.fillText(pVal + "%", margin.left - 5, y);
+  }
+
+  // ── X-axis labels (names, rotated) ──
+  ctx.save();
+  ctx.fillStyle = "#7a6e6e";
+  ctx.font = "9px " + sansFont;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < xCount; i++) {
+    const x = xPos(i);
+    const name = CANDIDATES[ID_TO_IDX[sorted[i].id]].name;
+    ctx.save();
+    ctx.translate(x, margin.top + ch + 4);
+    ctx.rotate(-Math.PI / 4);
+    ctx.fillText(name, 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Nothing to draw if all probabilities are zero
+  if (sorted.every(s => s.prob < 1e-6)) return;
+
+  // ── Floor line (minimum probability) ──
+  if (snap.minProb > 1e-6) {
+    const floorY = yPos(snap.minProb);
+    ctx.strokeStyle = "#c7003a";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(margin.left, floorY);
+    ctx.lineTo(w - margin.right, floorY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Floor label
+    ctx.fillStyle = "#c7003a";
+    ctx.font = "bold 10px " + monoFont;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("floor " + pct(snap.minProb), w - margin.right - 70, floorY - 3);
+  }
+
+  // ── Line connecting the points ──
+  ctx.strokeStyle = "#e40f7d";
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  for (let i = 0; i < xCount; i++) {
+    const x = xPos(i);
+    const y = yPos(sorted[i].prob);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // ── Dots ──
+  for (let i = 0; i < xCount; i++) {
+    const x = xPos(i);
+    const y = yPos(sorted[i].prob);
+    const isMin = sorted[i].prob <= snap.minProb + 1e-6 && snap.minProb > 0;
+
+    ctx.beginPath();
+    ctx.arc(x, y, isMin ? 4 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = isMin ? "#c7003a" : "#e40f7d";
+    ctx.fill();
+  }
+}
+
+function renderStep(stepIdx) {
+  const snap = SNAPSHOTS[stepIdx];
+  if (!snap) return;
+
+  document.getElementById("step-label").textContent = stepIdx;
+  document.getElementById("step-total").textContent = SNAPSHOTS.length - 1;
+
+  const minProbEl = document.getElementById("min-prob-value");
+  minProbEl.textContent = snap.minProb > 0 ? pct(snap.minProb) : "—";
+
+  const slider = document.getElementById("progress-slider");
+  slider.max = SNAPSHOTS.length - 1;
+  slider.value = stepIdx;
+  document.getElementById("progress-label").textContent = `${stepIdx} / ${SNAPSHOTS.length - 1}`;
+
+  // Minimum-probability candidates
+  const isMin = {};
+  for (const id of CANDIDATE_IDS) {
+    isMin[id] = snap.minProb > 0 && snap.agentProbabilities[id] <= snap.minProb + 1e-6;
+  }
+
+  // Candidate cards
+  for (const c of CANDIDATES) {
+    const prob = snap.agentProbabilities[c.id] || 0;
+    const card = document.getElementById(`card-${c.id}`);
+    const fill = document.getElementById(`fill-${c.id}`);
+    const text = document.getElementById(`prob-${c.id}`);
+
+    fill.style.width = `${Math.min(100, Math.round(prob * 100))}%`;
+    text.textContent = prob > 0.0001 ? pct(prob) : "—";
+    card.classList.toggle("is-minimum", !!isMin[c.id]);
+
+    // Highlight the explained person's card during the explainer step
+    if (snap.highlightPersonId === c.id) {
+      card.style.boxShadow = "0 0 12px rgba(228, 15, 125, 0.5)";
+      card.style.borderColor = "var(--accent)";
+    } else {
+      card.style.boxShadow = "";
+      card.style.borderColor = "";
+    }
+  }
+
+  // Committee table — with optional column highlighting
+  const highlightId = snap.highlightPersonId || null;
+  const highlightIdx = highlightId ? ID_TO_IDX[highlightId] : -1;
+  const highlightProb = !!snap.highlightProbCol;
+
+  // Update header highlighting
+  const thCells = document.querySelectorAll("#committee-thead th");
+  const lastThIdx = thCells.length - 1;
+  thCells.forEach((th, i) => {
+    // Column 0 is the row number, columns 1..N are candidates, last is Prob
+    th.classList.toggle("highlight-col", highlightIdx >= 0 && i === highlightIdx + 1);
+    th.classList.toggle("highlight-prob-col", highlightProb && i === lastThIdx);
+  });
+
+  const chosenIdx = (snap.chosenCommitteeIdx != null) ? snap.chosenCommitteeIdx : -1;
+
+  const tbody = document.getElementById("committee-tbody");
+  let tableHtml = "";
+  for (let j = 0; j < snap.committees.length; j++) {
+    const committee = snap.committees[j];
+    const prob = snap.committeeProbabilities[j] || 0;
+    const isNew = (j === snap.newCommitteeIdx);
+    const isChosen = (j === chosenIdx);
+    const isExcluded = (chosenIdx >= 0 && prob <= 1e-6);
+
+    let rowCls = "";
+    if (isChosen) rowCls = "chosen-row";
+    else if (isExcluded) rowCls = "excluded-row";
+    else if (isNew) rowCls = "new-row";
+
+    tableHtml += `<tr class="${rowCls}">`;
+    tableHtml += `<td style="color: var(--muted)">${j + 1}</td>`;
+    for (let ci = 0; ci < CANDIDATES.length; ci++) {
+      const c = CANDIDATES[ci];
+      const isHL = (ci === highlightIdx);
+      if (committee.has(c.id)) {
+        tableHtml += `<td class="dot-in${isHL ? " highlight-col" : ""}">●</td>`;
+      } else {
+        tableHtml += `<td class="dot-out${isHL ? " highlight-col" : ""}">·</td>`;
+      }
+    }
+    const probStr = prob > 1e-4 ? pct(prob) : "0%";
+    // Highlight the prob cell contextually: person-explainer or prob-column explainer
+    let probCls = prob > 1e-4 ? "prob-cell" : "prob-cell zero";
+    if (highlightId && committee.has(highlightId) && prob > 1e-4) {
+      probCls += " highlight-col";
+    }
+    if (highlightProb) {
+      probCls += " highlight-prob-col";
+    }
+    tableHtml += `<td class="${probCls}">${probStr}</td>`;
+    tableHtml += `</tr>`;
+  }
+  tbody.innerHTML = tableHtml;
+
+  // Scroll to the most interesting row
+  const scrollToIdx = chosenIdx >= 0 ? chosenIdx :
+                      snap.newCommitteeIdx >= 0 ? snap.newCommitteeIdx : -1;
+  if (scrollToIdx >= 0) {
+    const rows = tbody.querySelectorAll("tr");
+    if (rows[scrollToIdx]) {
+      rows[scrollToIdx].scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }
+
+  // Narration
+  const narBox = document.getElementById("narration-box");
+  let narHtml = "";
+  for (let i = 0; i <= stepIdx; i++) {
+    const s = SNAPSHOTS[i];
+    if (s.narration) {
+      narHtml += `<div class="nar-step">`;
+      narHtml += `<div class="nar-heading">${s.narration.heading}</div>`;
+      narHtml += `<div class="nar-body">${s.narration.body}</div>`;
+      narHtml += `</div>`;
+    }
+  }
+  narBox.innerHTML = narHtml;
+  const lastStep = narBox.querySelector(".nar-step:last-child");
+  if (lastStep) lastStep.scrollIntoView({ block: "start" });
+
+  // Probability chart
+  renderChart(snap);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Animation controls
+// ─────────────────────────────────────────────────────────────
+
+let currentStep = 0;
+let playing = false;
+let playTimer = null;
+
+function getDelay() {
+  const speed = parseInt(document.getElementById("speed-slider").value);
+  return 3200 - speed * 300;
+}
+
+function stopPlaying() {
+  playing = false;
+  clearTimeout(playTimer);
+  document.getElementById("btn-play").textContent = "▶ Play";
+}
+
+function startPlaying() {
+  playing = true;
+  document.getElementById("btn-play").textContent = "⏸ Pause";
+  tick();
+}
+
+function tick() {
+  if (!playing) return;
+  if (currentStep >= SNAPSHOTS.length - 1) { stopPlaying(); return; }
+  currentStep++;
+  renderStep(currentStep);
+  playTimer = setTimeout(tick, getDelay());
+}
+
+document.getElementById("btn-play").addEventListener("click", () => {
+  if (playing) { stopPlaying(); }
+  else {
+    if (currentStep >= SNAPSHOTS.length - 1) currentStep = 0;
+    startPlaying();
+  }
+});
+
+document.getElementById("btn-prev").addEventListener("click", () => {
+  stopPlaying();
+  if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+});
+
+document.getElementById("btn-next").addEventListener("click", () => {
+  stopPlaying();
+  if (currentStep < SNAPSHOTS.length - 1) { currentStep++; renderStep(currentStep); }
+});
+
+document.getElementById("btn-start").addEventListener("click", () => {
+  stopPlaying(); currentStep = 0; renderStep(0);
+});
+
+document.getElementById("btn-end").addEventListener("click", () => {
+  stopPlaying(); currentStep = SNAPSHOTS.length - 1; renderStep(currentStep);
+});
+
+document.getElementById("progress-slider").addEventListener("input", (e) => {
+  stopPlaying(); currentStep = parseInt(e.target.value); renderStep(currentStep);
+});
+
+document.getElementById("speed-slider").addEventListener("input", () => {
+  if (playing) { clearTimeout(playTimer); playTimer = setTimeout(tick, getDelay()); }
+});
+
+// Keyboard shortcuts
+document.addEventListener("keydown", (e) => {
+  if (e.key === " " || e.key === "k") {
+    e.preventDefault();
+    document.getElementById("btn-play").click();
+  } else if (e.key === "ArrowLeft" || e.key === "j") {
+    e.preventDefault();
+    document.getElementById("btn-prev").click();
+  } else if (e.key === "ArrowRight" || e.key === "l") {
+    e.preventDefault();
+    document.getElementById("btn-next").click();
+  } else if (e.key === "Home") {
+    e.preventDefault();
+    document.getElementById("btn-start").click();
+  } else if (e.key === "End") {
+    e.preventDefault();
+    document.getElementById("btn-end").click();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Initialise
+// ─────────────────────────────────────────────────────────────
+
+buildCandidateCards();
+buildRulesTable();
+buildCommitteeTableHeader();
+renderStep(0);
+
+// Redraw chart on resize (canvas needs explicit re-render)
+window.addEventListener("resize", () => {
+  if (SNAPSHOTS[currentStep]) renderChart(SNAPSHOTS[currentStep]);
+});
+
+// Log stats to console for debugging
+console.log(`Total feasible committees: ${ALL_COMMITTEES.length}`);
+console.log(`Animation steps: ${SNAPSHOTS.length}`);
+if (SNAPSHOTS.length > 0) {
+  const last = SNAPSHOTS[SNAPSHOTS.length - 1];
+  console.log(`Final min probability: ${pct(last.minProb)}`);
+  console.log("Final agent probabilities:", last.agentProbabilities);
+}
+        </script>
+    </body>
+</html>
