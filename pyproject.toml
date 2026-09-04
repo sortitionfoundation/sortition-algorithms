@@ -42,7 +42,8 @@ Repository = "https://github.com/sortitionfoundation/sortition-algorithms"
 Documentation = "https://sortitionfoundation.github.io/sortition-algorithms/"
 
 [project.optional-dependencies]
-mip = ["mip>=1.17.0"]
+# TODO: get mip 2 working - some updates to code required
+mip = ["mip>=1.17.0,<2"]
 gurobi = ["gurobipy>=12.0.2"]
 cli = ["click>=8.2.1", "rich>=13.0.0"]
 diversimax = ["pandas>=2.3.3", "scikit-learn>=1.7.2"]
@@ -57,6 +58,7 @@ dev = [
   "mkdocs>=1.4.2",
   "mkdocs-material>=8.5.10",
   "mkdocstrings[python]>=0.26.1",
+  "scikit-learn-stubs>=0.0.3",
   "types-tabulate>=0.9.0.20241207",
   "tomli-w>=1.2.0",
   "types-requests>=2.32.4.20250913",

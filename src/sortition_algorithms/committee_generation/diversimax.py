@@ -199,7 +199,7 @@ class DiversityOptimizer:
         The values are 0/1 if the person is in that intersection or not.
         i.e. The number of columns is the number of combinations we have between the features: product of their sizes.
         """
-        from sklearn.preprocessing import OneHotEncoder  # type: ignore[import-untyped]
+        from sklearn.preprocessing import OneHotEncoder
 
         all_ohe: list[np.ndarray] = []
         for dims in self.intersections_data.all_dims_combs:
