@@ -27,15 +27,16 @@ def create_weighted_features():
 
     # Weighted to ensure representation of underrepresented groups
     weighted_features = [
-        ("Gender", "Male", 40, 50),       # Slightly reduce majority
-        ("Gender", "Female", 45, 55),     # Maintain strong representation
+        ("Gender", "Male", 40, 50),  # Slightly reduce majority
+        ("Gender", "Female", 45, 55),  # Maintain strong representation
         ("Gender", "Non-binary", 5, 10),  # Ensure inclusion
-        ("Age", "18-30", 25, 35),         # Boost young representation
+        ("Age", "18-30", 25, 35),  # Boost young representation
         ("Age", "31-50", 35, 45),
         ("Age", "51+", 20, 30),
     ]
 
     return create_features_from_list(weighted_features)
+
 
 def create_features_from_list(feature_list):
     """Helper to create FeatureCollection from tuples."""
@@ -94,6 +95,7 @@ def diagnose_quota_feasibility(features: FeatureCollection, panel_size: int):
             issues.append(f"{feature_name}:{value_name} max ({fv_minmax.max}) < min ({fv_minmax.min})")
 
     return issues
+
 
 def suggest_quota_fixes(features: FeatureCollection, people: People, panel_size: int):
     """Suggest quota adjustments to make selection feasible."""

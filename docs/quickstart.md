@@ -57,7 +57,7 @@ from sortition_algorithms import (
     run_stratification,
     read_in_features,
     read_in_people,
-    Settings
+    Settings,
 )
 
 # Load your data
@@ -70,7 +70,7 @@ success, selected_panels, report = run_stratification(
     features=features,
     people=people,
     number_people_wanted=50,
-    settings=settings
+    settings=settings,
 )
 
 if success:
@@ -93,7 +93,10 @@ from sortition_algorithms import selected_remaining_tables
 
 # Get formatted tables for export
 selected_table, remaining_table, info = selected_remaining_tables(
-    people, selected_panels[0], features, settings
+    people,
+    selected_panels[0],
+    features,
+    settings,
 )
 
 # Save to CSV
@@ -172,7 +175,7 @@ people, report = select_data.load_people(settings, features)
 # Ensure only one person per household is selected
 settings = Settings(
     check_same_address=True,
-    check_same_address_columns=["Address", "Postcode"]
+    check_same_address_columns=["Address", "Postcode"],
 )
 ```
 
@@ -223,8 +226,8 @@ from sortition_algorithms.utils import override_logging_handlers
 import logging
 
 # Send logs to a file
-file_handler = logging.FileHandler('sortition.log')
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+file_handler = logging.FileHandler("sortition.log")
+file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
 
 override_logging_handlers([file_handler], [file_handler])
 

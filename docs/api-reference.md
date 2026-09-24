@@ -53,9 +53,7 @@ def run_stratification(
 **Example:**
 
 ```python
-success, panels, messages = run_stratification(
-    features, people, 100, Settings()
-)
+success, panels, messages = run_stratification(features, people, 100, Settings())
 if success:
     selected_people = panels[0]  # frozenset of IDs
 ```
@@ -97,9 +95,7 @@ def find_random_sample(
 **Example:**
 
 ```python
-committees, messages = find_random_sample(
-    features, people, 50, settings, "nash"
-)
+committees, messages = find_random_sample(features, people, 50, settings, "nash")
 ```
 
 ### selected_remaining_tables()
@@ -134,11 +130,15 @@ def selected_remaining_tables(
 
 ```python
 selected_table, remaining_table, info = selected_remaining_tables(
-    people, selected_panel, features, settings
+    people,
+    selected_panel,
+    features,
+    settings,
 )
 
 # Write to CSV
 import csv
+
 with open("selected.csv", "w", newline="") as f:
     csv.writer(f).writerows(selected_table)
 ```
@@ -408,10 +408,10 @@ import logging
 
 # Create custom handlers
 user_handler = logging.StreamHandler()
-user_handler.setFormatter(logging.Formatter('USER: %(message)s'))
+user_handler.setFormatter(logging.Formatter("USER: %(message)s"))
 
-debug_handler = logging.FileHandler('debug.log')
-debug_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+debug_handler = logging.FileHandler("debug.log")
+debug_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
 
 # Apply custom handlers
 override_logging_handlers([user_handler], [debug_handler])
@@ -424,6 +424,7 @@ Here's a custom handler that captures messages for further processing:
 ```python
 import logging
 from typing import List
+
 
 class MessageCollector(logging.Handler):
     """Custom handler that collects log messages in memory."""
@@ -444,6 +445,7 @@ class MessageCollector(logging.Handler):
     def clear(self) -> None:
         """Clear collected messages."""
         self.messages.clear()
+
 
 # Usage
 collector = MessageCollector()
@@ -587,7 +589,7 @@ data_source = CSVFileDataSource(
     features_file=Path("features.csv"),
     people_file=Path("people.csv"),
     selected_file=Path("selected.csv"),
-    remaining_file=Path("remaining.csv")
+    remaining_file=Path("remaining.csv"),
 )
 
 # Wrap in SelectionData
@@ -600,14 +602,20 @@ people, report = selection_data.load_people(settings, features)
 
 # Run stratification (using core.py functions)
 from sortition_algorithms.core import run_stratification, selected_remaining_tables
+
 success, panels, report = run_stratification(features, people, number_to_select, settings)
 
 # Format and output results
 selected_rows, remaining_rows, _ = selected_remaining_tables(
-    people, panels[0], features, settings
+    people,
+    panels[0],
+    features,
+    settings,
 )
 dupes, report = selection_data.output_selected_remaining(
-    selected_rows, remaining_rows, settings
+    selected_rows,
+    remaining_rows,
+    settings,
 )
 ```
 
@@ -621,7 +629,7 @@ from pathlib import Path
 data_source = GSheetDataSource(
     feature_tab_name="Demographics",
     people_tab_name="Candidates",
-    auth_json_path=Path("credentials.json")
+    auth_json_path=Path("credentials.json"),
 )
 data_source.set_g_sheet_name("My Sortition Spreadsheet")
 
@@ -741,27 +749,22 @@ class AbstractDataSource(abc.ABC):
     @contextmanager
     def read_feature_data(
         self, report: RunReport
-    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
-        ...
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
 
     @abc.abstractmethod
     @contextmanager
     def read_people_data(
         self, report: RunReport
-    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
-        ...
+    ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]: ...
 
     @abc.abstractmethod
-    def write_selected(self, selected: list[list[str]]) -> None:
-        ...
+    def write_selected(self, selected: list[list[str]]) -> None: ...
 
     @abc.abstractmethod
-    def write_remaining(self, remaining: list[list[str]]) -> None:
-        ...
+    def write_remaining(self, remaining: list[list[str]]) -> None: ...
 
     @abc.abstractmethod
-    def highlight_dupes(self, dupes: list[int]) -> None:
-        ...
+    def highlight_dupes(self, dupes: list[int]) -> None: ...
 ```
 
 Implement this interface to create custom data sources (e.g., for databases, APIs, or other formats).
@@ -893,7 +896,7 @@ settings = Settings(
     id_column="id",
     columns_to_keep=["name"],
     check_same_address=True,
-    check_same_address_columns=["address_line_1", "postcode"]
+    check_same_address_columns=["address_line_1", "postcode"],
 )
 
 dupes = generate_dupes(people_table, settings)

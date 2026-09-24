@@ -299,10 +299,7 @@ def _run_multiplicative_weights_phase(
 
             reporter.update(
                 i + 1,
-                message=(
-                    f"Round {i + 1}/{multiplicative_weights_rounds}: "
-                    f"{len(committees)} committees found"
-                ),
+                message=(f"Round {i + 1}/{multiplicative_weights_rounds}: {len(committees)} committees found"),
             )
             logger.debug(
                 f"Multiplicative weights phase, round {i + 1}/{multiplicative_weights_rounds}. "

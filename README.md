@@ -38,7 +38,10 @@ people = read_in_people("candidates.csv", Settings(), features)
 
 # Select a representative panel of 100 people
 success, selected_panels, messages = run_stratification(
-    features, people, number_people_wanted=100, settings=Settings()
+    features,
+    people,
+    number_people_wanted=100,
+    settings=Settings(),
 )
 
 if success:

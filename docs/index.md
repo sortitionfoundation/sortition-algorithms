@@ -87,7 +87,7 @@ from sortition_algorithms import run_stratification, Settings
 # Reproducible results for research
 settings = Settings(
     random_number_seed=42,
-    selection_algorithm="leximin"  # Strongest fairness guarantees
+    selection_algorithm="leximin",  # Strongest fairness guarantees
 )
 success, panels, msgs = run_stratification(features, people, 150, settings)
 ```
@@ -99,7 +99,7 @@ success, panels, msgs = run_stratification(features, people, 150, settings)
 settings = Settings(
     check_same_address=True,
     check_same_address_columns=["Address", "Postcode"],
-    selection_algorithm="maximin"
+    selection_algorithm="maximin",
 )
 ```
 

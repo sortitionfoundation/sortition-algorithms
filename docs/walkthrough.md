@@ -172,7 +172,6 @@ def setup_committee_generation(
         raise errors.SelectionError(msg)
 
     return solver, agent_vars
-
 ```
 
 ### Quota Relaxation
@@ -489,7 +488,6 @@ def _run_maximin_optimization_loop(
             committee_list = list(committees)
             probabilities = _find_maximin_primal(committee_list, covered_agents, solver_backend)
             return committee_list, probabilities, report
-
 ```
 
 ## Algorithm 3: Nash
@@ -576,7 +574,6 @@ def _solve_nash_welfare_optimization(
     assert differentials.shape == (len(committees),)
 
     return lambdas, entitled_reciprocals, differentials
-
 ```
 
 ```python
@@ -641,8 +638,6 @@ def _run_nash_optimization_loop(
         committees.append(new_set)
         # Add 0 probability for new committee
         start_lambdas = [*list(np.array(lambdas.value)), 0]
-
-
 ```
 
 ## Algorithm 4: Leximin
@@ -789,7 +784,6 @@ def _run_leximin_main_loop(
             break
 
     return fixed_probabilities
-
 ```
 
 ## Algorithm 5: Diversimax
@@ -814,6 +808,7 @@ The `DiversityOptimizer` class:
 
 The standard quota and household constraints are also added, so the solution is always a feasible committee.
 
+<!-- fmt: off -->
 ```python
     def prepare_all_data(self) -> AllIntersectionsData:
         """
@@ -909,6 +904,7 @@ The standard quota and household constraints are also added, so the solution is 
         return status, frozenset(), gap
 
 ```
+<!-- fmt: on -->
 
 ## How the Algorithms Compare
 

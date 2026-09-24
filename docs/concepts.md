@@ -78,7 +78,7 @@ Configure address checking in your settings:
 ```python
 settings = Settings(
     check_same_address=True,
-    check_same_address_columns=["Address", "Postcode"]
+    check_same_address_columns=["Address", "Postcode"],
 )
 ```
 
@@ -331,7 +331,7 @@ The library performs extensive validation:
 
 **InfeasibleQuotasError**: Your quotas cannot be satisfied
 
-```python
+```csv
 # Too restrictive - asking for 90+ males in a pool of 100
 Gender,Male,90,100
 Gender,Female,90,100

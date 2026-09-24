@@ -61,10 +61,15 @@ This time for replacements, so we refer to the already selected people.
 
 ```python
 from sortition_algorithms import (
-    CSVFileDataSource, run_stratification, selected_remaining_tables, SelectionData, Settings
+    CSVFileDataSource,
+    run_stratification,
+    selected_remaining_tables,
+    SelectionData,
+    Settings,
 )
 from pathlib import Path
 import csv
+
 
 def csv_selection_workflow():
     # Initialize
@@ -77,7 +82,7 @@ def csv_selection_workflow():
     )
     select_data = SelectionData(data_source)
     settings = Settings()
-    number_wanted=100
+    number_wanted = 100
 
     # Load data
     features, report = select_data.load_features(number_wanted)
@@ -155,8 +160,15 @@ select_data.output_selected_remaining(selected_rows, remaining_rows, settings)
 This time for replacements, so we refer to the already selected people.
 
 ```python
-from sortition_algorithms import GSheetDataSource, SelectionData, run_stratification, selected_remaining_tables, Settings
+from sortition_algorithms import (
+    GSheetDataSource,
+    SelectionData,
+    run_stratification,
+    selected_remaining_tables,
+    Settings,
+)
 from pathlib import Path
+
 
 def gsheet_selection_workflow():
     # Initialize
@@ -243,6 +255,7 @@ All data source classes should inherit from `AbstractDataSource` - and implement
 ```python
 from sortition_algorithms import RunReport
 
+
 class AbstractDataSource(abc.ABC):
     @abc.abstractmethod
     @contextmanager
@@ -264,7 +277,6 @@ class AbstractDataSource(abc.ABC):
 
     @abc.abstractmethod
     def highlight_dupes(self, dupes: list[int]) -> None: ...
-
 ```
 
 ### Example: Excel Data Source
@@ -280,6 +292,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from sortition_algorithms import AbstractDataSource, FeatureCollection, People, RunReport, SelectionError, Settings
 from sortition_algorithms.features import read_in_features
 from sortition_algorithms.people import read_in_people
+
 
 class ExcelDataSource(AbstractDataSource):
     """DataSource for Excel files using openpyxl."""
@@ -312,8 +325,7 @@ class ExcelDataSource(AbstractDataSource):
         data = []
         for row in sheet.iter_rows(min_row=2, values_only=True):
             if any(cell is not None for cell in row):  # Skip empty rows
-                row_dict = {headers[i]: str(row[i]) if row[i] is not None else ""
-                           for i in range(len(headers))}
+                row_dict = {headers[i]: str(row[i]) if row[i] is not None else "" for i in range(len(headers))}
                 data.append(row_dict)
         yield headers, data
         # close the workbook
@@ -339,8 +351,7 @@ class ExcelDataSource(AbstractDataSource):
         data = []
         for row in sheet.iter_rows(min_row=2, values_only=True):
             if any(cell is not None for cell in row):  # Skip empty rows
-                row_dict = {headers[i]: str(row[i]) if row[i] is not None else ""
-                           for i in range(len(headers))}
+                row_dict = {headers[i]: str(row[i]) if row[i] is not None else "" for i in range(len(headers))}
                 data.append(row_dict)
 
         yield headers, data
@@ -370,6 +381,7 @@ class ExcelDataSource(AbstractDataSource):
             for cell in sheet[1]:
                 cell.font = openpyxl.styles.Font(bold=True)
                 cell.fill = openpyxl.styles.PatternFill("solid", fgColor="CCCCCC")
+
 
 # Usage example
 def excel_workflow():
