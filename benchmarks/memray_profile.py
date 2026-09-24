@@ -59,7 +59,7 @@ def run_profiled_selection() -> None:
 
     # Run the selection
     print(f"\nRunning {algorithm} with {backend} backend...")
-    committees, report = find_random_sample(
+    committees, _report = find_random_sample(
         features,
         people,
         panel_size,

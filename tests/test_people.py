@@ -1120,7 +1120,7 @@ class TestExcludeMatchingSelectedAddresses:
 
     def test_returns_original_when_already_selected_is_none(self):
         """Test that original people is returned when already_selected is None."""
-        features, people, settings = create_test_scenario(
+        _features, people, settings = create_test_scenario(
             include_addresses=True,
             check_same_address=True,
         )

@@ -144,10 +144,10 @@ def pipage_rounding(marginals: list[tuple[int, float]]) -> list[int]:
             obj1, prob1 = marginals[1]
             if prob1 > 1.0 - EPS2:
                 outcomes.append(obj1)
-                marginals = [marginals[0]] + marginals[2:]
+                marginals = [marginals[0], *marginals[2:]]
                 continue
             if prob1 < EPS2:
-                marginals = [marginals[0]] + marginals[2:]
+                marginals = [marginals[0], *marginals[2:]]
                 continue
 
             inc0_dec1_amount = min(
@@ -162,7 +162,7 @@ def pipage_rounding(marginals: list[tuple[int, float]]) -> list[int]:
             else:
                 prob0 -= dec0_inc1_amount
                 prob1 += dec0_inc1_amount
-            marginals = [(obj0, prob0), (obj1, prob1)] + marginals[2:]
+            marginals = [(obj0, prob0), (obj1, prob1), *marginals[2:]]
 
 
 def lottery_rounding(

@@ -159,7 +159,8 @@ class DiversityOptimizer:
         intersections_names = [self._intersection_name(combination) for combination in all_combinations]
         # make the member value (join with __) for each person
         each_member_value = (
-            self.pool_members_df.loc[:, features_names]
+            self.pool_members_df
+            .loc[:, features_names]
             .apply(lambda row: self._intersection_name([row[d] for d in features_names]), axis=1)
             .to_numpy()
         )

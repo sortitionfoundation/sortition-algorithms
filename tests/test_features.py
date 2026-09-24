@@ -861,7 +861,7 @@ class TestWriteFeatures:
         fc["age"]["18-30"] = FeatureValueMinMax(min=1, max=3, min_flex=0, max_flex=8)
         fc["age"]["31-50"] = FeatureValueMinMax(min=2, max=3, min_flex=0, max_flex=8)
 
-        headers, body = write_features(fc)
+        _headers, body = write_features(fc)
 
         # Check we got all rows
         assert len(body) == 4

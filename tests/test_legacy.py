@@ -36,7 +36,7 @@ class TestPeopleFeatures:
 
     def create_test_people_features(self):
         """Helper to create a test PeopleFeatures object."""
-        features, people, settings = create_test_scenario(people_count=4)
+        features, people, _settings = create_test_scenario(people_count=4)
         return PeopleFeatures(people, features)
 
     def test_people_features_creation_copies_data(self):

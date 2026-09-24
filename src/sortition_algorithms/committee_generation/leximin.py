@@ -347,7 +347,7 @@ def find_distribution_leximin(
     )
 
     # Find initial committees that cover every possible agent
-    committees, covered_agents, initial_report = generate_initial_committees(
+    committees, _covered_agents, initial_report = generate_initial_committees(
         new_committee_solver, agent_vars, 3 * people.count, progress_reporter=reporter
     )
     report.add_report(initial_report)
