@@ -15,13 +15,13 @@ import pytest
 import requests
 from gspread.urls import DRIVE_FILES_API_V3_URL
 
+from sortition_algorithms import gsheet
 from sortition_algorithms.errors import (
     NotNativeGoogleSheetError,
     SpreadsheetNotFoundError,
     SpreadsheetNotSharedError,
     SpreadsheetReadOnlyError,
 )
-from sortition_algorithms import gsheet
 from sortition_algorithms.gsheet import GSHEET_SCOPE, GSheetInfo, make_gsheet_client, open_gsheet, service_account_email
 
 FILE_ID = "1B-S6esBj7rqbSJulqAZUh4-x1FXU-rPdNabMVDtsynM"
