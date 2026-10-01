@@ -716,6 +716,8 @@ class GSheetDataSource(AbstractDataSource):
     ):
 
     def set_g_sheet_name(self, g_sheet_name: str) -> None:
+    def get_title(self) -> str:
+    def require_writable(self) -> None:
 ```
 
 **Parameters:**
@@ -727,11 +729,17 @@ class GSheetDataSource(AbstractDataSource):
 **Methods:**
 
 - `set_g_sheet_name(g_sheet_name)`: Set the spreadsheet to work with (name or URL)
+- `get_title()`: Open the spreadsheet and return its title. Raises `SpreadsheetNotFoundError`,
+  `SpreadsheetNotSharedError` or `NotNativeGoogleSheetError` (all `SelectionError` subclasses)
+  if it cannot be opened
+- `require_writable()`: Raise `SpreadsheetReadOnlyError` if the service account cannot edit the sheet
 
 **Attributes:**
 
 - `selected_tab_name`: Name of created tab with selected people (set after output)
 - `remaining_tab_name`: Name of created tab with remaining people (set after output)
+- `can_edit`: Whether the service account can write to the spreadsheet
+- `info`: The `GSheetInfo` for the opened spreadsheet (see [Data Adapters](adapters.md#opening-a-sheet-and-checking-access))
 
 **Notes:**
 

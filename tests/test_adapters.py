@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
+import gspread
 import pytest
 
 from sortition_algorithms import core
@@ -25,6 +26,8 @@ from sortition_algorithms.errors import (
     ParseTableMultiValueErrorMsg,
     SelectionError,
     SelectionMultilineError,
+    SpreadsheetNotFoundError,
+    SpreadsheetReadOnlyError,
 )
 from sortition_algorithms.people import People
 from sortition_algorithms.settings import SELECTION_ALGORITHMS, Settings
@@ -860,11 +863,12 @@ def _make_gsheet_source_with_mocked_client(mimetype: str, file_name: str = "Some
     mock_response = MagicMock()
     mock_response.json.return_value = {"mimeType": mimetype, "name": file_name}
     mock_client.http_client.request.return_value = mock_response
-    # open_by_url / open both return a fake Spreadsheet
+    # open_by_key / open both return a fake Spreadsheet
     fake_spreadsheet = MagicMock()
     fake_spreadsheet.id = "abc123"
     fake_spreadsheet.title = file_name
-    mock_client.open_by_url.return_value = fake_spreadsheet
+    fake_spreadsheet.url = "https://docs.google.com/spreadsheets/d/abc123"
+    mock_client.open_by_key.return_value = fake_spreadsheet
     mock_client.open.return_value = fake_spreadsheet
     source._client = mock_client
     return source
@@ -875,11 +879,76 @@ def test_gsheet_spreadsheet_native_mimetype_opens_by_url():
     source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/abc123/edit")
     sheet = source.spreadsheet
     assert sheet.title == "My Sheet"
-    source._client.open_by_url.assert_called_once()
+    source._client.open_by_key.assert_called_once_with("abc123")
+    source._client.open.assert_not_called()
     # Drive API called exactly once, and not re-called on subsequent access.
     assert source._client.http_client.request.call_count == 1
     _ = source.spreadsheet
     assert source._client.http_client.request.call_count == 1
+    assert source.get_title() == "My Sheet"
+    assert "Opened Google Sheet: 'My Sheet'" in source._report.as_text()
+
+
+def test_gsheet_spreadsheet_by_title_goes_through_open_gsheet():
+    source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet", file_name="My Sheet")
+    source.set_g_sheet_name("My Sheet")  # not a URL -> title branch
+    sheet = source.spreadsheet
+    assert sheet.title == "My Sheet"
+    # the title search finds the id, then the helper does the Drive check and opens by key
+    source._client.open.assert_called_once_with("My Sheet")
+    source._client.open_by_key.assert_called_once_with("abc123")
+    assert source._client.http_client.request.call_count == 1
+
+
+def test_gsheet_spreadsheet_by_title_not_found():
+    source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet")
+    source._client.open.side_effect = gspread.SpreadsheetNotFound()
+    source.set_g_sheet_name("No Such Sheet")
+    with pytest.raises(SpreadsheetNotFoundError) as excinfo:
+        _ = source.spreadsheet
+    assert excinfo.value.error_code == "spreadsheet_not_found"
+    assert excinfo.value.error_params == {"spreadsheet_name": "No Such Sheet"}
+    # the old behaviour: get_title and the read_* methods raise a SelectionError
+    # with this error_code, which they now do via the spreadsheet property
+    with pytest.raises(SelectionError) as excinfo:
+        source.get_title()
+    assert excinfo.value.error_code == "spreadsheet_not_found"
+    with pytest.raises(SelectionError) as excinfo, source.read_feature_data(RunReport()):
+        pass
+    assert excinfo.value.error_code == "spreadsheet_not_found"
+    source._client.open_by_key.assert_not_called()
+
+
+def test_gsheet_can_edit_and_require_writable():
+    source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet", file_name="My Sheet")
+    source._client.http_client.request.return_value.json.return_value = {
+        "name": "My Sheet",
+        "mimeType": "application/vnd.google-apps.spreadsheet",
+        "capabilities": {"canEdit": False},
+    }
+    source._client.http_client.auth.service_account_email = "robot@example.iam.gserviceaccount.com"
+    source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/abc123/edit")
+    assert source.can_edit is False
+    with pytest.raises(SpreadsheetReadOnlyError) as excinfo:
+        source.require_writable()
+    assert excinfo.value.error_params["title"] == "My Sheet"
+    assert excinfo.value.error_params["service_account_email"] == "robot@example.iam.gserviceaccount.com"
+
+
+def test_gsheet_set_g_sheet_name_resets_cached_info():
+    source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet", file_name="My Sheet")
+    source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/abc123/edit")
+    _ = source.spreadsheet
+    assert source._client.http_client.request.call_count == 1
+    # same name: no reset, no new API calls
+    source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/abc123/edit")
+    _ = source.spreadsheet
+    assert source._client.http_client.request.call_count == 1
+    # different name: reopened
+    source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/def456/edit")
+    _ = source.spreadsheet
+    assert source._client.http_client.request.call_count == 2
+    source._client.open_by_key.assert_called_with("def456")
 
 
 def test_gsheet_spreadsheet_xlsx_mimetype_raises_by_url():

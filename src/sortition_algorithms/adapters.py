@@ -16,18 +16,17 @@ from pathlib import Path
 from typing import Any, ClassVar, TextIO
 
 import gspread
-from gspread.urls import DRIVE_FILES_API_V3_URL
-from gspread.utils import ValueRenderOption, extract_id_from_url
-from oauth2client.service_account import ServiceAccountCredentials
+from gspread.utils import ValueRenderOption
 
 from sortition_algorithms.errors import (
-    NotNativeGoogleSheetError,
     ParseTableErrorMsg,
     ParseTableMultiError,
     SelectionError,
     SelectionMultilineError,
+    SpreadsheetNotFoundError,
 )
 from sortition_algorithms.features import FeatureCollection, read_in_features
+from sortition_algorithms.gsheet import GSHEET_SCOPE, GSheetInfo, make_gsheet_client, open_gsheet
 from sortition_algorithms.people import People, read_in_people
 from sortition_algorithms.settings import Settings
 from sortition_algorithms.utils import RunReport, get_cell_name, normalise_iter, user_logger
@@ -504,10 +503,8 @@ class GSheetTabNamer:
 
 
 class GSheetDataSource(AbstractDataSource):
-    scope: ClassVar = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
-    ]
+    # kept for backwards compatibility; the scopes live in sortition_algorithms.gsheet
+    scope: ClassVar = GSHEET_SCOPE
     hl_light_blue: ClassVar = {
         "backgroundColor": {
             "red": 153 / 255,
@@ -544,8 +541,7 @@ class GSheetDataSource(AbstractDataSource):
         self.auth_json_path = auth_json_path
         self._request_timeout = request_timeout
         self._client: gspread.client.Client | None = None
-        self._spreadsheet: gspread.Spreadsheet | None = None
-        self._native_checked: bool = False
+        self._info: GSheetInfo | None = None
         self.new_tab_default_size_rows = 2
         self.new_tab_default_size_cols = 40
         self._g_sheet_name = ""
@@ -566,52 +562,50 @@ class GSheetDataSource(AbstractDataSource):
     @property
     def client(self) -> gspread.client.Client:
         if self._client is None:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(str(self.auth_json_path), self.scope)
-            # if we're getting rate limited, go slower!
-            # by using the BackOffHTTPClient, that will sleep and retry
-            # if it gets an error related to API usage rate limits.
-            self._client = gspread.authorize(creds, http_client=gspread.BackOffHTTPClient)
-            self._client.set_timeout(self._request_timeout)
+            self._client = make_gsheet_client(self.auth_json_path, self._request_timeout)
         return self._client
 
     @property
-    def spreadsheet(self) -> gspread.Spreadsheet:
+    def info(self) -> GSheetInfo:
+        """
+        Open the spreadsheet (once) and describe what the service account can do with it.
+
+        Raises a SelectionError subclass (SpreadsheetNotFoundError, SpreadsheetNotSharedError,
+        NotNativeGoogleSheetError) for every access failure, so callers only need to catch
+        SelectionError. Other Google errors propagate as gspread.exceptions.APIError.
+        """
         if self._open_g_sheet_name != self._g_sheet_name:
             # reset the spreadsheet if the name changed
-            self._spreadsheet = None
-            self._native_checked = False
+            self._info = None
             self.tab_namer.reset()
-        if self._spreadsheet is None:
+        if self._info is None:
             if self._g_sheet_name.startswith("https://"):
-                # Check mimetype before opening - for URLs we can extract the
-                # file id without an API call, and a non-native file (e.g. an
-                # uploaded .xlsx) would fail to open with a cryptic Sheets API
-                # error. Checking first lets us raise a helpful error instead.
-                file_id = extract_id_from_url(self._g_sheet_name)
-                self._verify_native_gsheet(file_id)
-                self._spreadsheet = self.client.open_by_url(self._g_sheet_name)
+                self._info = open_gsheet(self.client, self._g_sheet_name)
             else:
-                self._spreadsheet = self.client.open(self._g_sheet_name)
-                # open-by-name filters to native Sheets via Drive search, so a
-                # non-native match is unlikely - but verify as cheap insurance.
-                self._verify_native_gsheet(self._spreadsheet.id)
-            self._native_checked = True
+                # open-by-title is a Drive search, so an unshared or missing
+                # sheet simply has no match. Once found, feed the id through
+                # the helper so the native check and can_edit come for free.
+                try:
+                    found = self.client.open(self._g_sheet_name)
+                except gspread.SpreadsheetNotFound as err:
+                    raise SpreadsheetNotFoundError(spreadsheet_name=self._g_sheet_name) from err
+                self._info = open_gsheet(self.client, found.id)
             self._open_g_sheet_name = self._g_sheet_name
-            self._report.add_message_and_log("opened_gsheet", logging.INFO, title=self._spreadsheet.title)
-        return self._spreadsheet
+            self._report.add_message_and_log("opened_gsheet", logging.INFO, title=self._info.title)
+        return self._info
 
-    def _verify_native_gsheet(self, file_id: str) -> None:
-        if self._native_checked:
-            return
-        response = self.client.http_client.request(
-            "get",
-            f"{DRIVE_FILES_API_V3_URL}/{file_id}",
-            params={"supportsAllDrives": True, "fields": "mimeType,name"},
-        )
-        metadata = response.json()
-        mimetype = metadata.get("mimeType", "")
-        if mimetype != NotNativeGoogleSheetError.NATIVE_GSHEET_MIMETYPE:
-            raise NotNativeGoogleSheetError(mimetype=mimetype, file_name=metadata.get("name", ""))
+    @property
+    def spreadsheet(self) -> gspread.Spreadsheet:
+        return self.info.spreadsheet
+
+    @property
+    def can_edit(self) -> bool:
+        """Whether the service account can write to the spreadsheet."""
+        return self.info.can_edit
+
+    def require_writable(self) -> None:
+        """Raise SpreadsheetReadOnlyError if the service account cannot write to the spreadsheet."""
+        self.info.require_writable()
 
     def _get_tab(self, tab_name: str) -> gspread.Worksheet | None:
         if not self._g_sheet_name:
@@ -640,41 +634,28 @@ class GSheetDataSource(AbstractDataSource):
     def set_g_sheet_name(self, g_sheet_name: str) -> None:
         # if we're changing spreadsheet, reset the spreadsheet object
         if self._g_sheet_name != g_sheet_name:
-            self._spreadsheet = None
-            self._native_checked = False
+            self._info = None
             self._g_sheet_name = g_sheet_name
             self.tab_namer.reset()
 
     def get_title(self) -> str:
-        try:
-            return self.spreadsheet.title
-        except gspread.SpreadsheetNotFound as err:
-            msg = f"Google spreadsheet not found: {self._g_sheet_name}."
-            raise SelectionError(
-                message=msg, error_code="spreadsheet_not_found", error_params={"spreadsheet_name": self._g_sheet_name}
-            ) from err
+        return self.info.title
 
     @contextmanager
     def read_feature_data(
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         self._report = report
-        try:
-            if not self._tab_exists(self.feature_tab_name):
-                msg = (
-                    f"Error in Google sheet: no tab called '{self.feature_tab_name}' "
-                    f"found in spreadsheet '{self.spreadsheet.title}'."
-                )
-                raise SelectionError(
-                    message=msg,
-                    error_code="tab_not_found",
-                    error_params={"tab_name": self.feature_tab_name, "spreadsheet_title": self.spreadsheet.title},
-                )
-        except gspread.SpreadsheetNotFound as err:
-            msg = f"Google spreadsheet not found: {self._g_sheet_name}."
+        if not self._tab_exists(self.feature_tab_name):
+            msg = (
+                f"Error in Google sheet: no tab called '{self.feature_tab_name}' "
+                f"found in spreadsheet '{self.spreadsheet.title}'."
+            )
             raise SelectionError(
-                message=msg, error_code="spreadsheet_not_found", error_params={"spreadsheet_name": self._g_sheet_name}
-            ) from err
+                message=msg,
+                error_code="tab_not_found",
+                error_params={"tab_name": self.feature_tab_name, "spreadsheet_title": self.spreadsheet.title},
+            )
         tab_features = self.spreadsheet.worksheet(self.feature_tab_name)
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
@@ -685,22 +666,16 @@ class GSheetDataSource(AbstractDataSource):
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         self._report = report
-        try:
-            if not self._tab_exists(self.people_tab_name):
-                msg = (
-                    f"Error in Google sheet: no tab called '{self.people_tab_name}' "
-                    f"found in spreadsheet '{self.spreadsheet.title}'."
-                )
-                raise SelectionError(
-                    message=msg,
-                    error_code="tab_not_found",
-                    error_params={"tab_name": self.people_tab_name, "spreadsheet_title": self.spreadsheet.title},
-                )
-        except gspread.SpreadsheetNotFound as err:
-            msg = f"Google spreadsheet not found: {self._g_sheet_name}. "
+        if not self._tab_exists(self.people_tab_name):
+            msg = (
+                f"Error in Google sheet: no tab called '{self.people_tab_name}' "
+                f"found in spreadsheet '{self.spreadsheet.title}'."
+            )
             raise SelectionError(
-                message=msg, error_code="spreadsheet_not_found", error_params={"spreadsheet_name": self._g_sheet_name}
-            ) from err
+                message=msg,
+                error_code="tab_not_found",
+                error_params={"tab_name": self.people_tab_name, "spreadsheet_title": self.spreadsheet.title},
+            )
 
         tab_people = self.spreadsheet.worksheet(self.people_tab_name)
         # if we don't read this in here we can't check if there are 2 columns with the same name
@@ -789,25 +764,19 @@ class GSheetDataSource(AbstractDataSource):
             yield [], []
             return
 
-        try:
-            if not self._tab_exists(self.already_selected_tab_name):
-                msg = (
-                    f"Error in Google sheet: no tab called '{self.already_selected_tab_name}' "
-                    f"found in spreadsheet '{self.spreadsheet.title}'."
-                )
-                raise SelectionError(
-                    message=msg,
-                    error_code="tab_not_found",
-                    error_params={
-                        "tab_name": self.already_selected_tab_name,
-                        "spreadsheet_title": self.spreadsheet.title,
-                    },
-                )
-        except gspread.SpreadsheetNotFound as err:
-            msg = f"Google spreadsheet not found: {self._g_sheet_name}. "
+        if not self._tab_exists(self.already_selected_tab_name):
+            msg = (
+                f"Error in Google sheet: no tab called '{self.already_selected_tab_name}' "
+                f"found in spreadsheet '{self.spreadsheet.title}'."
+            )
             raise SelectionError(
-                message=msg, error_code="spreadsheet_not_found", error_params={"spreadsheet_name": self._g_sheet_name}
-            ) from err
+                message=msg,
+                error_code="tab_not_found",
+                error_params={
+                    "tab_name": self.already_selected_tab_name,
+                    "spreadsheet_title": self.spreadsheet.title,
+                },
+            )
 
         tab_already_selected = self.spreadsheet.worksheet(self.already_selected_tab_name)
 
