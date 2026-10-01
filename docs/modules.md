@@ -11,6 +11,7 @@
 ::: sortition_algorithms.error_messages
 ::: sortition_algorithms.errors
 ::: sortition_algorithms.features
+::: sortition_algorithms.gsheet
 ::: sortition_algorithms.people
 ::: sortition_algorithms.people_features
 ::: sortition_algorithms.progress

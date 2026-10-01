@@ -86,6 +86,69 @@ class NotNativeGoogleSheetError(SelectionError):
         return (self.__class__, (self.mimetype, self.file_name))
 
 
+class SpreadsheetNotFoundError(SelectionError):
+    """Raised when a Google Sheet does not exist (Drive and Sheets APIs both report it missing)."""
+
+    def __init__(self, spreadsheet_name: str) -> None:
+        self.spreadsheet_name = spreadsheet_name
+        params: dict[str, str | int] = {"spreadsheet_name": spreadsheet_name}
+        super().__init__(
+            message=get_message("spreadsheet_not_found", **params),
+            error_code="spreadsheet_not_found",
+            error_params=params,
+        )
+
+    def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
+        return (self.__class__, (self.spreadsheet_name,))
+
+
+class SpreadsheetNotSharedError(SelectionError):
+    """
+    Raised when a Google Sheet exists but is not shared with the service account.
+
+    The Drive API reports unshared files as not found, so this is only raised
+    after the Sheets API has confirmed the file exists but access is denied.
+    """
+
+    def __init__(self, spreadsheet_name: str, service_account_email: str = "") -> None:
+        self.spreadsheet_name = spreadsheet_name
+        self.service_account_email = service_account_email
+        params: dict[str, str | int] = {
+            "spreadsheet_name": spreadsheet_name,
+            "service_account_email": service_account_email,
+        }
+        super().__init__(
+            message=get_message("spreadsheet_not_shared", **params),
+            error_code="spreadsheet_not_shared",
+            error_params=params,
+        )
+
+    def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
+        return (self.__class__, (self.spreadsheet_name, self.service_account_email))
+
+
+class SpreadsheetReadOnlyError(SelectionError):
+    """Raised when the service account can read a Google Sheet but cannot edit it."""
+
+    def __init__(self, spreadsheet_name: str, title: str = "", service_account_email: str = "") -> None:
+        self.spreadsheet_name = spreadsheet_name
+        self.title = title
+        self.service_account_email = service_account_email
+        params: dict[str, str | int] = {
+            "spreadsheet_name": spreadsheet_name,
+            "title": title,
+            "service_account_email": service_account_email,
+        }
+        super().__init__(
+            message=get_message("spreadsheet_read_only", **params),
+            error_code="spreadsheet_read_only",
+            error_params=params,
+        )
+
+    def __reduce__(self) -> tuple[type[Any], tuple[Any, ...]]:
+        return (self.__class__, (self.spreadsheet_name, self.title, self.service_account_email))
+
+
 class RetryableSelectionError(SelectionError):
     """
     For errors where the selection should be retried.

@@ -36,6 +36,14 @@ ERROR_MESSAGES = {
     "person_not_found": N_("Failed to find person at position %(position)s in %(feature_name)s/%(feature_value)s"),
     "logic_error_tab_suffix": N_("Logic error - trying to create new tab before choosing suffix"),
     "spreadsheet_not_found": N_("Google spreadsheet not found: %(spreadsheet_name)s."),
+    "spreadsheet_not_shared": N_(
+        "Google spreadsheet %(spreadsheet_name)s exists but is not shared with the service account "
+        "%(service_account_email)s. Share it with that email address and try again."
+    ),
+    "spreadsheet_read_only": N_(
+        "Google spreadsheet '%(title)s' is shared read-only with %(service_account_email)s. "
+        "Give it edit access so output tabs can be written."
+    ),
     "tab_not_found": N_(
         "Error in Google sheet: no tab called '%(tab_name)s' found in spreadsheet '%(spreadsheet_title)s'."
     ),

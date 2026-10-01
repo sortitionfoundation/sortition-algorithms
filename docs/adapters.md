@@ -244,6 +244,66 @@ Note that you can have other columns on the tab - the features import code will 
 | p001 | Alice Smith | <alice@email.com> | Female | 18-30 | Urban    | 123 Main St | 12345    |
 | p002 | Bob Jones   | <bob@email.com>   | Male   | 31-50 | Rural    | 456 Oak Ave | 67890    |
 
+#### Opening a sheet and checking access
+
+`GSheetDataSource` opens the spreadsheet through `open_gsheet()`, a helper in
+`sortition_algorithms.gsheet` that you can also call directly when you only need
+the opened `gspread.Spreadsheet` (for example to write your own tabs). It takes a
+URL or a bare file id and tells the failure modes apart precisely:
+
+```python
+from pathlib import Path
+
+from sortition_algorithms import (
+    GSheetInfo,
+    NotNativeGoogleSheetError,
+    SpreadsheetNotFoundError,
+    SpreadsheetNotSharedError,
+    SpreadsheetReadOnlyError,
+    make_gsheet_client,
+    open_gsheet,
+)
+
+client = make_gsheet_client(Path("service-account.json"))
+try:
+    info: GSheetInfo = open_gsheet(client, "https://docs.google.com/spreadsheets/d/.../edit")
+    info.require_writable()  # only if you intend to write to it
+except SpreadsheetNotFoundError:
+    ...  # the id does not exist
+except SpreadsheetNotSharedError as err:
+    ...  # exists, but not shared with err.service_account_email
+except SpreadsheetReadOnlyError as err:
+    ...  # shared as Viewer / view-by-link; err.title, err.service_account_email
+except NotNativeGoogleSheetError as err:
+    ...  # an uploaded .xlsx etc; err.mimetype, err.file_name
+
+spreadsheet = info.spreadsheet  # already opened, no need to open it again
+```
+
+- `make_gsheet_client(auth_json_path, request_timeout=60)` builds the same
+  rate-limit-aware `gspread` client that `GSheetDataSource` uses.
+- `open_gsheet(client, url_or_id)` makes one Drive request (mimetype, name and
+  whether the account can edit) and then opens the sheet. The Drive API reports
+  an unshared file as "not found", so on a Drive 404 the helper asks the Sheets
+  API, which distinguishes "not shared" (403) from "does not exist" (404). Any
+  other Google error propagates unchanged as `gspread.exceptions.APIError`.
+- `GSheetInfo` is a frozen dataclass: `spreadsheet`, `file_id`, `title`, `url`,
+  `mimetype`, `can_edit` and `service_account_email`. Read-only access is data,
+  not an error, because reading a Viewer-shared sheet is legitimate;
+  `require_writable()` raises `SpreadsheetReadOnlyError` for the callers that
+  will write.
+
+All four errors are `SelectionError` subclasses with an `error_code`
+(`spreadsheet_not_found`, `spreadsheet_not_shared`, `spreadsheet_read_only`,
+`not_native_gsheet`) and `error_params` for translation - see the
+[i18n guide](i18n.md#available-error-codes). They pickle, so they survive a
+Celery failure callback.
+
+`GSheetDataSource` exposes the same information: `data_source.info`,
+`data_source.can_edit` and `data_source.require_writable()`. The `spreadsheet`
+property, `get_title()` and the `read_*` methods raise the errors above for every
+access failure.
+
 ## Writing custom Data Source classes
 
 You can create custom data source classes for other data sources like Excel files, SQL databases, or APIs.

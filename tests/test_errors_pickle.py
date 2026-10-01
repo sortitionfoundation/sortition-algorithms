@@ -4,6 +4,7 @@ from sortition_algorithms.errors import (
     BadDataError,
     InfeasibleQuotasCantRelaxError,
     InfeasibleQuotasError,
+    NotNativeGoogleSheetError,
     ParseTableErrorMsg,
     ParseTableMultiError,
     ParseTableMultiValueErrorMsg,
@@ -11,6 +12,9 @@ from sortition_algorithms.errors import (
     SelectionError,
     SelectionMultilineError,
     SortitionBaseError,
+    SpreadsheetNotFoundError,
+    SpreadsheetNotSharedError,
+    SpreadsheetReadOnlyError,
 )
 
 
@@ -298,3 +302,54 @@ class TestInfeasibleQuotasCantRelaxErrorPickle:
         assert unpickled.message == "No feasible relaxation found"
         assert unpickled.error_code == "INFEAS_001"
         assert unpickled.error_params == {"feature": "gender"}
+
+
+class TestGSheetAccessErrorsPickle:
+    def test_pickle_not_native_gsheet_error(self):
+        error = NotNativeGoogleSheetError(mimetype="text/csv", file_name="data.csv")
+        unpickled = pickle.loads(pickle.dumps(error))  # noqa: S301
+
+        assert_exception_equal(error, unpickled)
+        assert unpickled.mimetype == "text/csv"
+        assert unpickled.file_name == "data.csv"
+        assert unpickled.error_code == "not_native_gsheet"
+        assert unpickled.error_params == error.error_params
+
+    def test_pickle_spreadsheet_not_found_error(self):
+        error = SpreadsheetNotFoundError(spreadsheet_name="https://docs.google.com/spreadsheets/d/abc123/edit")
+        unpickled = pickle.loads(pickle.dumps(error))  # noqa: S301
+
+        assert_exception_equal(error, unpickled)
+        assert unpickled.spreadsheet_name == "https://docs.google.com/spreadsheets/d/abc123/edit"
+        assert unpickled.error_code == "spreadsheet_not_found"
+        assert unpickled.error_params == {"spreadsheet_name": "https://docs.google.com/spreadsheets/d/abc123/edit"}
+
+    def test_pickle_spreadsheet_not_shared_error(self):
+        error = SpreadsheetNotSharedError(
+            spreadsheet_name="abc123", service_account_email="robot@example.iam.gserviceaccount.com"
+        )
+        unpickled = pickle.loads(pickle.dumps(error))  # noqa: S301
+
+        assert_exception_equal(error, unpickled)
+        assert unpickled.spreadsheet_name == "abc123"
+        assert unpickled.service_account_email == "robot@example.iam.gserviceaccount.com"
+        assert unpickled.error_code == "spreadsheet_not_shared"
+        assert unpickled.error_params == {
+            "spreadsheet_name": "abc123",
+            "service_account_email": "robot@example.iam.gserviceaccount.com",
+        }
+
+    def test_pickle_spreadsheet_read_only_error(self):
+        error = SpreadsheetReadOnlyError(
+            spreadsheet_name="abc123", title="My Sheet", service_account_email="robot@example.iam.gserviceaccount.com"
+        )
+        unpickled = pickle.loads(pickle.dumps(error))  # noqa: S301
+
+        assert_exception_equal(error, unpickled)
+        assert unpickled.title == "My Sheet"
+        assert unpickled.error_code == "spreadsheet_read_only"
+        assert unpickled.error_params == {
+            "spreadsheet_name": "abc123",
+            "title": "My Sheet",
+            "service_account_email": "robot@example.iam.gserviceaccount.com",
+        }
