@@ -265,3 +265,13 @@ def test_make_gsheet_client_authorises_with_backoff_and_timeout():
     authorize.assert_called_once_with(from_keyfile.return_value, http_client=gspread.BackOffHTTPClient)
     assert client is authorize.return_value
     client.set_timeout.assert_called_once_with((5, 30))
+
+
+def test_make_gsheet_client_accepts_a_fail_fast_http_client():
+    """A caller in a web request can opt out of the back-off retries."""
+    with (
+        patch.object(gsheet.ServiceAccountCredentials, "from_json_keyfile_name") as from_keyfile,
+        patch.object(gsheet.gspread, "authorize") as authorize,
+    ):
+        make_gsheet_client(Path("/some/auth.json"), http_client=gspread.HTTPClient)
+    authorize.assert_called_once_with(from_keyfile.return_value, http_client=gspread.HTTPClient)

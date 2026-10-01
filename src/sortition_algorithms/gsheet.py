@@ -24,7 +24,9 @@ GSHEET_SCOPE = [
 
 
 def make_gsheet_client(
-    auth_json_path: Path, request_timeout: float | tuple[float, float] | None = 60
+    auth_json_path: Path,
+    request_timeout: float | tuple[float, float] | None = 60,
+    http_client: type[gspread.HTTPClient] = gspread.BackOffHTTPClient,
 ) -> gspread.client.Client:
     """
     Build an authorised gspread client from a service account JSON file.
@@ -33,12 +35,13 @@ def make_gsheet_client(
     - auth_json_path - path to the file containing the google service account details.
     - request_timeout - How long to wait for the server to send data before giving up, as a float,
       or a (connect timeout, read timeout) tuple. Value for timeout is in seconds.
+    - http_client - the gspread HTTP client class to use. The default, BackOffHTTPClient,
+      sleeps and retries with doubling waits (up to 128 seconds) when Google answers with a
+      rate limit or server error, which suits a long-running selection. Pass gspread.HTTPClient
+      to fail fast instead, for example from a web request that must not stall.
     """
     creds = ServiceAccountCredentials.from_json_keyfile_name(str(auth_json_path), GSHEET_SCOPE)
-    # if we're getting rate limited, go slower!
-    # by using the BackOffHTTPClient, that will sleep and retry
-    # if it gets an error related to API usage rate limits.
-    client = gspread.authorize(creds, http_client=gspread.BackOffHTTPClient)
+    client = gspread.authorize(creds, http_client=http_client)
     client.set_timeout(request_timeout)
     return client
 

@@ -280,8 +280,13 @@ except NotNativeGoogleSheetError as err:
 spreadsheet = info.spreadsheet  # already opened, no need to open it again
 ```
 
-- `make_gsheet_client(auth_json_path, request_timeout=60)` builds the same
-  rate-limit-aware `gspread` client that `GSheetDataSource` uses.
+- `make_gsheet_client(auth_json_path, request_timeout=60, http_client=gspread.BackOffHTTPClient)`
+  builds the same `gspread` client that `GSheetDataSource` uses. The default
+  HTTP client sleeps and retries, with waits doubling up to 128 seconds, when
+  Google answers with a rate limit or a server error. That suits a selection
+  running in a background task. From a web request, where a stalled call
+  holds a worker, pass `http_client=gspread.HTTPClient` to fail fast instead;
+  `request_timeout` then bounds the whole call.
 - `open_gsheet(client, url_or_id)` makes one Drive request (mimetype, name and
   whether the account can edit) and then opens the sheet. The Drive API reports
   an unshared file as "not found", so on a Drive 404 the helper asks the Sheets
