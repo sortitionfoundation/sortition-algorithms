@@ -90,6 +90,8 @@ mip = "5 days"
 cbcbox = "5 days"
 # for security updates, remove after 2026-06-19
 cryptography = "0 days"
+# for security updates, remove after 2026-10-05
+oauthlib = "0 days"
 
 
 [tool.mypy]
