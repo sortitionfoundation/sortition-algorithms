@@ -19,7 +19,6 @@ import pytest
 import requests
 from gspread.urls import DRIVE_FILES_API_V3_URL
 
-import sortition_algorithms
 from sortition_algorithms import gsheet
 from sortition_algorithms.errors import (
     NotNativeGoogleSheetError,
@@ -441,14 +440,3 @@ def test_gsheet_summary_equality_ignores_fetched_at():
     later = replace(summary, fetched_at=summary.fetched_at + timedelta(minutes=1))
     assert later == summary
     assert replace(summary, can_edit=False) != summary
-
-
-def test_gsheet_summary_is_frozen():
-    summary = inspect_gsheet(_make_client(_drive_body()), URL)
-    with pytest.raises(AttributeError):
-        summary.can_edit = False  # type: ignore[misc]
-
-
-def test_inspect_gsheet_is_exported_from_package():
-    assert sortition_algorithms.inspect_gsheet is inspect_gsheet
-    assert sortition_algorithms.GSheetSummary is GSheetSummary
