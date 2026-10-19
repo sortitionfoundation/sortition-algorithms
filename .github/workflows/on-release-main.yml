@@ -15,7 +15,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up the environment
-        uses: ./.github/actions/setup-python-env
+        uses: $/.github/actions/setup-python-env
 
       - name: Export tag
         id: vars
@@ -71,7 +71,7 @@ jobs:
           persist-credentials: true
 
       - name: Set up the environment
-        uses: ./.github/actions/setup-python-env
+        uses: $/.github/actions/setup-python-env
 
       - name: Deploy documentation
         run: uv run mkdocs gh-deploy --force
