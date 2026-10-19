@@ -292,11 +292,42 @@ spreadsheet = info.spreadsheet  # already opened, no need to open it again
   an unshared file as "not found", so on a Drive 404 the helper asks the Sheets
   API, which distinguishes "not shared" (403) from "does not exist" (404). Any
   other Google error propagates unchanged as `gspread.exceptions.APIError`.
+  Network failures (`requests.exceptions.RequestException`, such as a timeout)
+  and access-token refresh failures (`google.auth.exceptions.GoogleAuthError`)
+  are not Google API errors, and propagate unwrapped from `open_gsheet()` and
+  `inspect_gsheet()` alike.
 - `GSheetInfo` is a frozen dataclass: `spreadsheet`, `file_id`, `title`, `url`,
   `mimetype`, `can_edit` and `service_account_email`. Read-only access is data,
   not an error, because reading a Viewer-shared sheet is legitimate;
   `require_writable()` raises `SpreadsheetReadOnlyError` for the callers that
   will write.
+
+To check a sheet without opening it for use (for example, to show a "sheet is
+ready" status before a selection), use `inspect_gsheet()` instead. It raises the
+same errors, and also returns the tab titles, using one Drive request and one
+Sheets request. Opening with `open_gsheet()` and then calling `worksheets()`
+costs two Sheets requests. That matters because Google allows a service account
+only 60 Sheets read requests per minute, shared by everything that uses it.
+
+```python
+from sortition_algorithms import GSheetSummary, inspect_gsheet
+
+summary: GSheetSummary = inspect_gsheet(client, "https://docs.google.com/spreadsheets/d/.../edit")
+if "Respondents" not in summary.worksheet_titles:
+    ...
+```
+
+- `GSheetSummary` is a frozen dataclass: `file_id`, `title`, `url`, `mimetype`,
+  `can_edit`, `worksheet_titles` (a tuple, including hidden tabs),
+  `fetched_at` and `service_account_email`. It has no `spreadsheet`, so use
+  `open_gsheet()` when you need to read or write.
+- `fetched_at` is a timezone-aware UTC `datetime` taken when the Sheets
+  response arrived. If you keep a summary around, use it to decide when to
+  check again. It is ignored when comparing summaries, so two summaries of an
+  unchanged sheet are equal.
+- If Drive allows the file but the Sheets API refuses it (for example, the
+  Sheets API is not enabled for the Google Cloud project), the error propagates
+  as `gspread.exceptions.APIError`.
 
 All four errors are `SelectionError` subclasses with an `error_code`
 (`spreadsheet_not_found`, `spreadsheet_not_shared`, `spreadsheet_read_only`,
