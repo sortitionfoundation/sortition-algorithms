@@ -863,13 +863,14 @@ def _make_gsheet_source_with_mocked_client(mimetype: str, file_name: str = "Some
     mock_response = MagicMock()
     mock_response.json.return_value = {"mimeType": mimetype, "name": file_name}
     mock_client.http_client.request.return_value = mock_response
-    # open_by_key / open both return a fake Spreadsheet
+    # the Drive search for open-by-title finds the file
+    mock_client.list_spreadsheet_files.return_value = [{"id": "abc123", "name": file_name}]
+    # open_by_key returns a fake Spreadsheet
     fake_spreadsheet = MagicMock()
     fake_spreadsheet.id = "abc123"
     fake_spreadsheet.title = file_name
     fake_spreadsheet.url = "https://docs.google.com/spreadsheets/d/abc123"
     mock_client.open_by_key.return_value = fake_spreadsheet
-    mock_client.open.return_value = fake_spreadsheet
     source._client = mock_client
     return source
 
@@ -894,15 +895,38 @@ def test_gsheet_spreadsheet_by_title_goes_through_open_gsheet():
     source.set_g_sheet_name("My Sheet")  # not a URL -> title branch
     sheet = source.spreadsheet
     assert sheet.title == "My Sheet"
-    # the title search finds the id, then the helper does the Drive check and opens by key
-    source._client.open.assert_called_once_with("My Sheet")
+    # the Drive title search finds the id, then the helper does the Drive check and opens by key
+    source._client.list_spreadsheet_files.assert_called_once_with("My Sheet")
     source._client.open_by_key.assert_called_once_with("abc123")
     assert source._client.http_client.request.call_count == 1
+    # client.open() would build a second Spreadsheet, costing a Sheets read
+    source._client.open.assert_not_called()
+
+
+def test_gsheet_spreadsheet_by_title_takes_first_exact_name_match():
+    source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet", file_name="My Sheet")
+    source._client.list_spreadsheet_files.return_value = [
+        {"id": "wrong-case", "name": "my sheet"},
+        {"id": "first", "name": "My Sheet"},
+        {"id": "second", "name": "My Sheet"},
+    ]
+    source.set_g_sheet_name("My Sheet")
+    _ = source.spreadsheet
+    source._client.open_by_key.assert_called_once_with("first")
+
+
+def test_gsheet_spreadsheet_by_title_ignores_inexact_matches():
+    source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet")
+    source._client.list_spreadsheet_files.return_value = [{"id": "abc123", "name": "my sheet"}]
+    source.set_g_sheet_name("My Sheet")
+    with pytest.raises(SpreadsheetNotFoundError):
+        _ = source.spreadsheet
+    source._client.open_by_key.assert_not_called()
 
 
 def test_gsheet_spreadsheet_by_title_not_found():
     source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet")
-    source._client.open.side_effect = gspread.SpreadsheetNotFound()
+    source._client.list_spreadsheet_files.return_value = []
     source.set_g_sheet_name("No Such Sheet")
     with pytest.raises(SpreadsheetNotFoundError) as excinfo:
         _ = source.spreadsheet

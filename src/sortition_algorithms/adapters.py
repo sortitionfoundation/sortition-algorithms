@@ -593,11 +593,14 @@ class GSheetDataSource(AbstractDataSource):
                 # open-by-title is a Drive search, so an unshared or missing
                 # sheet simply has no match. Once found, feed the id through
                 # the helper so the native check and can_edit come for free.
-                try:
-                    found = self.client.open(self._g_sheet_name)
-                except gspread.SpreadsheetNotFound as err:
-                    raise SpreadsheetNotFoundError(spreadsheet_name=self._g_sheet_name) from err
-                self._info = open_gsheet(self.client, found.id)
+                # We search Drive directly rather than use client.open(), which
+                # would spend a Sheets read building a Spreadsheet we discard.
+                # Like client.open(), take the first file with exactly this name.
+                files = self.client.list_spreadsheet_files(self._g_sheet_name)
+                found = next((file for file in files if file["name"] == self._g_sheet_name), None)
+                if found is None:
+                    raise SpreadsheetNotFoundError(spreadsheet_name=self._g_sheet_name)
+                self._info = open_gsheet(self.client, found["id"])
             self._open_g_sheet_name = self._g_sheet_name
             self._report.add_message_and_log("opened_gsheet", logging.INFO, title=self._info.title)
         return self._info

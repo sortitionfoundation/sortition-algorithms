@@ -263,6 +263,10 @@ which builds another.
 
 Saves **1 read** when opening by title.
 
+As implemented: `client.open()` takes the first file in the Drive results whose
+`name` is exactly the title (the Drive search is limited to native Sheets), and
+`info` now does the same with the `list_spreadsheet_files()` results.
+
 ## Option E: fetch all input tabs in one request
 
 Use `spreadsheet.values_batch_get([features_range, people_range, already_selected_range])`
