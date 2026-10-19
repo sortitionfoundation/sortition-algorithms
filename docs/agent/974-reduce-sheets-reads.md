@@ -202,6 +202,24 @@ So:
 
 A slow selection pays 1 extra read. A fast one pays nothing.
 
+### As implemented
+
+Two changes from the above, both simplifications:
+
+- The tab list is fetched lazily, on first use, not when `info` opens the
+  spreadsheet. Callers that only want `get_title()` or `can_edit` don't pay
+  for it.
+- Rather than calling a refresh at chosen points, every use of the tab list
+  re-fetches it if it is at least `tab_cache_max_age_seconds` old. That gives
+  the same read counts for a selection, and also covers a long-lived service
+  that reads the input tabs again more than a minute later.
+  `tab_cache_max_age_seconds` is an instance attribute set in `__init__`, as
+  `new_tab_default_size_rows` is. A value of 0 means fetch on every use.
+
+The fetch uses the `fields` mask `sheets.properties`. The "tab not found"
+re-fetch costs an extra read even when the list was fetched a moment earlier,
+which is fine on an error path.
+
 ### Saving
 
 Saves 2 each on the features, people and already-selected tabs (the
