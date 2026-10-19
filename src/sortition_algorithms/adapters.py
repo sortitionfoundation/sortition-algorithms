@@ -870,11 +870,14 @@ class GSheetDataSource(AbstractDataSource):
             if self.tab_namer.matches_stubs(tab.title):
                 tabs_to_delete.append(tab)
 
-        deleted_names: list[str] = []
-        for tab in tabs_to_delete:
-            deleted_names.append(tab.title)
-            if not dry_run:
-                self.spreadsheet.del_worksheet(tab)
+        deleted_names = [tab.title for tab in tabs_to_delete]
+        if tabs_to_delete and not dry_run:
+            # one request for all the tabs, rather than one del_worksheet() each.
+            # The batch is atomic, so if one deletion fails none are made.
+            self.spreadsheet.batch_update({
+                "requests": [{"deleteSheet": {"sheetId": tab.id}} for tab in tabs_to_delete]
+            })
+            for tab in tabs_to_delete:
                 del all_tabs[tab.title]
 
         return deleted_names

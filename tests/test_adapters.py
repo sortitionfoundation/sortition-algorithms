@@ -1032,9 +1032,13 @@ def _make_gsheet_source_with_tabs(tabs: dict[str, list[list[str]]]) -> tuple[GSh
     spreadsheet = source._client.open_by_key.return_value
     spreadsheet.client = MagicMock(spec=gspread.http_client.HTTPClient)
 
+    # Sheets keeps a tab's id when other tabs are deleted, so give each title a fixed id
+    sheet_ids: dict[str, int] = {}
+
     def fake_properties(title: str) -> dict[str, Any]:
-        sheet_id = list(tabs).index(title)
-        return {"sheetId": sheet_id, "title": title, "index": sheet_id, "gridProperties": {"rowCount": 100}}
+        sheet_id = sheet_ids.setdefault(title, len(sheet_ids))
+        index = list(tabs).index(title)
+        return {"sheetId": sheet_id, "title": title, "index": index, "gridProperties": {"rowCount": 100}}
 
     def fake_metadata(params: dict[str, str] | None = None) -> dict[str, Any]:
         return {"sheets": [{"properties": fake_properties(title)} for title in tabs]}
@@ -1047,13 +1051,15 @@ def _make_gsheet_source_with_tabs(tabs: dict[str, list[list[str]]]) -> tuple[GSh
         tabs[title] = []
         return gspread.Worksheet(spreadsheet, fake_properties(title), spreadsheet.id, spreadsheet.client)
 
-    def fake_del_worksheet(worksheet: gspread.Worksheet) -> None:
-        del tabs[worksheet.title]
+    def fake_batch_update(body: dict[str, Any]) -> None:
+        titles_by_id = {sheet_id: title for title, sheet_id in sheet_ids.items()}
+        for request in body["requests"]:
+            del tabs[titles_by_id[request["deleteSheet"]["sheetId"]]]
 
     spreadsheet.fetch_sheet_metadata.side_effect = fake_metadata
     spreadsheet.client.values_get.side_effect = fake_values_get
     spreadsheet.add_worksheet.side_effect = fake_add_worksheet
-    spreadsheet.del_worksheet.side_effect = fake_del_worksheet
+    spreadsheet.batch_update.side_effect = fake_batch_update
     return source, spreadsheet
 
 
@@ -1137,6 +1143,36 @@ def test_gsheet_writing_after_fast_selection_uses_cached_tab_list():
     assert spreadsheet.fetch_sheet_metadata.call_count == 1
 
 
+def test_gsheet_highlight_dupes_formats_rows_on_remaining_tab():
+    source, spreadsheet = _make_gsheet_source_with_tabs(_input_tabs())
+    source.write_selected([["id"], ["p1"]], RunReport())
+    source.write_remaining([["id"], ["p3"], ["p4"]], RunReport())
+    spreadsheet.client.batch_update.reset_mock()
+    source.highlight_dupes([1, 2])
+    # the remaining tab is in the cached tab list, so no read is needed
+    assert spreadsheet.fetch_sheet_metadata.call_count == 1
+    # one format request, on the remaining tab, covering rows 2 and 3
+    spreadsheet.client.batch_update.assert_called_once()
+    requests = spreadsheet.client.batch_update.call_args.args[1]["requests"]
+    remaining_tab_id = source._get_tab("Remaining - output - 0").id
+    assert [request["repeatCell"]["range"]["sheetId"] for request in requests] == [remaining_tab_id] * 2
+    assert [request["repeatCell"]["range"]["startRowIndex"] for request in requests] == [1, 2]
+
+
+def test_gsheet_highlight_dupes_before_writing_output_fails():
+    source, _ = _make_gsheet_source_with_tabs(_input_tabs())
+    with pytest.raises(SelectionError) as excinfo:
+        source.highlight_dupes([1])
+    assert excinfo.value.error_code == "logic_error_tab_suffix"
+
+
+def test_gsheet_highlight_dupes_with_no_dupes_does_nothing():
+    source, spreadsheet = _make_gsheet_source_with_tabs(_input_tabs())
+    source.highlight_dupes([])
+    spreadsheet.fetch_sheet_metadata.assert_not_called()
+    spreadsheet.client.batch_update.assert_not_called()
+
+
 def test_gsheet_writing_after_slow_selection_refetches_tab_list():
     tabs = _input_tabs()
     source, spreadsheet = _make_gsheet_source_with_tabs(tabs)
@@ -1172,7 +1208,10 @@ def test_gsheet_delete_old_output_tabs_updates_cached_tab_list():
     deleted = source.delete_old_output_tabs()
     assert deleted == ["Original Selected - output - 0", "Remaining - output - 0"]
     assert source._get_tab_titles() == ["Categories", "Respondents", "Selected"]
-    assert spreadsheet.del_worksheet.call_count == 2
+    # one request deletes both tabs
+    spreadsheet.batch_update.assert_called_once()
+    spreadsheet.del_worksheet.assert_not_called()
+    assert list(tabs) == ["Categories", "Respondents", "Selected"]
     assert spreadsheet.fetch_sheet_metadata.call_count == 1
 
 
@@ -1182,7 +1221,7 @@ def test_gsheet_delete_old_output_tabs_dry_run_leaves_cached_tab_list_alone():
     source, spreadsheet = _make_gsheet_source_with_tabs(tabs)
     assert source.delete_old_output_tabs(dry_run=True) == ["Remaining - output - 0"]
     assert "Remaining - output - 0" in source._get_tab_titles()
-    spreadsheet.del_worksheet.assert_not_called()
+    spreadsheet.batch_update.assert_not_called()
 
 
 def test_gsheet_delete_old_output_tabs_refetches_stale_tab_list():

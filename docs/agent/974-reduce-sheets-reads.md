@@ -294,6 +294,13 @@ cheap to do:
   that means writing raw API requests instead of using gspread helpers. Not
   recommended.
 
+As implemented: only the batched delete. It is atomic, so if one tab can't be
+deleted (for example, someone deleted it by hand after the tab list was
+fetched) none are, where before the tabs ahead of it in the list were deleted.
+`highlight_dupes` is left alone: after Option B, `_get_tab()` finds the
+remaining tab in the cache, which `write_remaining` added it to, so keeping the
+`Worksheet` would save nothing.
+
 ## Outside this library
 
 The service could avoid repeat work itself, for example by not re-reading a
