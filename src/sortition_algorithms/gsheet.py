@@ -1,12 +1,13 @@
 # ABOUTME: Helpers for opening a Google Sheet by URL or file id with precise access-failure classification.
 # ABOUTME: Also holds the gspread client factory shared by GSheetDataSource and other callers.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import gspread
-from gspread.urls import DRIVE_FILES_API_V3_URL
+from gspread.urls import DRIVE_FILES_API_V3_URL, SPREADSHEET_DRIVE_URL
 from gspread.utils import extract_id_from_url
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -105,15 +106,19 @@ def _classify_drive_not_found(
     raise drive_error
 
 
-def open_gsheet(client: gspread.client.Client, url_or_id: str) -> GSheetInfo:
-    """
-    Open a Google Sheet by URL or file id and report what the service account can do with it.
+@dataclass(frozen=True)
+class _DriveFile:
+    """What the Drive API says about a file that is a native Google Sheet."""
 
-    Raises:
-    - SpreadsheetNotFoundError - the id does not exist
-    - SpreadsheetNotSharedError - exists, but not shared with this service account
-    - NotNativeGoogleSheetError - the Drive file is not a native Google Sheet (eg an uploaded .xlsx)
-    - gspread.exceptions.APIError - anything else from Google (quota, 5xx, bad credentials)
+    file_id: str
+    mimetype: str
+    can_edit: bool
+
+
+def _check_drive_file(client: gspread.client.Client, url_or_id: str) -> _DriveFile:
+    """
+    Ask the Drive API about the file and check it is a native Google Sheet.
+    Raises the access errors documented on open_gsheet().
     """
     file_id = extract_id_from_url(url_or_id) if url_or_id.startswith("https://") else url_or_id
     try:
@@ -130,13 +135,89 @@ def open_gsheet(client: gspread.client.Client, url_or_id: str) -> GSheetInfo:
     mimetype = metadata.get("mimeType", "")
     if mimetype != NotNativeGoogleSheetError.NATIVE_GSHEET_MIMETYPE:
         raise NotNativeGoogleSheetError(mimetype=mimetype, file_name=metadata.get("name", ""))
-    spreadsheet = client.open_by_key(file_id)
-    return GSheetInfo(
-        spreadsheet=spreadsheet,
+    return _DriveFile(
         file_id=file_id,
-        title=spreadsheet.title,
-        url=spreadsheet.url,
         mimetype=mimetype,
         can_edit=bool(metadata.get("capabilities", {}).get("canEdit", False)),
+    )
+
+
+def open_gsheet(client: gspread.client.Client, url_or_id: str) -> GSheetInfo:
+    """
+    Open a Google Sheet by URL or file id and report what the service account can do with it.
+
+    Raises:
+    - SpreadsheetNotFoundError - the id does not exist
+    - SpreadsheetNotSharedError - exists, but not shared with this service account
+    - NotNativeGoogleSheetError - the Drive file is not a native Google Sheet (eg an uploaded .xlsx)
+    - gspread.exceptions.APIError - anything else from Google (quota, 5xx, bad credentials)
+    - requests.exceptions.RequestException - network failures (connection errors, timeouts),
+      propagated unwrapped from requests
+    - google.auth.exceptions.GoogleAuthError - failure to refresh the access token,
+      propagated unwrapped from google-auth
+    """
+    drive_file = _check_drive_file(client, url_or_id)
+    spreadsheet = client.open_by_key(drive_file.file_id)
+    return GSheetInfo(
+        spreadsheet=spreadsheet,
+        file_id=drive_file.file_id,
+        title=spreadsheet.title,
+        url=spreadsheet.url,
+        mimetype=drive_file.mimetype,
+        can_edit=drive_file.can_edit,
+        service_account_email=service_account_email(client),
+    )
+
+
+@dataclass(frozen=True)
+class GSheetSummary:
+    """What the service account can see of a Google Sheet, without opening it for use."""
+
+    file_id: str
+    title: str
+    url: str
+    mimetype: str
+    can_edit: bool
+    worksheet_titles: tuple[str, ...]
+    # when the Sheets metadata was fetched, so a caller that keeps the summary
+    # can decide when it is too old to trust
+    fetched_at: datetime = field(compare=False)
+    service_account_email: str = ""
+
+
+def inspect_gsheet(client: gspread.client.Client, url_or_id: str) -> GSheetSummary:
+    """
+    Report what the service account can do with a Google Sheet, including its tab
+    titles, using one Drive and one Sheets request. Unlike open_gsheet() it does not
+    build a gspread.Spreadsheet, which would cost a further Sheets request.
+
+    Raises:
+    - SpreadsheetNotFoundError - the id does not exist
+    - SpreadsheetNotSharedError - exists, but not shared with this service account
+    - NotNativeGoogleSheetError - the Drive file is not a native Google Sheet (eg an uploaded .xlsx)
+    - gspread.exceptions.APIError - anything else from Google (quota, 5xx, bad credentials),
+      including the Sheets API refusing a file that Drive allowed (eg the Sheets API
+      is not enabled for the project)
+    - requests.exceptions.RequestException - network failures (connection errors, timeouts),
+      propagated unwrapped from requests
+    - google.auth.exceptions.GoogleAuthError - failure to refresh the access token,
+      propagated unwrapped from google-auth
+    """
+    drive_file = _check_drive_file(client, url_or_id)
+    metadata = client.http_client.fetch_sheet_metadata(
+        drive_file.file_id,
+        params={"includeGridData": "false", "fields": "properties.title,sheets.properties.title"},
+    )
+    fetched_at = datetime.now(UTC)
+    # the Sheets API leaves out fields that hold their default value, so an empty
+    # title arrives as a missing key
+    return GSheetSummary(
+        file_id=drive_file.file_id,
+        title=metadata.get("properties", {}).get("title", ""),
+        url=SPREADSHEET_DRIVE_URL % drive_file.file_id,
+        mimetype=drive_file.mimetype,
+        can_edit=drive_file.can_edit,
+        worksheet_titles=tuple(sheet.get("properties", {}).get("title", "") for sheet in metadata.get("sheets", [])),
+        fetched_at=fetched_at,
         service_account_email=service_account_email(client),
     )

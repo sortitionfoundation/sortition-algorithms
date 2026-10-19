@@ -1,20 +1,25 @@
 """
-Tests for opening a Google Sheet via open_gsheet() with precise failure classification.
+Tests for opening a Google Sheet via open_gsheet(), and summarising one via
+inspect_gsheet(), with precise failure classification.
 
 No live Google API: the Drive and Sheets responses are the bodies recorded
 against the real API (gspread 6.2.1) for each case.
 """
 
 import json
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import google.auth.exceptions
 import gspread
 import pytest
 import requests
 from gspread.urls import DRIVE_FILES_API_V3_URL
 
+import sortition_algorithms
 from sortition_algorithms import gsheet
 from sortition_algorithms.errors import (
     NotNativeGoogleSheetError,
@@ -22,7 +27,15 @@ from sortition_algorithms.errors import (
     SpreadsheetNotSharedError,
     SpreadsheetReadOnlyError,
 )
-from sortition_algorithms.gsheet import GSHEET_SCOPE, GSheetInfo, make_gsheet_client, open_gsheet, service_account_email
+from sortition_algorithms.gsheet import (
+    GSHEET_SCOPE,
+    GSheetInfo,
+    GSheetSummary,
+    inspect_gsheet,
+    make_gsheet_client,
+    open_gsheet,
+    service_account_email,
+)
 
 FILE_ID = "1B-S6esBj7rqbSJulqAZUh4-x1FXU-rPdNabMVDtsynM"
 URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/edit"
@@ -50,6 +63,22 @@ SHEETS_PERMISSION_DENIED_BODY = {
     "error": {"code": 403, "message": "The caller does not have permission", "status": "PERMISSION_DENIED"}
 }
 SHEETS_NOT_FOUND_BODY = {"error": {"code": 404, "message": "Requested entity was not found.", "status": "NOT_FOUND"}}
+# the shape of a Sheets spreadsheets.get body under inspect_gsheet()'s fields mask
+SHEETS_METADATA_BODY = {
+    "properties": {"title": "Demo Sheet"},
+    "sheets": [
+        {"properties": {"title": "Categories"}},
+        {"properties": {"title": "Respondents"}},
+        {"properties": {"title": "Original Selected - output - 0"}},
+    ],
+}
+SHEETS_SERVICE_DISABLED_BODY = {
+    "error": {
+        "code": 403,
+        "message": "Google Sheets API has not been used in project 123 before or it is disabled.",
+        "status": "PERMISSION_DENIED",
+    }
+}
 DRIVE_QUOTA_BODY = {
     "error": {
         "code": 403,
@@ -107,6 +136,7 @@ def _make_client(
         spreadsheet.url = f"https://docs.google.com/spreadsheets/d/{FILE_ID}"
         client.open_by_key.return_value = spreadsheet
     client.http_client.auth.service_account_email = email
+    client.http_client.fetch_sheet_metadata.return_value = SHEETS_METADATA_BODY
     return client
 
 
@@ -275,3 +305,150 @@ def test_make_gsheet_client_accepts_a_fail_fast_http_client():
     ):
         make_gsheet_client(Path("/some/auth.json"), http_client=gspread.HTTPClient)
     authorize.assert_called_once_with(from_keyfile.return_value, http_client=gspread.HTTPClient)
+
+
+def test_inspect_gsheet_shared_editable():
+    client = _make_client(_drive_body())
+    before = datetime.now(UTC)
+    summary = inspect_gsheet(client, URL)
+    after = datetime.now(UTC)
+    assert isinstance(summary, GSheetSummary)
+    assert summary.file_id == FILE_ID
+    assert summary.title == "Demo Sheet"
+    assert summary.url == f"https://docs.google.com/spreadsheets/d/{FILE_ID}"
+    assert summary.mimetype == NATIVE
+    assert summary.can_edit is True
+    assert summary.worksheet_titles == ("Categories", "Respondents", "Original Selected - output - 0")
+    assert summary.service_account_email == EMAIL
+    assert before <= summary.fetched_at <= after
+    client.http_client.request.assert_called_once_with(
+        "get",
+        f"{DRIVE_FILES_API_V3_URL}/{FILE_ID}",
+        params={"supportsAllDrives": True, "fields": "mimeType,name,capabilities/canEdit"},
+    )
+    # one Sheets request, and no Spreadsheet built (which would cost another)
+    client.http_client.fetch_sheet_metadata.assert_called_once_with(
+        FILE_ID,
+        params={"includeGridData": "false", "fields": "properties.title,sheets.properties.title"},
+    )
+    client.open_by_key.assert_not_called()
+
+
+def test_inspect_gsheet_url_matches_open_gsheet():
+    summary = inspect_gsheet(_make_client(_drive_body()), URL)
+    info = open_gsheet(_make_client(_drive_body()), URL)
+    assert summary.url == info.url
+
+
+def test_inspect_gsheet_shared_viewer_is_read_only():
+    client = _make_client(_drive_body(can_edit=False))
+    summary = inspect_gsheet(client, URL)
+    assert summary.can_edit is False
+
+
+def test_inspect_gsheet_accepts_bare_file_id():
+    client = _make_client(_drive_body())
+    summary = inspect_gsheet(client, FILE_ID)
+    assert summary.file_id == FILE_ID
+    assert client.http_client.request.call_args.args[1] == f"{DRIVE_FILES_API_V3_URL}/{FILE_ID}"
+    assert client.http_client.fetch_sheet_metadata.call_args.args[0] == FILE_ID
+
+
+def test_inspect_gsheet_not_shared():
+    drive_error = _api_error(404, DRIVE_NOT_FOUND_BODY)
+    client = _make_client(drive_error, sheets=_permission_error())
+    with pytest.raises(SpreadsheetNotSharedError) as excinfo:
+        inspect_gsheet(client, URL)
+    assert excinfo.value.error_params == {"spreadsheet_name": URL, "service_account_email": EMAIL}
+    # one Sheets request to classify the Drive 404, and no metadata fetch
+    client.open_by_key.assert_called_once_with(FILE_ID)
+    client.http_client.fetch_sheet_metadata.assert_not_called()
+
+
+def test_inspect_gsheet_missing():
+    drive_error = _api_error(404, DRIVE_NOT_FOUND_BODY)
+    client = _make_client(drive_error, sheets=_spreadsheet_not_found())
+    with pytest.raises(SpreadsheetNotFoundError) as excinfo:
+        inspect_gsheet(client, URL)
+    assert excinfo.value.error_params == {"spreadsheet_name": URL}
+    client.http_client.fetch_sheet_metadata.assert_not_called()
+
+
+def test_inspect_gsheet_xlsx_is_not_native():
+    client = _make_client(_drive_body(mimetype=XLSX, name="upload.xlsx"))
+    with pytest.raises(NotNativeGoogleSheetError) as excinfo:
+        inspect_gsheet(client, URL)
+    assert excinfo.value.file_name == "upload.xlsx"
+    client.http_client.fetch_sheet_metadata.assert_not_called()
+
+
+def test_inspect_gsheet_non_404_drive_error_propagates():
+    drive_error = _api_error(403, DRIVE_QUOTA_BODY)
+    client = _make_client(drive_error)
+    with pytest.raises(gspread.exceptions.APIError) as excinfo:
+        inspect_gsheet(client, URL)
+    assert excinfo.value is drive_error
+    client.http_client.fetch_sheet_metadata.assert_not_called()
+
+
+def test_inspect_gsheet_sheets_refusal_after_drive_success_propagates():
+    """Drive allows the file but the Sheets API refuses, eg it is not enabled for the project."""
+    client = _make_client(_drive_body())
+    sheets_error = _api_error(403, SHEETS_SERVICE_DISABLED_BODY)
+    client.http_client.fetch_sheet_metadata.side_effect = sheets_error
+    with pytest.raises(gspread.exceptions.APIError) as excinfo:
+        inspect_gsheet(client, URL)
+    assert excinfo.value is sheets_error
+
+
+def test_inspect_gsheet_tolerates_fields_left_out_of_the_response():
+    """The Sheets API leaves out default-valued fields, eg an empty title."""
+    client = _make_client(_drive_body())
+    client.http_client.fetch_sheet_metadata.return_value = {"sheets": [{"properties": {}}, {}]}
+    summary = inspect_gsheet(client, URL)
+    assert summary.title == ""
+    assert summary.worksheet_titles == ("", "")
+
+
+def test_inspect_gsheet_tolerates_a_response_with_no_tabs():
+    client = _make_client(_drive_body())
+    client.http_client.fetch_sheet_metadata.return_value = {"properties": {"title": "Demo Sheet"}}
+    summary = inspect_gsheet(client, URL)
+    assert summary.title == "Demo Sheet"
+    assert summary.worksheet_titles == ()
+
+
+def test_inspect_gsheet_network_error_after_drive_success_propagates():
+    client = _make_client(_drive_body())
+    timeout = requests.exceptions.ReadTimeout("read timed out")
+    client.http_client.fetch_sheet_metadata.side_effect = timeout
+    with pytest.raises(requests.exceptions.ReadTimeout) as excinfo:
+        inspect_gsheet(client, URL)
+    assert excinfo.value is timeout
+
+
+def test_inspect_gsheet_token_refresh_error_after_drive_success_propagates():
+    client = _make_client(_drive_body())
+    refresh_error = google.auth.exceptions.RefreshError("invalid_grant")
+    client.http_client.fetch_sheet_metadata.side_effect = refresh_error
+    with pytest.raises(google.auth.exceptions.RefreshError) as excinfo:
+        inspect_gsheet(client, URL)
+    assert excinfo.value is refresh_error
+
+
+def test_gsheet_summary_equality_ignores_fetched_at():
+    summary = inspect_gsheet(_make_client(_drive_body()), URL)
+    later = replace(summary, fetched_at=summary.fetched_at + timedelta(minutes=1))
+    assert later == summary
+    assert replace(summary, can_edit=False) != summary
+
+
+def test_gsheet_summary_is_frozen():
+    summary = inspect_gsheet(_make_client(_drive_body()), URL)
+    with pytest.raises(AttributeError):
+        summary.can_edit = False  # type: ignore[misc]
+
+
+def test_inspect_gsheet_is_exported_from_package():
+    assert sortition_algorithms.inspect_gsheet is inspect_gsheet
+    assert sortition_algorithms.GSheetSummary is GSheetSummary

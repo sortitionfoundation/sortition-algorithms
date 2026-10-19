@@ -31,7 +31,7 @@ from sortition_algorithms.features import (
     report_min_max_error_details_structured,
     write_features,
 )
-from sortition_algorithms.gsheet import GSheetInfo, make_gsheet_client, open_gsheet
+from sortition_algorithms.gsheet import GSheetInfo, GSheetSummary, inspect_gsheet, make_gsheet_client, open_gsheet
 from sortition_algorithms.people import (
     FeatureValueCountCheck,
     check_people_per_feature_value,
@@ -50,6 +50,7 @@ __all__ = [
     "FeatureValueCountCheck",
     "GSheetDataSource",
     "GSheetInfo",
+    "GSheetSummary",
     "InfeasibleQuotasCantRelaxError",
     "InfeasibleQuotasError",
     "MinMaxCrossFeatureIssue",
@@ -65,6 +66,7 @@ __all__ = [
     "check_people_per_feature_value",
     "count_people_per_feature_value",
     "find_random_sample",
+    "inspect_gsheet",
     "make_gsheet_client",
     "open_gsheet",
     "read_in_features",
