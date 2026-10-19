@@ -995,6 +995,192 @@ def test_not_native_gsheet_error_mimetype_map_contents():
     assert names["text/tab-separated-values"] == "TSV file"
 
 
+def _make_gsheet_source_with_tabs(tabs: dict[str, list[list[str]]]) -> tuple[GSheetDataSource, MagicMock]:
+    """
+    A source whose spreadsheet has these tabs, with the cell data behind them.
+
+    Changing `tabs` afterwards changes the sheet, as if someone had edited it.
+    Returns the source and the fake spreadsheet, whose fetch_sheet_metadata
+    call count is the number of tab list reads.
+    """
+    source = _make_gsheet_source_with_mocked_client("application/vnd.google-apps.spreadsheet", file_name="My Sheet")
+    source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/abc123/edit")
+    spreadsheet = source._client.open_by_key.return_value
+    spreadsheet.client = MagicMock(spec=gspread.http_client.HTTPClient)
+
+    def fake_properties(title: str) -> dict[str, Any]:
+        sheet_id = list(tabs).index(title)
+        return {"sheetId": sheet_id, "title": title, "index": sheet_id, "gridProperties": {"rowCount": 100}}
+
+    def fake_metadata(params: dict[str, str] | None = None) -> dict[str, Any]:
+        return {"sheets": [{"properties": fake_properties(title)} for title in tabs]}
+
+    def fake_values_get(spreadsheet_id: str, range_name: str, params: Any = None) -> dict[str, Any]:
+        title = range_name.split("!")[0].strip("'")
+        return {"range": range_name, "majorDimension": "ROWS", "values": tabs[title]}
+
+    def fake_add_worksheet(title: str, rows: int, cols: int) -> gspread.Worksheet:
+        tabs[title] = []
+        return gspread.Worksheet(spreadsheet, fake_properties(title), spreadsheet.id, spreadsheet.client)
+
+    def fake_del_worksheet(worksheet: gspread.Worksheet) -> None:
+        del tabs[worksheet.title]
+
+    spreadsheet.fetch_sheet_metadata.side_effect = fake_metadata
+    spreadsheet.client.values_get.side_effect = fake_values_get
+    spreadsheet.add_worksheet.side_effect = fake_add_worksheet
+    spreadsheet.del_worksheet.side_effect = fake_del_worksheet
+    return source, spreadsheet
+
+
+def _input_tabs() -> dict[str, list[list[str]]]:
+    return {
+        "Categories": [["feature", "value", "min", "max"], ["gender", "female", "1", "2"]],
+        "Respondents": [["id", "name", "gender"], ["p1", "Ann", "female"]],
+        "Selected": [["id", "name", "gender", "age", "area", "phone"], ["p2", "Bea", "female", "30", "north", "123"]],
+    }
+
+
+def _read_all_input_tabs(source: GSheetDataSource) -> None:
+    with source.read_feature_data(RunReport()):
+        pass
+    with source.read_people_data(RunReport()):
+        pass
+    with source.read_already_selected_data(RunReport()):
+        pass
+
+
+def test_gsheet_reading_all_input_tabs_fetches_tab_list_once():
+    source, spreadsheet = _make_gsheet_source_with_tabs(_input_tabs())
+    source.already_selected_tab_name = "Selected"
+    source.id_column = "id"
+    with source.read_feature_data(RunReport()) as (head, body):
+        assert list(head) == ["feature", "value", "min", "max"]
+        assert list(body) == [{"feature": "gender", "value": "female", "min": "1", "max": "2"}]
+    with source.read_people_data(RunReport()) as (head, body):
+        assert list(head) == ["id", "name", "gender"]
+        assert list(body) == [{"id": "p1", "name": "Ann", "gender": "female"}]
+    with source.read_already_selected_data(RunReport()) as (head, body):
+        assert list(head) == ["id", "name", "gender", "age", "area", "phone"]
+        assert [row["id"] for row in body] == ["p2"]
+    assert spreadsheet.fetch_sheet_metadata.call_count == 1
+    spreadsheet.worksheets.assert_not_called()
+    spreadsheet.worksheet.assert_not_called()
+
+
+def test_gsheet_tab_list_fetch_asks_only_for_tab_properties():
+    source, spreadsheet = _make_gsheet_source_with_tabs(_input_tabs())
+    with source.read_feature_data(RunReport()):
+        pass
+    spreadsheet.fetch_sheet_metadata.assert_called_once_with(
+        params={"includeGridData": "false", "fields": "sheets.properties"}
+    )
+
+
+def test_gsheet_missing_tab_refetches_tab_list_once_then_raises():
+    tabs = _input_tabs()
+    del tabs["Categories"]
+    source, spreadsheet = _make_gsheet_source_with_tabs(tabs)
+    with pytest.raises(SelectionError) as excinfo, source.read_feature_data(RunReport()):
+        pass
+    assert excinfo.value.error_code == "tab_not_found"
+    assert excinfo.value.error_params == {"tab_name": "Categories", "spreadsheet_title": "My Sheet"}
+    assert "no tab called 'Categories' found in spreadsheet 'My Sheet'" in str(excinfo.value)
+    assert spreadsheet.fetch_sheet_metadata.call_count == 2
+
+
+def test_gsheet_missing_tab_is_found_after_someone_adds_it():
+    tabs = _input_tabs()
+    categories = tabs.pop("Categories")
+    source, spreadsheet = _make_gsheet_source_with_tabs(tabs)
+    with source.read_people_data(RunReport()):
+        pass
+    # someone fixes the sheet after the tab list was fetched
+    tabs["Categories"] = categories
+    with source.read_feature_data(RunReport()) as (head, _):
+        assert list(head) == ["feature", "value", "min", "max"]
+    assert spreadsheet.fetch_sheet_metadata.call_count == 2
+
+
+def test_gsheet_writing_after_fast_selection_uses_cached_tab_list():
+    source, spreadsheet = _make_gsheet_source_with_tabs(_input_tabs())
+    _read_all_input_tabs(source)
+    source.write_selected([["id"], ["p1"]], RunReport())
+    source.write_remaining([["id"], ["p3"], ["p4"]], RunReport())
+    source.highlight_dupes([1])
+    assert source.selected_tab_name == "Original Selected - output - 0"
+    assert source.remaining_tab_name == "Remaining - output - 0"
+    assert spreadsheet.fetch_sheet_metadata.call_count == 1
+
+
+def test_gsheet_writing_after_slow_selection_refetches_tab_list():
+    tabs = _input_tabs()
+    source, spreadsheet = _make_gsheet_source_with_tabs(tabs)
+    _read_all_input_tabs(source)
+    # while the selection runs, someone else writes output tabs
+    tabs["Original Selected - output - 0"] = []
+    tabs["Remaining - output - 0"] = []
+    source.tab_cache_max_age_seconds = 0
+    source.write_selected([["id"], ["p1"]], RunReport())
+    assert source.selected_tab_name == "Original Selected - output - 1"
+    assert spreadsheet.fetch_sheet_metadata.call_count == 2
+
+
+def test_gsheet_cached_tab_list_includes_tabs_we_create():
+    source, spreadsheet = _make_gsheet_source_with_tabs(_input_tabs())
+    source.write_selected([["id"], ["p1"]], RunReport())
+    source.write_remaining([["id"], ["p3"]], RunReport())
+    assert source._get_tab_titles() == [
+        "Categories",
+        "Respondents",
+        "Selected",
+        "Original Selected - output - 0",
+        "Remaining - output - 0",
+    ]
+    assert spreadsheet.fetch_sheet_metadata.call_count == 1
+
+
+def test_gsheet_delete_old_output_tabs_updates_cached_tab_list():
+    tabs = _input_tabs()
+    tabs["Original Selected - output - 0"] = []
+    tabs["Remaining - output - 0"] = []
+    source, spreadsheet = _make_gsheet_source_with_tabs(tabs)
+    deleted = source.delete_old_output_tabs()
+    assert deleted == ["Original Selected - output - 0", "Remaining - output - 0"]
+    assert source._get_tab_titles() == ["Categories", "Respondents", "Selected"]
+    assert spreadsheet.del_worksheet.call_count == 2
+    assert spreadsheet.fetch_sheet_metadata.call_count == 1
+
+
+def test_gsheet_delete_old_output_tabs_dry_run_leaves_cached_tab_list_alone():
+    tabs = _input_tabs()
+    tabs["Remaining - output - 0"] = []
+    source, spreadsheet = _make_gsheet_source_with_tabs(tabs)
+    assert source.delete_old_output_tabs(dry_run=True) == ["Remaining - output - 0"]
+    assert "Remaining - output - 0" in source._get_tab_titles()
+    spreadsheet.del_worksheet.assert_not_called()
+
+
+def test_gsheet_delete_old_output_tabs_refetches_stale_tab_list():
+    tabs = _input_tabs()
+    source, spreadsheet = _make_gsheet_source_with_tabs(tabs)
+    _read_all_input_tabs(source)
+    tabs["Remaining - output - 3"] = []
+    source.tab_cache_max_age_seconds = 0
+    assert source.delete_old_output_tabs() == ["Remaining - output - 3"]
+    assert spreadsheet.fetch_sheet_metadata.call_count == 2
+
+
+def test_gsheet_changing_sheet_name_clears_cached_tab_list():
+    source, spreadsheet = _make_gsheet_source_with_tabs(_input_tabs())
+    with source.read_feature_data(RunReport()):
+        pass
+    source.set_g_sheet_name("https://docs.google.com/spreadsheets/d/def456/edit")
+    with source.read_feature_data(RunReport()):
+        pass
+    assert spreadsheet.fetch_sheet_metadata.call_count == 2
+
+
 # Tests for GSheetDataAdapter.find_header_row()
 
 

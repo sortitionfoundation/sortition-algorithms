@@ -7,6 +7,7 @@ Initially we have CSV files locally, and Google Docs Spreadsheets.
 import abc
 import csv
 import logging
+import time
 from collections import Counter, defaultdict
 from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
@@ -544,6 +545,12 @@ class GSheetDataSource(AbstractDataSource):
         self._info: GSheetInfo | None = None
         self.new_tab_default_size_rows = 2
         self.new_tab_default_size_cols = 40
+        # the tab list is fetched once and reused, to save Sheets API reads.
+        # Once it is older than this it is fetched again before use, as people
+        # may have changed the tabs while a slow selection was running.
+        self.tab_cache_max_age_seconds: float = 60
+        self._tab_cache: dict[str, gspread.Worksheet] | None = None
+        self._tab_cache_filled_at = 0.0
         self._g_sheet_name = ""
         self._open_g_sheet_name = ""
         self.selected_tab_name = ""
@@ -577,6 +584,7 @@ class GSheetDataSource(AbstractDataSource):
         if self._open_g_sheet_name != self._g_sheet_name:
             # reset the spreadsheet if the name changed
             self._info = None
+            self._tab_cache = None
             self.tab_namer.reset()
         if self._info is None:
             if self._g_sheet_name.startswith("https://"):
@@ -607,34 +615,76 @@ class GSheetDataSource(AbstractDataSource):
         """Raise SpreadsheetReadOnlyError if the service account cannot write to the spreadsheet."""
         self.info.require_writable()
 
+    def _refresh_tab_cache(self) -> None:
+        """
+        Fetch the tab list with one Sheets read and keep a Worksheet for each tab.
+
+        This builds the Worksheets the same way Spreadsheet.worksheet() does,
+        which makes no further request, rather than calling worksheets() or
+        worksheet(name), each of which re-fetches the metadata.
+        """
+        spreadsheet = self.spreadsheet
+        metadata = spreadsheet.fetch_sheet_metadata(params={"includeGridData": "false", "fields": "sheets.properties"})
+        self._tab_cache = {
+            item["properties"]["title"]: gspread.Worksheet(
+                spreadsheet, item["properties"], spreadsheet.id, spreadsheet.client
+            )
+            for item in metadata.get("sheets", [])
+        }
+        self._tab_cache_filled_at = time.monotonic()
+
+    def _get_tab_cache(self) -> dict[str, gspread.Worksheet]:
+        cache_age = time.monotonic() - self._tab_cache_filled_at
+        if self._tab_cache is None or cache_age >= self.tab_cache_max_age_seconds:
+            self._refresh_tab_cache()
+        assert self._tab_cache is not None
+        return self._tab_cache
+
     def _get_tab(self, tab_name: str) -> gspread.Worksheet | None:
         if not self._g_sheet_name:
             return None
-        tab_list = self.spreadsheet.worksheets()
-        try:
-            return next(tab for tab in tab_list if tab.title == tab_name)
-        except StopIteration:
-            return None
+        return self._get_tab_cache().get(tab_name)
 
-    def _tab_exists(self, tab_name: str) -> bool:
-        return bool(self._get_tab(tab_name))
+    def _get_input_tab(self, tab_name: str) -> gspread.Worksheet:
+        """
+        Find a tab to read from, or raise a "tab_not_found" SelectionError.
+
+        If the tab isn't in the tab list, fetch the list again before giving up,
+        in case someone has fixed the tab name since the list was fetched.
+        """
+        tab = self._get_tab(tab_name)
+        if tab is None and self._g_sheet_name:
+            self._refresh_tab_cache()
+            tab = self._get_tab(tab_name)
+        if tab is None:
+            msg = f"Error in Google sheet: no tab called '{tab_name}' found in spreadsheet '{self.spreadsheet.title}'."
+            raise SelectionError(
+                message=msg,
+                error_code="tab_not_found",
+                error_params={"tab_name": tab_name, "spreadsheet_title": self.spreadsheet.title},
+            )
+        return tab
 
     def _get_tab_titles(self) -> list[str]:
         if not self._g_sheet_name:
             return []
-        return [tab.title for tab in self.spreadsheet.worksheets()]
+        return list(self._get_tab_cache())
 
     def _create_tab(self, tab_name: str) -> gspread.Worksheet:
-        return self.spreadsheet.add_worksheet(
+        tab = self.spreadsheet.add_worksheet(
             title=tab_name,
             rows=self.new_tab_default_size_rows,
             cols=self.new_tab_default_size_cols,
         )
+        if self._tab_cache is not None:
+            self._tab_cache[tab.title] = tab
+        return tab
 
     def set_g_sheet_name(self, g_sheet_name: str) -> None:
         # if we're changing spreadsheet, reset the spreadsheet object
         if self._g_sheet_name != g_sheet_name:
             self._info = None
+            self._tab_cache = None
             self._g_sheet_name = g_sheet_name
             self.tab_namer.reset()
 
@@ -646,17 +696,7 @@ class GSheetDataSource(AbstractDataSource):
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         self._report = report
-        if not self._tab_exists(self.feature_tab_name):
-            msg = (
-                f"Error in Google sheet: no tab called '{self.feature_tab_name}' "
-                f"found in spreadsheet '{self.spreadsheet.title}'."
-            )
-            raise SelectionError(
-                message=msg,
-                error_code="tab_not_found",
-                error_params={"tab_name": self.feature_tab_name, "spreadsheet_title": self.spreadsheet.title},
-            )
-        tab_features = self.spreadsheet.worksheet(self.feature_tab_name)
+        tab_features = self._get_input_tab(self.feature_tab_name)
         feature_head = tab_features.row_values(1)
         feature_body = _stringify_records(tab_features.get_all_records(expected_headers=[]))
         yield feature_head, feature_body
@@ -666,18 +706,7 @@ class GSheetDataSource(AbstractDataSource):
         self, report: RunReport
     ) -> Generator[tuple[Iterable[str], Iterable[dict[str, str]]], None, None]:
         self._report = report
-        if not self._tab_exists(self.people_tab_name):
-            msg = (
-                f"Error in Google sheet: no tab called '{self.people_tab_name}' "
-                f"found in spreadsheet '{self.spreadsheet.title}'."
-            )
-            raise SelectionError(
-                message=msg,
-                error_code="tab_not_found",
-                error_params={"tab_name": self.people_tab_name, "spreadsheet_title": self.spreadsheet.title},
-            )
-
-        tab_people = self.spreadsheet.worksheet(self.people_tab_name)
+        tab_people = self._get_input_tab(self.people_tab_name)
         # if we don't read this in here we can't check if there are 2 columns with the same name
         people_head = tab_people.row_values(1)
         # the numericise_ignore doesn't convert the phone numbers to ints...
@@ -764,21 +793,7 @@ class GSheetDataSource(AbstractDataSource):
             yield [], []
             return
 
-        if not self._tab_exists(self.already_selected_tab_name):
-            msg = (
-                f"Error in Google sheet: no tab called '{self.already_selected_tab_name}' "
-                f"found in spreadsheet '{self.spreadsheet.title}'."
-            )
-            raise SelectionError(
-                message=msg,
-                error_code="tab_not_found",
-                error_params={
-                    "tab_name": self.already_selected_tab_name,
-                    "spreadsheet_title": self.spreadsheet.title,
-                },
-            )
-
-        tab_already_selected = self.spreadsheet.worksheet(self.already_selected_tab_name)
+        tab_already_selected = self._get_input_tab(self.already_selected_tab_name)
 
         # Get all values from the sheet
         all_values = tab_already_selected.get(value_render_option=ValueRenderOption.unformatted, pad_values=True)
@@ -845,10 +860,10 @@ class GSheetDataSource(AbstractDataSource):
         if not self._g_sheet_name:
             return []
 
-        all_tabs = self.spreadsheet.worksheets()
+        all_tabs = self._get_tab_cache()
         tabs_to_delete: list[gspread.Worksheet] = []
 
-        for tab in all_tabs:
+        for tab in all_tabs.values():
             if self.tab_namer.matches_stubs(tab.title):
                 tabs_to_delete.append(tab)
 
@@ -857,6 +872,7 @@ class GSheetDataSource(AbstractDataSource):
             deleted_names.append(tab.title)
             if not dry_run:
                 self.spreadsheet.del_worksheet(tab)
+                del all_tabs[tab.title]
 
         return deleted_names
 

@@ -340,6 +340,21 @@ Celery failure callback.
 property, `get_title()` and the `read_*` methods raise the errors above for every
 access failure.
 
+#### How often `GSheetDataSource` reads the tab list
+
+To stay well inside the 60 reads per minute, `GSheetDataSource` fetches the
+spreadsheet's tab list once (one Sheets request) and reuses it to find the
+input tabs and to choose names for the output tabs. Tabs it creates or deletes
+itself are kept in step with the list.
+
+The list is fetched again before use once it is older than
+`data_source.tab_cache_max_age_seconds` (60 by default), because people may add
+or remove tabs while a slow selection runs. A fast selection therefore reads the
+tab list once, and a slow one twice. If an input tab is missing from the list,
+the list is fetched once more before the "tab not found" error is raised, in
+case someone has just fixed the tab name. Set `tab_cache_max_age_seconds = 0`
+to fetch the list every time it is used.
+
 ## Writing custom Data Source classes
 
 You can create custom data source classes for other data sources like Excel files, SQL databases, or APIs.
