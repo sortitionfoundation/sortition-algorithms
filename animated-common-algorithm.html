@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Animated step-by-step visualisation of common committee setup and initial search. -->
+<!-- ABOUTME: Shows how multiplicative weights discover diverse starting panels before fairness algorithms run. -->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Panel Discovery — Step-by-Step Animation</title>
+        <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f0eb;
+    --surface2: #ece5dd;
+    --border: #d9d0c7;
+    --text: #473d3d;
+    --muted: #7a6e6e;
+    --accent: #e40f7d;
+    --green: #70a311;
+    --red: #c7003a;
+    --yellow: #fda135;
+    --orange: #fe5734;
+    --north-border: #3a6adf;
+    --south-border: #d4a843;
+    --new-committee: #70a311;
+    --radius: 8px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Top bar ────────────────────────────────────────────── */
+  #top-bar {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  #top-bar-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  #header {
+    padding: 10px 20px 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  #header h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  #step-info {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  #step-label { color: var(--yellow); font-weight: 600; }
+  #coverage-display {
+    font-size: 13px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+  #coverage-value { color: var(--green); font-weight: 700; font-size: 14px; }
+
+  /* ── Controls ────────────────────────────────────────────── */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 20px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius);
+    padding: 4px 13px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font);
+    transition: background 0.12s, border-color 0.12s;
+  }
+  button:hover:not(:disabled) { background: var(--border); }
+  button:disabled { opacity: 0.35; cursor: default; }
+
+  #btn-play {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    min-width: 88px;
+  }
+  #btn-play:hover:not(:disabled) { background: #c70068; border-color: #c70068; }
+
+  #logo-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+    background: #ffffff;
+  }
+
+  #speed-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  #speed-slider {
+    width: 100px;
+    accent-color: var(--accent);
+  }
+  #progress-slider {
+    flex: 1;
+    min-width: 120px;
+    accent-color: var(--yellow);
+  }
+  #progress-label {
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  /* ── Main layout: left column + narration column ────────── */
+  #main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    padding: 12px 20px;
+    gap: 16px;
+  }
+  #left-column {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  #candidates-section {
+    flex-shrink: 0;
+  }
+
+  /* ── Candidate cards ────────────────────────────────────── */
+  #candidates-section h2 {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .region-group {
+    margin-bottom: 8px;
+  }
+  .region-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+    padding-left: 4px;
+  }
+  .region-label.north { color: var(--north-border); }
+  .region-label.south { color: var(--south-border); }
+
+  .cards-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .candidate-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 5px 7px;
+    width: 115px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  /* Green left border when covered by at least one panel */
+  .candidate-card.is-covered {
+    border-left-color: var(--green);
+  }
+  /* Green glow when in the just-found committee */
+  .candidate-card.in-found-committee {
+    box-shadow: 0 0 10px rgba(112, 163, 17, 0.4);
+    border-color: var(--green);
+  }
+  /* Yellow glow for highlighted (e.g. highest-scoring uncovered) */
+  .candidate-card.is-highlighted {
+    box-shadow: 0 0 10px rgba(253, 161, 53, 0.4);
+    border-color: var(--yellow);
+  }
+
+  .card-name {
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 1px;
+  }
+  .card-meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+
+  /* Score bar on each candidate card */
+  .card-score-bar {
+    height: 16px;
+    background: var(--surface2);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 2px;
+  }
+  .card-score-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease, background 0.3s;
+    background: var(--accent);
+  }
+  .card-score-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(71,61,61,0.15);
+  }
+
+  /* Coverage indicator below score bar */
+  .card-coverage {
+    font-size: 9px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .card-coverage.covered { color: var(--green); }
+  .card-coverage.uncovered { color: var(--muted); }
+
+  /* ── Stats panel (horizontal row of charts) ─────────────── */
+  #stats-panel {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+  }
+  #stats-panel > div {
+    flex: 1;
+    min-width: 0;
+  }
+  #stats-panel h2 {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  /* Rules table */
+  #rules-table {
+    border-collapse: collapse;
+    font-size: 12px;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  #rules-table th {
+    background: var(--surface2);
+    padding: 4px 8px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+    color: var(--muted);
+  }
+  #rules-table td {
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  #rules-table tr:last-child td { border-bottom: none; }
+
+  /* Search progress box */
+  #search-progress {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .progress-row .label { color: var(--muted); }
+  .progress-row .value { font-weight: 600; font-family: var(--mono); }
+
+  /* Panel count chart */
+  #chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    position: relative;
+    height: 130px;
+  }
+  #panel-chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Coverage bar */
+  #coverage-bar-wrap {
+    height: 18px;
+    background: var(--surface2);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  #coverage-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--green);
+    transition: width 0.5s ease;
+  }
+  #coverage-bar-text {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(71,61,61,0.15);
+  }
+
+  /* ── Committee table ────────────────────────────────────── */
+  #committee-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #committee-panel h2 {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  #committee-table-wrap {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  #committee-table {
+    border-collapse: collapse;
+    font-size: 12px;
+    width: 100%;
+  }
+  #committee-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface2);
+    padding: 3px 5px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 10px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    z-index: 1;
+  }
+  #committee-table td {
+    padding: 2px 5px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  /* Green-tinted row for newly found panel */
+  #committee-table tr.new-row {
+    background: rgba(112, 163, 17, 0.08);
+  }
+  #committee-table tr.new-row td {
+    border-bottom-color: var(--new-committee);
+  }
+  /* Yellow-tinted row for duplicate match */
+  #committee-table tr.highlight-row {
+    background: rgba(253, 161, 53, 0.12);
+  }
+  #committee-table tr.highlight-row td {
+    border-bottom-color: var(--yellow);
+  }
+  .dot-in { color: var(--green); }
+  .dot-out { color: var(--border); }
+
+  /* ── Narration panel ────────────────────────────────────── */
+  #narration-panel {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #narration-panel h2 {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  #narration-box {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  #narration-box .nar-step {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  #narration-box .nar-step:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+  .nar-heading {
+    font-weight: 700;
+    color: var(--yellow);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+  .nar-body { color: var(--text); }
+  .nar-body .highlight { color: var(--green); font-weight: 600; }
+  .nar-body .low { color: var(--red); font-weight: 600; }
+  .nar-body .name { color: var(--accent); font-weight: 600; }
+  .nar-body a { color: var(--accent); }
+        </style>
+    </head>
+    <body>
+        <div id="top-bar">
+            <div id="top-bar-left">
+                <div id="header">
+                    <a href="animated-intro.html" style="color:var(--muted);font-size:12px;text-decoration:none;margin-right:12px;white-space:nowrap" title="Back to introduction">&larr; Intro</a>
+                    <h1>Panel Discovery</h1>
+                    <div id="step-info">
+                        Step <span id="step-label">0</span> of <span id="step-total">0</span>
+                    </div>
+                    <div id="coverage-display">
+                        Coverage: <span id="coverage-value">0 / 16</span>
+                    </div>
+                </div>
+                <div id="controls">
+                    <button id="btn-start" title="Jump to start">&#x23EE;</button>
+                    <button id="btn-prev" title="Previous step">&#x25C0;</button>
+                    <button id="btn-play">&#x25B6; Play</button>
+                    <button id="btn-next" title="Next step">&#x25B6;</button>
+                    <button id="btn-end" title="Jump to end">&#x23ED;</button>
+                    <div id="speed-group">
+                        <label for="speed-slider">Speed</label>
+                        <input type="range" id="speed-slider" min="1" max="10" value="4">
+                    </div>
+                    <input type="range" id="progress-slider" min="0" max="0" value="0">
+                    <div id="progress-label">0 / 0</div>
+                </div>
+            </div>
+            <div id="logo-panel">
+                <a href="https://www.sortitionfoundation.org/"><img src="logosortition.svg" alt="Sortition Foundation" width="256" height="86"></a>
+            </div>
+        </div>
+        <div id="main">
+            <div id="left-column">
+                <div id="candidates-section">
+                    <h2>Candidates &mdash; search scores &amp; coverage</h2>
+                    <div class="region-group">
+                        <div class="cards-row" id="all-cards"></div>
+                    </div>
+                </div>
+                <div id="stats-panel">
+                    <div>
+                        <h2>Selection Rules</h2>
+                        <table id="rules-table">
+                            <thead>
+                                <tr><th>Feature</th><th>Value</th><th>Required</th></tr>
+                            </thead>
+                            <tbody id="rules-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <h2>Panels per person &mdash; low &rarr; high</h2>
+                        <div id="chart-wrap">
+                            <canvas id="panel-chart"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <h2>Search Progress</h2>
+                        <div id="search-progress">
+                            <div class="progress-row">
+                                <span class="label">Round</span>
+                                <span class="value" id="round-value">-</span>
+                            </div>
+                            <div class="progress-row">
+                                <span class="label">Panels found</span>
+                                <span class="value" id="panels-value">0</span>
+                            </div>
+                            <div class="progress-row">
+                                <span class="label">Coverage</span>
+                                <span class="value" id="coverage-pct-value">0%</span>
+                            </div>
+                            <div id="coverage-bar-wrap">
+                                <div id="coverage-bar-fill" style="width: 0%"></div>
+                                <div id="coverage-bar-text">0 / 16</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="committee-panel">
+                    <h2>Panels Found So Far</h2>
+                    <div id="committee-table-wrap">
+                        <table id="committee-table">
+                            <thead id="committee-thead"></thead>
+                            <tbody id="committee-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div id="narration-panel">
+                <h2>What's happening</h2>
+                <div id="narration-box"></div>
+            </div>
+        </div>
+        <script>
+// ─────────────────────────────────────────────────────────────
+// Data: 16 candidates, select 8
+//
+// Three features, all with tight quotas:
+//   Gender:  Male exactly 4, Female exactly 4
+//   Region:  North min=3 max=5, South min=3 max=5
+//   Age:     Young exactly 4, Senior exactly 4
+//
+// Pool is skewed:
+//   North: 11 candidates,  South: 5 candidates
+//   Senior: 10 candidates, Young: 6 candidates
+//
+// The crunch: being a Young Southerner is rare (only 2 exist),
+// while Senior Northerners are abundant (7 exist). The search
+// must find a diverse mix of panels that includes everyone.
+// ─────────────────────────────────────────────────────────────
+
+const CANDIDATES = [
+  // North Senior Males (4) — abundant group
+  { id: "adam",    name: "Adam",    gender: "M", region: "North", age: "Senior" },
+  { id: "ben",     name: "Ben",     gender: "M", region: "North", age: "Senior" },
+  { id: "chen",    name: "Chen",    gender: "M", region: "North", age: "Senior" },
+  { id: "dmitri",  name: "Dmitri",  gender: "M", region: "North", age: "Senior" },
+  // North Senior Females (3)
+  { id: "elena",   name: "Elena",   gender: "F", region: "North", age: "Senior" },
+  { id: "fatima",  name: "Fatima",  gender: "F", region: "North", age: "Senior" },
+  { id: "grace",   name: "Grace",   gender: "F", region: "North", age: "Senior" },
+  // North Young Males (2)
+  { id: "hassan",  name: "Hassan",  gender: "M", region: "North", age: "Young" },
+  { id: "ivan",    name: "Ivan",    gender: "M", region: "North", age: "Young" },
+  // North Young Females (2)
+  { id: "jun",     name: "Jun",     gender: "F", region: "North", age: "Young" },
+  { id: "keiko",   name: "Keiko",   gender: "F", region: "North", age: "Young" },
+  // South Senior Males (1) — scarce
+  { id: "leo",     name: "Leo",     gender: "M", region: "South", age: "Senior" },
+  // South Senior Females (2)
+  { id: "mia",     name: "Mia",     gender: "F", region: "South", age: "Senior" },
+  { id: "nadia",   name: "Nadia",   gender: "F", region: "South", age: "Senior" },
+  // South Young Male (1) — very scarce
+  { id: "omar",    name: "Omar",    gender: "M", region: "South", age: "Young" },
+  // South Young Female (1) — very scarce
+  { id: "priya",   name: "Priya",   gender: "F", region: "South", age: "Young" },
+];
+
+const SELECT_COUNT = 8;
+
+// Feature constraints: [featureName, valueName, min, max]
+const CONSTRAINTS = [
+  ["Gender",  "M",       4, 4],
+  ["Gender",  "F",       4, 4],
+  ["Region",  "North",   3, 5],
+  ["Region",  "South",   3, 5],
+  ["Age",     "Young",   4, 4],
+  ["Age",     "Senior",  4, 4],
+];
+
+const CANDIDATE_IDS = CANDIDATES.map(c => c.id);
+const ID_TO_IDX = {};
+CANDIDATES.forEach((c, i) => { ID_TO_IDX[c.id] = i; });
+
+// ─────────────────────────────────────────────────────────────
+// Check if a committee satisfies all constraints
+// ─────────────────────────────────────────────────────────────
+
+function isFeasible(committee) {
+  if (committee.length !== SELECT_COUNT) return false;
+  for (const [feature, value, min, max] of CONSTRAINTS) {
+    let count = 0;
+    for (const id of committee) {
+      const c = CANDIDATES[ID_TO_IDX[id]];
+      if (c[feature.toLowerCase()] === value) count++;
+    }
+    if (count < min || count > max) return false;
+  }
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enumerate all feasible committees
+// We enumerate by choosing 4 males then 4 females, then filter
+// ─────────────────────────────────────────────────────────────
+
+function combinations(arr, k) {
+  if (k === 0) return [[]];
+  if (arr.length < k) return [];
+  const result = [];
+  for (let i = 0; i <= arr.length - k; i++) {
+    const rest = combinations(arr.slice(i + 1), k - 1);
+    for (const combo of rest) {
+      result.push([arr[i], ...combo]);
+    }
+  }
+  return result;
+}
+
+function enumerateFeasibleCommittees() {
+  const males = CANDIDATES.filter(c => c.gender === "M").map(c => c.id);
+  const females = CANDIDATES.filter(c => c.gender === "F").map(c => c.id);
+
+  const maleCombos = combinations(males, 4);
+  const femaleCombos = combinations(females, 4);
+
+  const feasible = [];
+  for (const mc of maleCombos) {
+    for (const fc of femaleCombos) {
+      const committee = [...mc, ...fc];
+      if (isFeasible(committee)) {
+        feasible.push(new Set(committee));
+      }
+    }
+  }
+  return feasible;
+}
+
+const ALL_COMMITTEES = enumerateFeasibleCommittees();
+
+// ─────────────────────────────────────────────────────────────
+// Seeded PRNG (mulberry32)
+// ─────────────────────────────────────────────────────────────
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+function committeeKey(c) { return [...c].sort().join(","); }
+
+function candidateTag(id) {
+  const c = CANDIDATES[ID_TO_IDX[id]];
+  return `<span class="name">${c.name}</span>`;
+}
+
+function listNames(ids) {
+  return ids.map(id => candidateTag(id)).join(", ");
+}
+
+// Format a score to 2 decimal places
+function fmtScore(v) { return v.toFixed(2); }
+
+// ─────────────────────────────────────────────────────────────
+// Multiplicative weights search
+//
+// The idea: every person gets a "score". We repeatedly find the
+// valid panel whose total score is highest. After finding a
+// panel, we lower the scores of its members so the next search
+// naturally looks for different people. This builds a diverse
+// collection of panels covering all candidates.
+// ─────────────────────────────────────────────────────────────
+
+function runMultiplicativeWeightsSearch() {
+  const snapshots = [];
+  const rng = mulberry32(42);
+
+  // State tracked across rounds
+  const foundPanels = [];           // Array of Set objects
+  const foundKeys = new Set();      // De-duplicate panels
+  const coveredSet = new Set();     // People in at least one panel
+  const coverageCounts = {};        // How many panels each person appears in
+  CANDIDATE_IDS.forEach(id => { coverageCounts[id] = 0; });
+
+  // Initialise scores: all equal at 1.0
+  const scores = {};
+  CANDIDATE_IDS.forEach(id => {
+    scores[id] = 1.0;
+  });
+
+  // Find the panel with the highest total score
+  function findBestPanel() {
+    let bestValue = -Infinity;
+    let bestCommittee = null;
+    for (const committee of ALL_COMMITTEES) {
+      let value = 0;
+      for (const id of committee) value += scores[id];
+      if (value > bestValue) {
+        bestValue = value;
+        bestCommittee = committee;
+      }
+    }
+    return { committee: bestCommittee, value: bestValue };
+  }
+
+  // Rescale scores so they sum to 16 (average = 1.0)
+  function rescaleScores() {
+    let total = 0;
+    for (const id of CANDIDATE_IDS) total += scores[id];
+    const factor = CANDIDATE_IDS.length / total;
+    for (const id of CANDIDATE_IDS) scores[id] *= factor;
+  }
+
+  // Create a snapshot of the current state
+  function makeSnapshot(narration, opts = {}) {
+    return {
+      scores: { ...scores },
+      foundPanels: foundPanels.map(c => new Set(c)),
+      coveredSet: new Set(coveredSet),
+      coverageCounts: { ...coverageCounts },
+      newPanelIdx: opts.newPanelIdx != null ? opts.newPanelIdx : -1,
+      duplicatePanelIdx: opts.duplicatePanelIdx != null ? opts.duplicatePanelIdx : -1,
+      inFoundCommittee: opts.inFoundCommittee || new Set(),
+      highlightIds: opts.highlightIds || new Set(),
+      round: opts.round || 0,
+      narration,
+    };
+  }
+
+  // Total possible committees
+  const totalCombinations = 12870; // C(16,8)
+
+  // ── Step 0: Meet the candidates ──
+  snapshots.push(makeSnapshot({
+    heading: "Meet the candidates",
+    body: `We have <span class="highlight">16 candidates</span> and need to select a panel of <span class="highlight">8</span>. ` +
+      `But the pool is uneven: 11 live in the North vs only 5 in the South, and 10 are Senior vs 6 Young. ` +
+      `That means some combinations of traits are common (Senior Northern Males — 4 of them) ` +
+      `while others are very rare (Young Southern Male — just Omar, or Young Southern Female — just Priya).<br><br>` +
+      `Before we can run any fairness algorithm, we need to find a good <em>starting collection</em> of valid panels ` +
+      `that includes every person at least once.`
+  }));
+
+  // ── Step 1: The rules ──
+  snapshots.push(makeSnapshot({
+    heading: "The rules",
+    body: `Every valid panel must follow these rules:<br>` +
+      `&bull; <b>Gender:</b> Exactly 4 men and 4 women<br>` +
+      `&bull; <b>Region:</b> Between 3 and 5 from each region<br>` +
+      `&bull; <b>Age:</b> Exactly 4 Young and 4 Senior<br><br>` +
+      `These rules ensure the panel reflects the diversity of the candidate pool. ` +
+      `Any group of 8 that breaks a rule is thrown out.`
+  }));
+
+  // ── Step 2: Checking feasibility ──
+  snapshots.push(makeSnapshot({
+    heading: "Checking feasibility",
+    body: `The computer checked all ${totalCombinations.toLocaleString()} possible groups of 8 from our 16 candidates. ` +
+      `Of those, <span class="highlight">${ALL_COMMITTEES.length}</span> meet every rule. ` +
+      `That's our universe of valid panels.<br><br>` +
+      `Now we need to pick a <em>diverse subset</em> of these ${ALL_COMMITTEES.length} panels — ` +
+      `enough variety that every person appears in at least one.`
+  }));
+
+  // ── Step 3: The scoring system ──
+  snapshots.push(makeSnapshot({
+    heading: "The scoring system",
+    body: `Here's how the search works. Every person gets a <b>score</b> (shown on the cards above). ` +
+      `Right now they're all exactly 1.00.<br><br>` +
+      `Each round, we find the valid panel whose members have the <b>highest total score</b>. ` +
+      `Then we <em>lower</em> those members' scores by 20%, so next time the search naturally favours ` +
+      `different people. This simple trick builds variety into the collection.<br><br>` +
+      `Scores are also rescaled after each round so they always average 1.0.`
+  }, { round: 0 }));
+
+  // ── Rounds 1–16: multiplicative weights ──
+  const NUM_ROUNDS = 16;
+  for (let round = 1; round <= NUM_ROUNDS; round++) {
+    const { committee: bestPanel } = findBestPanel();
+    const key = committeeKey(bestPanel);
+    const isDuplicate = foundKeys.has(key);
+
+    if (isDuplicate) {
+      // Duplicate: nudge all scores toward equal
+      for (const id of CANDIDATE_IDS) {
+        scores[id] = 0.9 * scores[id] + 0.1;
+      }
+      rescaleScores();
+
+      // Find which existing panel this duplicates
+      let dupIdx = -1;
+      for (let i = 0; i < foundPanels.length; i++) {
+        if (committeeKey(foundPanels[i]) === key) { dupIdx = i; break; }
+      }
+
+      snapshots.push(makeSnapshot({
+        heading: `Round ${round} — duplicate`,
+        body: `The best-scoring panel is one we already found (panel #${dupIdx + 1}). ` +
+          `Scores get nudged toward equal to encourage variety.`
+      }, { round, duplicatePanelIdx: dupIdx }));
+    } else {
+      // New panel found
+      foundKeys.add(key);
+      foundPanels.push(new Set(bestPanel));
+      const newIdx = foundPanels.length - 1;
+
+      // Track coverage BEFORE updating
+      const newlyCovered = [];
+      for (const id of bestPanel) {
+        if (!coveredSet.has(id)) newlyCovered.push(id);
+        coveredSet.add(id);
+        coverageCounts[id]++;
+      }
+
+      // Lower scores of members by 20%
+      for (const id of bestPanel) {
+        scores[id] *= 0.8;
+      }
+      rescaleScores();
+
+      // Build narration based on the round number
+      const memberIds = [...bestPanel].sort((a, b) => ID_TO_IDX[a] - ID_TO_IDX[b]);
+      let body = "";
+
+      if (round === 1) {
+        // Detailed narration for the first round
+        body = `Everyone's scores are equal, so the first search picks any valid panel. ` +
+          `Found: {${listNames(memberIds)}}.<br><br>` +
+          `These ${memberIds.length} people are now <span class="highlight">covered</span> — ` +
+          `they appear in at least one panel. ` +
+          `Their scores drop by 20% so the next search favours the remaining ` +
+          `${CANDIDATE_IDS.length - coveredSet.size} uncovered people.`;
+      } else if (round === 2) {
+        // Round 2: point out who is still uncovered and has the highest score
+        const uncoveredIds = CANDIDATE_IDS.filter(id => !coveredSet.has(id));
+        const maxUncoveredScore = Math.max(...uncoveredIds.map(id => scores[id]));
+        const highestUncovered = uncoveredIds.filter(id => Math.abs(scores[id] - maxUncoveredScore) < 0.001);
+        body = `Panel #${foundPanels.length} found: {${listNames(memberIds)}}.`;
+        if (newlyCovered.length > 0) {
+          body += `<br>Newly covered: ${listNames(newlyCovered)}.`;
+        }
+        body += `<br><span class="highlight">${coveredSet.size}</span> of ${CANDIDATE_IDS.length} people now covered.`;
+        if (uncoveredIds.length > 0) {
+          body += `<br><br>Still uncovered: ${listNames(uncoveredIds)}. ` +
+            `Since they haven't been in any panel yet, their scores haven't been reduced — ` +
+            `they have the highest scores (${fmtScore(maxUncoveredScore)}), highlighted in yellow above. ` +
+            `The next search will strongly favour them.`;
+        }
+      } else if (round === 3) {
+        // Round 3: point out that previously uncovered people were picked up
+        body = `Panel #${foundPanels.length} found: {${listNames(memberIds)}}.`;
+        if (newlyCovered.length > 0) {
+          body += `<br>Newly covered: ${listNames(newlyCovered)}.`;
+        }
+        body += `<br><span class="highlight">${coveredSet.size}</span> of ${CANDIDATE_IDS.length} people now covered.`;
+        if (coveredSet.size === CANDIDATE_IDS.length) {
+          body += `<br><br>Everyone is now covered! The previously uncovered people were selected this round ` +
+            `and their scores have now come down.`;
+        }
+      } else {
+        // Concise for rounds 4+
+        body = `Panel #${foundPanels.length} found.`;
+        if (newlyCovered.length > 0) {
+          body += ` Newly covered: ${listNames(newlyCovered)}.`;
+        }
+        body += ` <span class="highlight">${coveredSet.size}</span> of ${CANDIDATE_IDS.length} covered.`;
+      }
+
+      // For round 2, highlight the still-uncovered candidates (highest scores)
+      const stillUncovered = (round === 2)
+        ? new Set(CANDIDATE_IDS.filter(id => !coveredSet.has(id)))
+        : new Set();
+
+      snapshots.push(makeSnapshot({
+        heading: `Round ${round}`,
+        body
+      }, { round, newPanelIdx: newIdx, inFoundCommittee: new Set(bestPanel), highlightIds: stillUncovered }));
+    }
+  }
+
+  // ── Search results step: summarise what the scoring rounds produced ──
+  {
+    // Find min and max coverage counts
+    const counts = Object.values(coverageCounts).filter(v => v > 0);
+    const minCount = Math.min(...Object.values(coverageCounts));
+    const maxCount = Math.max(...Object.values(coverageCounts));
+
+    // Identify who has the most panels (rare trait combinations)
+    const mostInPanels = CANDIDATE_IDS.filter(id => coverageCounts[id] === maxCount);
+    const leastInPanels = CANDIDATE_IDS.filter(id => coverageCounts[id] === minCount);
+
+    let body = `After ${NUM_ROUNDS} rounds of scoring, we found <span class="highlight">${foundPanels.length}</span> ` +
+      `distinct valid panels, and all <span class="highlight">${CANDIDATE_IDS.length}</span> people are covered.<br><br>`;
+
+    body += `Look at the cards above — everyone appears in at least <span class="highlight">${minCount} panels</span>. ` +
+      `But the spread is uneven:<br><br>`;
+
+    body += `${listNames(mostInPanels)} appear in <span class="highlight">${maxCount} panels each</span>. ` +
+      `As Young Southerners, they're so rare that almost every valid panel needs them, ` +
+      `despite their scores being under 0.50.<br><br>`;
+
+    body += `Meanwhile ${listNames(leastInPanels)} each appear in only <span class="highlight">${minCount} panels</span>. ` +
+      `As Senior Northerners — the most common group — the algorithm has plenty of substitutes ` +
+      `and doesn't need to pick them as often.`;
+
+    snapshots.push(makeSnapshot({
+      heading: "Search results",
+      body
+    }, { round: NUM_ROUNDS }));
+  }
+
+  // ── Coverage fix steps (only needed when some people are still uncovered) ──
+  const uncoveredAfterSearch = CANDIDATE_IDS.filter(id => !coveredSet.has(id));
+  if (uncoveredAfterSearch.length > 0) {
+    snapshots.push(makeSnapshot({
+      heading: "Coverage check",
+      body: `After ${NUM_ROUNDS} rounds, <span class="highlight">${coveredSet.size}</span> of ` +
+        `${CANDIDATE_IDS.length} people are covered. ` +
+        `Still missing: ${listNames(uncoveredAfterSearch)}.<br><br>` +
+        `We'll fix that now by finding panels that include the missing people.`
+    }, { round: NUM_ROUNDS }));
+
+    // ── Coverage fix steps ──
+    for (const uncoveredId of uncoveredAfterSearch) {
+      // Find a committee containing this person, preferring ones not already found
+      let bestPanel = null;
+      let bestIsNew = false;
+      for (const committee of ALL_COMMITTEES) {
+        if (!committee.has(uncoveredId)) continue;
+        const key = committeeKey(committee);
+        const isNew = !foundKeys.has(key);
+        if (!bestPanel || (isNew && !bestIsNew)) {
+          bestPanel = committee;
+          bestIsNew = isNew;
+          if (isNew) break; // Prefer new panels, take the first one
+        }
+      }
+
+      if (bestPanel) {
+        const key = committeeKey(bestPanel);
+        if (!foundKeys.has(key)) {
+          foundKeys.add(key);
+          foundPanels.push(new Set(bestPanel));
+        }
+        const newlyCovered = [];
+        for (const id of bestPanel) {
+          if (!coveredSet.has(id)) newlyCovered.push(id);
+          coveredSet.add(id);
+          coverageCounts[id]++;
+        }
+
+        const memberIds = [...bestPanel].sort((a, b) => ID_TO_IDX[a] - ID_TO_IDX[b]);
+        snapshots.push(makeSnapshot({
+          heading: `Covering ${CANDIDATES[ID_TO_IDX[uncoveredId]].name}`,
+          body: `Added a panel including ${candidateTag(uncoveredId)}: ` +
+            `{${listNames(memberIds)}}.<br>` +
+            `Newly covered: ${listNames(newlyCovered)}. ` +
+            `<span class="highlight">${coveredSet.size}</span> of ${CANDIDATE_IDS.length} covered.`
+        }, {
+          round: NUM_ROUNDS,
+          newPanelIdx: foundPanels.length - 1,
+          inFoundCommittee: new Set(bestPanel)
+        }));
+      }
+    }
+  }
+
+  // ── Summary step ──
+  snapshots.push(makeSnapshot({
+    heading: "Ready for the fairness algorithm",
+    body: `We've built a diverse collection of <span class="highlight">${foundPanels.length}</span> ` +
+      `valid panels, with every candidate in at least one.<br><br>` +
+      `This starting set is now ready for the fairness algorithm, which will assign probabilities ` +
+      `to each panel to make the selection as fair as possible.<br><br>` +
+      `<a href="animated-maximin-algorithm.html">See the maximin fairness algorithm in action &rarr;</a>`
+  }, { round: NUM_ROUNDS }));
+
+  return snapshots;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Run the search and capture all snapshots
+// ─────────────────────────────────────────────────────────────
+
+const SNAPSHOTS = runMultiplicativeWeightsSearch();
+
+// ─────────────────────────────────────────────────────────────
+// Rendering: build candidate cards
+// ─────────────────────────────────────────────────────────────
+
+function buildCandidateCards() {
+  const allCards = document.getElementById("all-cards");
+
+  for (const c of CANDIDATES) {
+    const card = document.createElement("div");
+    card.className = "candidate-card";
+    card.id = `card-${c.id}`;
+    const genderIcon = c.gender === "M" ? "\u2642" : "\u2640";
+    card.innerHTML = `
+      <div class="card-name">${c.name}</div>
+      <div class="card-meta">${genderIcon} · ${c.region} · ${c.age}</div>
+      <div class="card-score-bar">
+        <div class="card-score-fill" id="fill-${c.id}" style="width: 0%"></div>
+        <div class="card-score-text" id="score-${c.id}">&mdash;</div>
+      </div>
+      <div class="card-coverage" id="cov-${c.id}"></div>
+    `;
+    allCards.appendChild(card);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Rendering: build rules table
+// ─────────────────────────────────────────────────────────────
+
+function buildRulesTable() {
+  const tbody = document.getElementById("rules-tbody");
+  const ruleDescriptions = [
+    ["Gender", "Male", "exactly 4"],
+    ["Gender", "Female", "exactly 4"],
+    ["Region", "North", "3 to 5"],
+    ["Region", "South", "3 to 5"],
+    ["Age", "Young", "exactly 4"],
+    ["Age", "Senior", "exactly 4"],
+  ];
+  let html = "";
+  for (const [feat, val, req] of ruleDescriptions) {
+    html += `<tr><td>${feat}</td><td>${val}</td><td>${req}</td></tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Rendering: build committee table header (no Prob column)
+// ─────────────────────────────────────────────────────────────
+
+function buildCommitteeTableHeader() {
+  const thead = document.getElementById("committee-thead");
+  let html = '<tr><th style="color: var(--muted)">#</th>';
+  for (const c of CANDIDATES) {
+    const label = c.name.length <= 4 ? c.name : c.name.slice(0, 3);
+    html += `<th title="${c.name} (${c.gender}, ${c.age}, ${c.region})">${label}</th>`;
+  }
+  html += "</tr>";
+  thead.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Rendering: bar chart — panels per person, sorted low → high
+// ─────────────────────────────────────────────────────────────
+
+function renderChart(snap) {
+  const canvas = document.getElementById("panel-chart");
+  const wrap = document.getElementById("chart-wrap");
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  const margin = { top: 18, right: 10, bottom: 36, left: 28 };
+  const cw = w - margin.left - margin.right;
+  const ch = h - margin.top - margin.bottom;
+
+  // Sort people by panel count (low to high), then by name for ties
+  const sorted = [...CANDIDATE_IDS]
+    .map(id => ({ id, count: snap.coverageCounts[id] || 0 }))
+    .sort((a, b) => a.count - b.count || ID_TO_IDX[a.id] - ID_TO_IDX[b.id]);
+
+  const xCount = sorted.length;
+  const yMax = Math.max(1, ...sorted.map(s => s.count));
+
+  // Bar geometry
+  const barGap = 2;
+  const barWidth = Math.max(4, (cw - barGap * (xCount - 1)) / xCount);
+  const totalBarWidth = barWidth + barGap;
+
+  function xPos(i) { return margin.left + i * totalBarWidth; }
+  function yPos(v) { return margin.top + ch - (v / yMax) * ch; }
+
+  const monoFont = "'Cascadia Code', 'Fira Code', Consolas, monospace";
+  const sansFont = "'Segoe UI', system-ui, -apple-system, sans-serif";
+
+  // ── Grid lines and Y-axis labels ──
+  ctx.strokeStyle = "#d9d0c7";
+  ctx.lineWidth = 0.5;
+  ctx.font = "9px " + monoFont;
+  ctx.fillStyle = "#7a6e6e";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  const yStep = yMax <= 4 ? 1 : yMax <= 10 ? 2 : 5;
+  for (let v = 0; v <= yMax; v += yStep) {
+    const y = yPos(v);
+    ctx.beginPath();
+    ctx.moveTo(margin.left - 2, y);
+    ctx.lineTo(w - margin.right, y);
+    ctx.stroke();
+    ctx.fillText(String(v), margin.left - 5, y);
+  }
+
+  // ── X-axis labels (names, rotated) ──
+  ctx.save();
+  ctx.fillStyle = "#7a6e6e";
+  ctx.font = "8px " + sansFont;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < xCount; i++) {
+    const x = xPos(i) + barWidth / 2;
+    const name = CANDIDATES[ID_TO_IDX[sorted[i].id]].name;
+    ctx.save();
+    ctx.translate(x, margin.top + ch + 4);
+    ctx.rotate(-Math.PI / 4);
+    ctx.fillText(name, 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Nothing to draw if all counts are zero
+  if (sorted.every(s => s.count === 0)) return;
+
+  // ── Bars ──
+  for (let i = 0; i < xCount; i++) {
+    const x = xPos(i);
+    const count = sorted[i].count;
+    const barH = (count / yMax) * ch;
+    const y = margin.top + ch - barH;
+
+    // Colour: green for covered, dimmed for uncovered
+    ctx.fillStyle = count > 0 ? "#e40f7d" : "#d9d0c7";
+    ctx.fillRect(x, y, barWidth, barH);
+
+    // Count label above bar (only if tall enough)
+    if (count > 0) {
+      ctx.fillStyle = "#473d3d";
+      ctx.font = "bold 8px " + monoFont;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(String(count), x + barWidth / 2, y - 2);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Rendering: render a single step
+// ─────────────────────────────────────────────────────────────
+
+function renderStep(stepIdx) {
+  const snap = SNAPSHOTS[stepIdx];
+  if (!snap) return;
+
+  // Header
+  document.getElementById("step-label").textContent = stepIdx;
+  document.getElementById("step-total").textContent = SNAPSHOTS.length - 1;
+
+  const covCount = snap.coveredSet.size;
+  const covEl = document.getElementById("coverage-value");
+  covEl.textContent = `${covCount} / ${CANDIDATE_IDS.length}`;
+
+  // Controls
+  const slider = document.getElementById("progress-slider");
+  slider.max = SNAPSHOTS.length - 1;
+  slider.value = stepIdx;
+  document.getElementById("progress-label").textContent =
+    `${stepIdx} / ${SNAPSHOTS.length - 1}`;
+
+  // Candidate cards: scores, coverage, highlights
+  for (const c of CANDIDATES) {
+    const card = document.getElementById(`card-${c.id}`);
+    const fill = document.getElementById(`fill-${c.id}`);
+    const scoreText = document.getElementById(`score-${c.id}`);
+    const covText = document.getElementById(`cov-${c.id}`);
+
+    const score = snap.scores[c.id];
+    const isCovered = snap.coveredSet.has(c.id);
+    const panelCount = snap.coverageCounts[c.id];
+    const inFound = snap.inFoundCommittee && snap.inFoundCommittee.has(c.id);
+
+    // Score bar and text only shown from step 3 onwards (when scores are introduced)
+    if (stepIdx >= 3 && score != null) {
+      const fillPct = Math.max(0, Math.min(100, (score - 0.2) / 1.6 * 100));
+      fill.style.width = `${fillPct}%`;
+      scoreText.textContent = fmtScore(score);
+    } else {
+      fill.style.width = "0%";
+      scoreText.textContent = "\u2014";
+    }
+
+    // Coverage indicator
+    if (isCovered) {
+      covText.textContent = `\u2713 In ${panelCount} panel${panelCount !== 1 ? "s" : ""}`;
+      covText.className = "card-coverage covered";
+    } else if (stepIdx >= 3) {
+      covText.textContent = "not yet";
+      covText.className = "card-coverage uncovered";
+    } else {
+      covText.textContent = "";
+      covText.className = "card-coverage";
+    }
+
+    // Card styling: green border when covered, glow when in found panel, yellow when highlighted
+    const isHighlighted = snap.highlightIds && snap.highlightIds.has(c.id);
+    card.classList.toggle("is-covered", isCovered);
+    card.classList.toggle("in-found-committee", !!inFound);
+    card.classList.toggle("is-highlighted", !!isHighlighted);
+  }
+
+  // Stats panel: search progress
+  document.getElementById("round-value").textContent =
+    snap.round > 0 ? snap.round : "\u2014";
+  document.getElementById("panels-value").textContent = snap.foundPanels.length;
+  const covPct = Math.round((covCount / CANDIDATE_IDS.length) * 100);
+  document.getElementById("coverage-pct-value").textContent = `${covPct}%`;
+  document.getElementById("coverage-bar-fill").style.width = `${covPct}%`;
+  document.getElementById("coverage-bar-text").textContent =
+    `${covCount} / ${CANDIDATE_IDS.length}`;
+
+  // Committee table
+  const tbody = document.getElementById("committee-tbody");
+  let tableHtml = "";
+  for (let j = 0; j < snap.foundPanels.length; j++) {
+    const panel = snap.foundPanels[j];
+    const isNew = (j === snap.newPanelIdx);
+    const isDup = (j === snap.duplicatePanelIdx);
+
+    let rowCls = "";
+    if (isNew) rowCls = "new-row";
+    else if (isDup) rowCls = "highlight-row";
+
+    tableHtml += `<tr class="${rowCls}">`;
+    tableHtml += `<td style="color: var(--muted)">${j + 1}</td>`;
+    for (let ci = 0; ci < CANDIDATES.length; ci++) {
+      const c = CANDIDATES[ci];
+      if (panel.has(c.id)) {
+        tableHtml += `<td class="dot-in">\u25CF</td>`;
+      } else {
+        tableHtml += `<td class="dot-out">\u00B7</td>`;
+      }
+    }
+    tableHtml += `</tr>`;
+  }
+  tbody.innerHTML = tableHtml;
+
+  // Scroll to the most interesting row
+  const scrollToIdx = snap.newPanelIdx >= 0 ? snap.newPanelIdx :
+                      snap.duplicatePanelIdx >= 0 ? snap.duplicatePanelIdx : -1;
+  if (scrollToIdx >= 0) {
+    const rows = tbody.querySelectorAll("tr");
+    if (rows[scrollToIdx]) {
+      rows[scrollToIdx].scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }
+
+  // Narration: accumulate all narrations up to current step
+  const narBox = document.getElementById("narration-box");
+  let narHtml = "";
+  for (let i = 0; i <= stepIdx; i++) {
+    const s = SNAPSHOTS[i];
+    if (s.narration) {
+      narHtml += `<div class="nar-step">`;
+      narHtml += `<div class="nar-heading">${s.narration.heading}</div>`;
+      narHtml += `<div class="nar-body">${s.narration.body}</div>`;
+      narHtml += `</div>`;
+    }
+  }
+  narBox.innerHTML = narHtml;
+  const lastStep = narBox.querySelector(".nar-step:last-child");
+  if (lastStep) lastStep.scrollIntoView({ block: "start" });
+
+  // Panel count chart
+  renderChart(snap);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Animation controls
+// ─────────────────────────────────────────────────────────────
+
+let currentStep = 0;
+let playing = false;
+let playTimer = null;
+
+function getDelay() {
+  const speed = parseInt(document.getElementById("speed-slider").value);
+  return 3200 - speed * 300;
+}
+
+function stopPlaying() {
+  playing = false;
+  clearTimeout(playTimer);
+  document.getElementById("btn-play").textContent = "\u25B6 Play";
+}
+
+function startPlaying() {
+  playing = true;
+  document.getElementById("btn-play").textContent = "\u23F8 Pause";
+  tick();
+}
+
+function tick() {
+  if (!playing) return;
+  if (currentStep >= SNAPSHOTS.length - 1) { stopPlaying(); return; }
+  currentStep++;
+  renderStep(currentStep);
+  playTimer = setTimeout(tick, getDelay());
+}
+
+document.getElementById("btn-play").addEventListener("click", () => {
+  if (playing) { stopPlaying(); }
+  else {
+    if (currentStep >= SNAPSHOTS.length - 1) currentStep = 0;
+    startPlaying();
+  }
+});
+
+document.getElementById("btn-prev").addEventListener("click", () => {
+  stopPlaying();
+  if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+});
+
+document.getElementById("btn-next").addEventListener("click", () => {
+  stopPlaying();
+  if (currentStep < SNAPSHOTS.length - 1) { currentStep++; renderStep(currentStep); }
+});
+
+document.getElementById("btn-start").addEventListener("click", () => {
+  stopPlaying(); currentStep = 0; renderStep(0);
+});
+
+document.getElementById("btn-end").addEventListener("click", () => {
+  stopPlaying(); currentStep = SNAPSHOTS.length - 1; renderStep(currentStep);
+});
+
+document.getElementById("progress-slider").addEventListener("input", (e) => {
+  stopPlaying(); currentStep = parseInt(e.target.value); renderStep(currentStep);
+});
+
+document.getElementById("speed-slider").addEventListener("input", () => {
+  if (playing) { clearTimeout(playTimer); playTimer = setTimeout(tick, getDelay()); }
+});
+
+// Keyboard shortcuts
+document.addEventListener("keydown", (e) => {
+  if (e.key === " " || e.key === "k") {
+    e.preventDefault();
+    document.getElementById("btn-play").click();
+  } else if (e.key === "ArrowLeft" || e.key === "j") {
+    e.preventDefault();
+    document.getElementById("btn-prev").click();
+  } else if (e.key === "ArrowRight" || e.key === "l") {
+    e.preventDefault();
+    document.getElementById("btn-next").click();
+  } else if (e.key === "Home") {
+    e.preventDefault();
+    document.getElementById("btn-start").click();
+  } else if (e.key === "End") {
+    e.preventDefault();
+    document.getElementById("btn-end").click();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Initialise
+// ─────────────────────────────────────────────────────────────
+
+buildCandidateCards();
+buildRulesTable();
+buildCommitteeTableHeader();
+renderStep(0);
+
+// Redraw chart on resize (canvas needs explicit re-render)
+window.addEventListener("resize", () => {
+  if (SNAPSHOTS[currentStep]) renderChart(SNAPSHOTS[currentStep]);
+});
+
+// Log stats to console for debugging
+console.log(`Total feasible committees: ${ALL_COMMITTEES.length}`);
+console.log(`Animation steps: ${SNAPSHOTS.length}`);
+        </script>
+    </body>
+</html>
