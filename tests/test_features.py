@@ -14,6 +14,7 @@ from sortition_algorithms.features import (
     read_in_features,
     report_min_max_against_number_to_select_structured,
     report_min_max_error_details_structured,
+    report_min_max_issues_structured,
     write_features,
 )
 
@@ -499,6 +500,22 @@ class TestReadInFeaturesErrorHandling:
         # really just check no error raised
         assert feature_column_name == "feature"
 
+    def test_inconsistent_features_reported_against_number_to_select(self):
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {"feature": "gender", "value": "male", "min": "5", "max": "6"},
+            {"feature": "gender", "value": "female", "min": "5", "max": "6"},
+            {"feature": "age", "value": "young", "min": "1", "max": "2"},
+            {"feature": "age", "value": "old", "min": "1", "max": "2"},
+        ]
+        # gender min total = 10, age max total = 4, so min > max - but with a
+        # number to select, the errors say how each feature misses it instead
+        with pytest.raises(SelectionMultilineError) as context:
+            read_in_features(head, body, number_to_select=8)
+        assert "Minimum for feature gender (10) is more than number to select (8)" in context.exconly()
+        assert "Maximum for feature age (4) is less than number to select (8)" in context.exconly()
+        assert "Inconsistent numbers in min and max" not in context.exconly()
+
 
 class TestReportMinMaxErrorDetailsStructured:
     """Tests for the structured version of report_min_max_error_details."""
@@ -610,6 +627,57 @@ class TestReportMinMaxAgainstNumberToSelectStructured:
 
         result = report_min_max_against_number_to_select_structured(CaseInsensitiveDict(), 10)
         assert result == []
+
+
+class TestReportMinMaxIssuesStructured:
+    """Tests for report_min_max_issues_structured, which picks which check to report."""
+
+    def _make_inconsistent_features(self):
+        """gender min total = 10, age max total = 4. Bypasses read_in_features validation."""
+        return CaseInsensitiveDict({
+            "gender": CaseInsensitiveDict({
+                "male": FeatureValueMinMax(min=5, max=6),
+                "female": FeatureValueMinMax(min=5, max=6),
+            }),
+            "age": CaseInsensitiveDict({
+                "young": FeatureValueMinMax(min=1, max=2),
+                "old": FeatureValueMinMax(min=1, max=2),
+            }),
+        })
+
+    def test_without_number_to_select_reports_the_conflict_between_features(self):
+        result = report_min_max_issues_structured(self._make_inconsistent_features())
+        assert [issue.issue_type for issue in result] == ["inconsistent_min_max"]
+        assert result[0].largest_minimum_feature == "gender"
+        assert result[0].smallest_maximum_feature == "age"
+
+    def test_with_number_to_select_reports_only_issues_against_it(self):
+        result = report_min_max_issues_structured(self._make_inconsistent_features(), 8)
+        assert {(issue.issue_type, issue.feature_name) for issue in result} == {
+            ("min_exceeds_number_to_select", "gender"),
+            ("max_below_number_to_select", "age"),
+        }
+
+    @pytest.mark.parametrize("number_to_select", [1, 3, 4, 5, 9, 10, 11, 100])
+    def test_inconsistent_features_always_conflict_with_number_to_select(self, number_to_select):
+        """Whatever the number to select, features that conflict with each other conflict with it."""
+        result = report_min_max_issues_structured(self._make_inconsistent_features(), number_to_select)
+        assert result
+        assert all(issue.issue_type != "inconsistent_min_max" for issue in result)
+
+    def test_no_issues_when_consistent_and_within_range(self):
+        head = FEATURE_FILE_FIELD_NAMES
+        body = [
+            {"feature": "gender", "value": "male", "min": "5", "max": "6"},
+            {"feature": "gender", "value": "female", "min": "5", "max": "6"},
+        ]
+        features, _, _ = read_in_features(head, body)
+        assert report_min_max_issues_structured(features) == []
+        assert report_min_max_issues_structured(features, 11) == []
+
+    def test_empty_features(self):
+        assert report_min_max_issues_structured(CaseInsensitiveDict()) == []
+        assert report_min_max_issues_structured(CaseInsensitiveDict(), 10) == []
 
 
 class TestReadInFeaturesDataTypes:

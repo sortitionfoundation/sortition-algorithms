@@ -233,15 +233,38 @@ def report_min_max_against_number_to_select(
     return [issue.message for issue in issues]
 
 
+def report_min_max_issues_structured(
+    fc: FeatureCollection, number_to_select: int = 0, feature_column_name: str = "feature"
+) -> list[MinMaxCrossFeatureIssue]:
+    """Return structured data about min/max problems, checked against number_to_select when it is set.
+
+    When number_to_select is set, only the issues against it are returned. Those
+    name one feature and a number the user chose, which is easier to act on than
+    a conflict between two features. Nothing is lost: if the largest sum of
+    minimums is more than the smallest sum of maximums, number_to_select cannot
+    lie between them, so some feature's minimums exceed it or some feature's
+    maximums fall short of it.
+
+    When number_to_select is 0 (not known), the conflict between features is
+    returned instead.
+    """
+    if number_to_select:
+        return report_min_max_against_number_to_select_structured(fc, number_to_select, feature_column_name)
+    return report_min_max_error_details_structured(fc, feature_column_name)
+
+
 def check_min_max(fc: FeatureCollection, number_to_select: int = 0, feature_column_name: str = "feature") -> None:
     """
-    If the min is bigger than the max we're in trouble i.e. there's an input error
+    If the min is bigger than the max we're in trouble i.e. there's an input error.
+
+    When number_to_select is set, the mins and maxes are checked against it instead,
+    see report_min_max_issues_structured() for why.
     """
     errors: list[str] = []
-    if minimum_selection(fc) > maximum_selection(fc):
-        errors += report_min_max_error_details(fc, feature_column_name)
     if number_to_select:
         errors += report_min_max_against_number_to_select(fc, number_to_select, feature_column_name)
+    elif minimum_selection(fc) > maximum_selection(fc):
+        errors += report_min_max_error_details(fc, feature_column_name)
     if errors:
         raise SelectionMultilineError(errors)
 

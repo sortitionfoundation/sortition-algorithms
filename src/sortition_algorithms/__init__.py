@@ -29,6 +29,7 @@ from sortition_algorithms.features import (
     read_in_features,
     report_min_max_against_number_to_select_structured,
     report_min_max_error_details_structured,
+    report_min_max_issues_structured,
     write_features,
 )
 from sortition_algorithms.gsheet import GSheetInfo, GSheetSummary, inspect_gsheet, make_gsheet_client, open_gsheet
@@ -73,6 +74,7 @@ __all__ = [
     "read_in_people",
     "report_min_max_against_number_to_select_structured",
     "report_min_max_error_details_structured",
+    "report_min_max_issues_structured",
     "run_stratification",
     "selected_remaining_tables",
     "write_features",

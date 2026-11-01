@@ -557,7 +557,9 @@ class SelectionData:
 
 ```python
 def load_features(self, number_to_select: int = 0) -> tuple[FeatureCollection, RunReport]:
-    # Load feature definitions from data source
+    # Load feature definitions from data source. Raises SelectionMultilineError
+    # if the mins and maxes cannot be met. With number_to_select set, they are
+    # checked against it; without it, against each other.
 
 def load_people(
     self, settings: Settings, features: FeatureCollection
