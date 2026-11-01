@@ -158,6 +158,21 @@ def test_csv_load_people_from_file_or_str_give_same_output():
     assert people_from_file == people_from_str
 
 
+CONFLICTING_FEATURES_CSV = "feature,value,min,max\ngender,male,5,6\ngender,female,5,6\nage,young,1,2\nage,old,1,2\n"
+
+
+def test_load_features_checks_min_max_by_default():
+    select_data = SelectionData(CSVStringDataSource(CONFLICTING_FEATURES_CSV, candidates_content))
+    with pytest.raises(SelectionMultilineError):
+        select_data.load_features(8)
+
+
+def test_load_features_without_min_max_check_returns_conflicting_features():
+    select_data = SelectionData(CSVStringDataSource(CONFLICTING_FEATURES_CSV, candidates_content))
+    features, _ = select_data.load_features(8, validate_min_max=False)
+    assert set(features) == {"gender", "age"}
+
+
 def test_csv_output_selected_remaining():
     data_source = CSVStringDataSource(features_content, candidates_content)
     select_data = SelectionData(data_source)

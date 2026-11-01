@@ -511,12 +511,21 @@ def _clean_row(row: MutableMapping, feature_flex: bool, row_number: int) -> tupl
 
 
 def read_in_features(
-    features_head: Iterable[str], features_body: Iterable[dict[str, str]], number_to_select: int = 0
+    features_head: Iterable[str],
+    features_body: Iterable[dict[str, str]],
+    number_to_select: int = 0,
+    validate_min_max: bool = True,
 ) -> tuple[FeatureCollection, str, str]:
     """
     Read in stratified selection features and values
 
     Note we do want features_head to ensure we don't have multiple columns with the same name
+
+    Unless validate_min_max is False, the mins and maxes are checked with
+    check_min_max(), against number_to_select when it is set. A caller that
+    reports min/max problems itself - for instance against each feature, using
+    report_min_max_issues_structured() - turns the check off to get the
+    features back.
     """
     features: FeatureCollection = CaseInsensitiveDict()
     features_flex, filtered_headers = _feature_headers_flex(list(features_head))
@@ -548,7 +557,8 @@ def read_in_features(
     if combined_error:
         raise combined_error
 
-    check_min_max(features, number_to_select=number_to_select, feature_column_name=feature_column_name)
+    if validate_min_max:
+        check_min_max(features, number_to_select=number_to_select, feature_column_name=feature_column_name)
     # check feature_flex to see if we need to set the max here
     # this only changes the max_flex value if these (optional) flex values are NOT set already
     set_default_max_flex(features)

@@ -556,10 +556,14 @@ class SelectionData:
 **Methods:**
 
 ```python
-def load_features(self, number_to_select: int = 0) -> tuple[FeatureCollection, RunReport]:
+def load_features(
+    self, number_to_select: int = 0, validate_min_max: bool = True
+) -> tuple[FeatureCollection, RunReport]:
     # Load feature definitions from data source. Raises SelectionMultilineError
     # if the mins and maxes cannot be met. With number_to_select set, they are
-    # checked against it; without it, against each other.
+    # checked against it; without it, against each other. With validate_min_max
+    # False they are not checked, for a caller that reports the problems itself
+    # with report_min_max_issues_structured().
 
 def load_people(
     self, settings: Settings, features: FeatureCollection

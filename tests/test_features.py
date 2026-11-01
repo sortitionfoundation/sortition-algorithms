@@ -517,6 +517,36 @@ class TestReadInFeaturesErrorHandling:
         assert "Inconsistent numbers in min and max" not in context.exconly()
 
 
+CONFLICTING_FEATURES_BODY = [
+    {"feature": "gender", "value": "male", "min": "5", "max": "6"},
+    {"feature": "gender", "value": "female", "min": "5", "max": "6"},
+    {"feature": "age", "value": "young", "min": "1", "max": "2"},
+    {"feature": "age", "value": "old", "min": "1", "max": "2"},
+]
+
+
+class TestReadInFeaturesWithoutMinMaxCheck:
+    """validate_min_max=False returns features whose mins and maxes cannot be met."""
+
+    @pytest.mark.parametrize("number_to_select", [0, 8])
+    def test_conflicting_features_are_returned(self, number_to_select):
+        features, _, _ = read_in_features(
+            FEATURE_FILE_FIELD_NAMES,
+            CONFLICTING_FEATURES_BODY,
+            number_to_select=number_to_select,
+            validate_min_max=False,
+        )
+        assert minimum_selection(features) == 10
+        assert maximum_selection(features) == 4
+        # the caller can then report the problems itself
+        assert report_min_max_issues_structured(features, number_to_select)
+
+    def test_parse_errors_are_still_raised(self):
+        body = [{"feature": "gender", "value": "male", "min": "lots", "max": "6"}]
+        with pytest.raises(ParseTableMultiError):
+            read_in_features(FEATURE_FILE_FIELD_NAMES, body, validate_min_max=False)
+
+
 class TestReportMinMaxErrorDetailsStructured:
     """Tests for the structured version of report_min_max_error_details."""
 
