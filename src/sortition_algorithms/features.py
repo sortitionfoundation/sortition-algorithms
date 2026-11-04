@@ -1,5 +1,4 @@
 from collections.abc import Generator, Iterable, Iterator, Mapping, MutableMapping
-from typing import TypeAlias
 
 from attrs import define
 from requests.structures import CaseInsensitiveDict
@@ -84,9 +83,7 @@ class MinMaxCrossFeatureIssue:
     limit: int = 0
 
 
-FeatureCollection: TypeAlias = MutableMapping[str, MutableMapping[str, FeatureValueMinMax]]  # noqa: UP040
-# TODO: when python3.11 is dropped, change to:
-# type FeatureCollection = MutableMapping[str, MutableMapping[str, FeatureValueMinMax]]
+type FeatureCollection = MutableMapping[str, MutableMapping[str, FeatureValueMinMax]]
 
 
 def iterate_feature_collection(features: FeatureCollection) -> Generator[tuple[str, str, FeatureValueMinMax]]:
