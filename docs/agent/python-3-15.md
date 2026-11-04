@@ -5,12 +5,10 @@ First written 2026-10-14 and updated 2026-11-04, on the `python-3.15-support` br
 ## What the branch changes
 
 - It is based on the SPEC 0 change (PR #176), which sets `requires-python = ">=3.12"` and relocks so that numpy 2.5.4 and scipy 1.18.1 are used on every Python version. The SPEC 0 policy is documented in `docs/quickstart.md`.
-- `pyproject.toml`: adds the `Programming Language :: Python :: 3.15` classifier.
-- `.github/workflows/main.yml`: adds `"3.15"` to the `tests-and-type-check` matrix.
+- `.github/workflows/main.yml`: adds `"3.15"` to the `tests-and-type-check` matrix. As a **temporary measure** (option 2 below), the 3.15 job also installs `libopenblas-dev`, so uv can build the dependencies that lack cp315 wheels from source.
+- `pyproject.toml`: does **not** yet add the `Programming Language :: Python :: 3.15` classifier. It gets added once the dependencies publish cp315 wheels, because until then `pip install` on 3.15 needs a compiler, CMake and BLAS.
 
 CPython 3.15.2 is a stable release, so `actions/setup-python` needs no `allow-prereleases` setting.
-
-The 3.15 CI job is expected to fail at the `uv sync` step until the blockers below are resolved.
 
 ## Findings
 
