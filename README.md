@@ -61,6 +61,8 @@ pip install sortition-algorithms
 
 (Or `uv add ...` or ...)
 
+We follow the Scientific Python [SPEC 0](https://scientific-python.org/specs/spec-0000/) policy for which Python versions we support - see [the docs](https://sortitionfoundation.github.io/sortition-algorithms/quickstart/#supported-python-versions) for details.
+
 ### Optional dependencies
 
 There are two sets of optional dependencies:
