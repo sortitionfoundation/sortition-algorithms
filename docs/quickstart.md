@@ -14,6 +14,19 @@ pip install 'sortition-algorithms[cli]'
 pip install 'sortition-algorithms[gurobi]'
 ```
 
+### Supported Python versions
+
+The library depends on numpy, scipy and cvxpy, so we follow the Scientific Python
+[SPEC 0](https://scientific-python.org/specs/spec-0000/) support policy, as those libraries do:
+
+- each Python version is supported for 3 years after its initial release (so normally the 3 most recent minor versions are supported).
+- support for a Python version is dropped in a minor release of this library, never in a patch release.
+- support for a new Python version is added once our core dependencies publish wheels for it.
+
+The versions currently supported are those listed in the `requires-python` and classifiers of
+[`pyproject.toml`](https://github.com/sortitionfoundation/sortition-algorithms/blob/main/pyproject.toml),
+and tested in CI.
+
 ## Basic Concepts
 
 Before diving in, understand these key concepts:
