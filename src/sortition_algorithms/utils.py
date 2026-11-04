@@ -168,7 +168,8 @@ def _structure_exception(obj: dict[str, Any], _: Any) -> Exception:
         # avoid circular import
         from sortition_algorithms.features import FeatureCollection
 
-        features = _converter.structure(obj.get("features", {}), FeatureCollection)  # type: ignore[type-abstract]
+        # cattrs' structure() is typed to take a class, so pass the type the alias wraps
+        features: FeatureCollection = _converter.structure(obj.get("features", {}), FeatureCollection.__value__)
         output = _converter.structure(obj.get("all_lines", ["dummy"]), list[str])[1:]
         return errors.InfeasibleQuotasError(features=features, output=output)
     elif exc_type_name.startswith("sortition_algorithms.errors."):

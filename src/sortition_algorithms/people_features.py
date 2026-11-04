@@ -1,4 +1,3 @@
-import typing
 from collections.abc import Generator, Iterable, MutableMapping
 
 from attrs import define
@@ -56,9 +55,7 @@ class SelectCounts:
         return self.selected >= self.min_max.min or self.remaining >= self.people_still_needed
 
 
-SelectCollection: typing.TypeAlias = MutableMapping[str, MutableMapping[str, SelectCounts]]  # noqa: UP040
-# TODO: when python3.11 is dropped, change to:
-# type SelectCollection = dict[str, dict[str, SelectCounts]]
+type SelectCollection = MutableMapping[str, MutableMapping[str, SelectCounts]]
 
 
 def select_from_feature_collection(fc: FeatureCollection) -> SelectCollection:
