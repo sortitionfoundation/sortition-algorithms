@@ -23,7 +23,9 @@ runs:
       with:
         version: ${{ inputs.uv-version }}
         enable-cache: "true"
-        cache-suffix: ${{ matrix.python-version }}
+        # include the uv version, so a uv upgrade starts a fresh cache rather than
+        # restoring one written by an older uv that it cannot reuse
+        cache-suffix: ${{ matrix.python-version }}-uv${{ inputs.uv-version }}
 
     - name: Install Python dependencies
       run: uv sync --extra=diversimax --extra=cli --frozen
