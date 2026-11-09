@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.12", "3.13", "3.14", "3.15"]
       fail-fast: false
     defaults:
       run:
@@ -51,6 +51,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # TEMPORARY MEASURE: cvxpy, highspy, osqp and qdldl do not yet publish wheels
+      # for Python 3.15, so uv builds them from source. sparsediffpy (a cvxpy
+      # dependency) needs BLAS to build. Remove this step once those packages publish
+      # cp315 wheels - see docs/agent/python-3-15.md
+      - name: Install BLAS to build dependencies that lack Python 3.15 wheels (temporary)
+        if: ${{ matrix.python-version == '3.15' }}
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libopenblas-dev
 
       - name: Set up the environment
         uses: $/.github/actions/setup-python-env
