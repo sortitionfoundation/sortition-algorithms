@@ -750,7 +750,7 @@ def test_csv_load_feature_from_file_failure(tmp_path: Path):
     with pytest.raises(SelectionMultilineError) as excinfo:
         file_select_data.load_features()
     assert "new_features.csv" in str(excinfo.value)
-    assert "Minimum (5) should not be greater than maximum (3)" in str(excinfo.value)
+    assert "Max (3) must be greater than or equal to min (5)" in str(excinfo.value)
 
 
 def test_csv_load_people_from_file_failure(tmp_path: Path):

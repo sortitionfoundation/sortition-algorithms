@@ -310,7 +310,7 @@ class TestReadInFeaturesErrorHandling:
         body = [{"feature": "gender", "value": "male", "min": "10", "max": "5"}]
 
         with pytest.raises(
-            ParseTableMultiError, match=r"Minimum \(10\) should not be greater than maximum \(5\)"
+            ParseTableMultiError, match=r"Max \(5\) must be greater than or equal to min \(10\)"
         ) as excinfo:
             read_in_features(head, body)
         assert excinfo.value.all_errors[0].row_name == "gender/male"

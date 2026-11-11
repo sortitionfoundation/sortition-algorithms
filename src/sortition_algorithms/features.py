@@ -442,7 +442,7 @@ def _clean_row(row: MutableMapping, feature_flex: bool, row_number: int) -> tupl
             row_name=row_name,
             keys=["min", "max"],
             values=[row["min"], row["max"]],
-            msg=f"Minimum ({value_min}) should not be greater than maximum ({value_max})",
+            msg=f"Max ({value_max}) must be greater than or equal to min ({value_min})",
             error_code="min_greater_than_max",
             error_params={"min": value_min, "max": value_max},
         )

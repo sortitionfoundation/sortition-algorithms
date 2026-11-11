@@ -100,7 +100,7 @@ ERROR_MESSAGES = {
     "no_value_set": N_("There is no %(field)s value set"),
     "not_a_number": N_("'%(value)s' is not a number"),
     "empty_feature_value": N_("Empty %(value_column_name)s in %(feature_column_name)s %(feature_name)s"),
-    "min_greater_than_max": N_("Minimum (%(min)s) should not be greater than maximum (%(max)s)"),
+    "min_greater_than_max": N_("Max (%(max)s) must be greater than or equal to min (%(min)s)"),
     "min_flex_greater_than_min": N_("min_flex (%(min_flex)s) should not be greater than min (%(min)s)"),
     "max_flex_less_than_max": N_("max_flex (%(max_flex)s) should not be less than max (%(max)s)"),
     # People validation errors
