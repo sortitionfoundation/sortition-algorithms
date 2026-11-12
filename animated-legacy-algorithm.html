@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<!-- ABOUTME: Animated step-by-step visualisation of the Legacy sortition algorithm. -->
+<!-- ABOUTME: Uses the same 16-person candidate pool as animated-common-algorithm.html. -->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Legacy Algorithm — Step-by-Step Animation</title>
+        <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f0eb;
+    --surface2: #ece5dd;
+    --border: #d9d0c7;
+    --text: #473d3d;
+    --muted: #7a6e6e;
+    --accent: #e40f7d;
+    --green: #70a311;
+    --red: #c7003a;
+    --yellow: #fda135;
+    --orange: #fe5734;
+    --winner-bg: #edf5e4;
+    --winner-border: #70a311;
+    --selected-bg: #fce8f2;
+    --selected-border: #e40f7d;
+    --full-bg: #fde8ec;
+    --full-border: #c7003a;
+    --c-min: #c7003a;
+    --c-sel: #548eb4;
+    --c-rem: #fda135;
+    --radius: 8px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Top bar (header + controls + logo) ─────────────────── */
+  #top-bar {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  #top-bar-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  #header {
+    padding: 10px 20px 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  #header h1 { font-size: 16px; font-weight: 700; white-space: nowrap; }
+  #step-info { font-size: 13px; color: var(--muted); }
+  #step-desc { color: var(--text); }
+
+  /* ── Controls ───────────────────────────────────────────── */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 20px;
+    border-top: 1px solid var(--border);
+  }
+  #controls button {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--font);
+  }
+  #controls button:hover { background: var(--border); }
+  #controls button:disabled { opacity: 0.3; cursor: default; }
+  #controls button.playing { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #controls button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .speed-group { display: flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 12px; color: var(--muted); }
+  .speed-group input[type="range"] { width: 80px; }
+  #speed-label { font-family: var(--mono); font-size: 11px; min-width: 36px; }
+  .step-counter { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  /* ── Logo panel ────────────────────────────────────────── */
+  #logo-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+    background: #ffffff;
+  }
+
+  /* ── Main layout ────────────────────────────────────────── */
+  #main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── People pool section ────────────────────────────────── */
+  #people-pool-section {
+    padding: 10px 20px 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  #people-pool-section h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .region-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 4px 0 3px;
+  }
+  #people-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .person-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    min-width: 72px;
+    text-align: center;
+    transition: background 0.3s, border-color 0.3s, opacity 0.3s;
+  }
+  .person-card .pc-name {
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text);
+    transition: color 0.3s;
+  }
+  .person-card .pc-traits {
+    font-size: 9px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .person-card.is-selected {
+    border-color: var(--green);
+    background: var(--winner-bg);
+  }
+  .person-card.is-selected .pc-name { color: var(--green); }
+  .person-card.is-just-selected {
+    border-color: var(--green);
+    background: rgba(112, 163, 17, 0.2);
+    animation: card-flash-green 0.5s ease-out;
+  }
+  .person-card.is-just-selected .pc-name { color: #2d5a00; }
+  .person-card.is-removed {
+    opacity: 0.2;
+    border-style: dashed;
+  }
+  .person-card.is-just-removed {
+    opacity: 0.5;
+    border-color: var(--red);
+    background: rgba(199, 0, 58, 0.1);
+    animation: card-flash-red 0.5s ease-out;
+  }
+
+  /* ── Bottom section (table + detail) ────────────────────── */
+  #bottom-section {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── Feature table panel ────────────────────────────────── */
+  #feature-table-panel {
+    width: 480px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  #feature-table-panel > h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 10px 14px 7px;
+    flex-shrink: 0;
+  }
+  #feature-table-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 14px 10px;
+  }
+
+  /* ── Feature value table ────────────────────────────────── */
+  .ft {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: var(--mono);
+  }
+  .ft th {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    text-align: center;
+    padding: 4px 6px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    border-bottom: 2px solid var(--border);
+    z-index: 1;
+  }
+  .ft td {
+    padding: 5px 6px;
+    text-align: center;
+    border-bottom: 1px solid rgba(71,61,61,0.2);
+  }
+  .fg-header td {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-top: 10px;
+    border-bottom: 1px solid var(--accent);
+    text-align: left;
+  }
+  tr.fv-row .td-val { text-align: left; color: var(--text); font-weight: 600; }
+  tr.fv-row .td-min { color: var(--c-min); }
+  tr.fv-row .td-sel .sel-num { color: var(--c-sel); font-weight: 700; }
+  tr.fv-row .td-sel .sel-min { color: var(--muted); font-size: 10px; }
+  tr.fv-row .td-rem .rem-num { color: var(--c-rem); }
+
+  .c-min { color: var(--c-min); }
+  .c-sel { color: var(--c-sel); }
+  .c-rem { color: var(--c-rem); }
+  .c-res { color: var(--yellow); font-weight: 700; }
+
+  .difficulty-cell { display: flex; flex-direction: column; gap: 2px; }
+  .difficulty-formula { font-size: 11px; white-space: nowrap; }
+  .difficulty-track {
+    height: 4px;
+    background: rgba(71,61,61,0.15);
+    border-radius: 3px;
+    overflow: hidden;
+    min-width: 60px;
+  }
+  .difficulty-fill {
+    height: 100%;
+    background: var(--yellow);
+    border-radius: 3px;
+    transition: width 0.25s;
+  }
+
+  /* Row states */
+  tr.fv-row.is-winner {
+    animation: row-flash-green 0.45s ease-out;
+    background: var(--winner-bg);
+  }
+  tr.fv-row.is-winner .td-val { color: var(--green); }
+  tr.fv-row.is-full-event {
+    animation: row-flash-red 0.45s ease-out;
+    background: var(--full-bg);
+  }
+  tr.fv-row.is-maxed { opacity: 0.4; }
+  tr.fv-row.is-inactive { opacity: 0.35; }
+  tr.fv-row.is-changed {
+    background: rgba(253, 161, 53, 0.1);
+  }
+  tr.fv-row.is-changed td {
+    border-bottom-color: rgba(253, 161, 53, 0.3);
+  }
+
+  /* ── Right panel ─────────────────────────────────────────── */
+  #right-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    flex: 1;
+  }
+
+  /* ── Step detail ─────────────────────────────────────────── */
+  #step-detail {
+    flex: 1 1 auto;
+    padding: 12px 14px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  #step-detail h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .detail-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    margin-bottom: 7px;
+    background: var(--surface2);
+  }
+  .detail-card.dc-winner { border-color: var(--winner-border); background: var(--winner-bg); }
+  .detail-card.dc-person { border-color: var(--selected-border); background: var(--selected-bg); }
+  .detail-card.dc-full   { border-color: var(--full-border);   background: var(--full-bg); }
+  .detail-card.dc-done   { border-color: var(--green); background: var(--winner-bg); }
+
+  .detail-card h3 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .dc-winner h3 { color: var(--green); }
+  .dc-person h3 { color: var(--accent); }
+  .dc-full h3   { color: var(--red); }
+  .dc-done h3   { color: var(--green); }
+
+  .dr {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 1px 0;
+    font-family: var(--mono);
+  }
+  .dr .k { color: var(--muted); }
+  .dr .v { color: var(--text); font-weight: 600; }
+  .dr .v.hl { color: var(--yellow); }
+
+  .formula {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: rgba(71,61,61,0.08);
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin-top: 5px;
+    color: var(--yellow);
+  }
+  .person-id {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--accent);
+    font-family: var(--mono);
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+
+  /* ── How-it-works card ──────────────────────────────────── */
+  #how-card ol {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.7;
+    padding-left: 20px;
+    margin: 0;
+  }
+  #how-card li {
+    padding: 2px 6px;
+    border-radius: 4px;
+    border-left: 3px solid transparent;
+    transition: background 0.3s, border-color 0.3s;
+    margin-bottom: 2px;
+  }
+  #how-card li.active-step {
+    background: rgba(228, 15, 125, 0.1);
+    border-left-color: var(--accent);
+    color: var(--text);
+  }
+
+  /* ── Selected panel ──────────────────────────────────────── */
+  #selected-panel {
+    padding: 10px 0;
+  }
+  #selected-panel h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+  .sel-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .sel-chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    background: var(--selected-bg);
+    border: 1px solid var(--selected-border);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .sel-chip.is-new {
+    background: var(--accent);
+    color: #fff;
+    animation: chip-pop 0.4s ease-out;
+  }
+  .empty-slot {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    background: transparent;
+    border: 1px dashed rgba(71,61,61,0.3);
+    color: rgba(71,61,61,0.5);
+  }
+
+  /* ── Event log (hidden by default) ──────────────────────── */
+  #event-log {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    display: none;
+    flex-direction: column;
+    max-height: 160px;
+    overflow: hidden;
+  }
+  #event-log.visible { display: flex; }
+  #event-log h2 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 5px 14px 4px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #log-entries {
+    overflow-y: auto;
+    padding: 5px 14px;
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(71,61,61,0.15); color: var(--muted); }
+  .log-entry.current { color: var(--text); }
+  .log-entry.type-difficulty .tag    { color: var(--yellow); }
+  .log-entry.type-selection .tag { color: var(--green); }
+  .log-entry.type-category_full .tag { color: var(--red); }
+  .log-entry.type-complete .tag { color: var(--accent); }
+  .tag { font-weight: 700; margin-right: 5px; }
+
+  /* ── Progress bar ────────────────────────────────────────── */
+  #progress-bar-wrap {
+    padding: 5px 20px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #progress-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.15s;
+  }
+
+  /* ── Animations ──────────────────────────────────────────── */
+  @keyframes row-flash-green {
+    0%   { background: rgba(112,163,17,0.3); }
+    100% { background: var(--winner-bg); }
+  }
+  @keyframes row-flash-red {
+    0%   { background: rgba(199,0,58,0.3); }
+    100% { background: var(--full-bg); }
+  }
+  @keyframes chip-pop {
+    0%   { transform: scale(1.25); background: #fff; color: var(--accent); }
+    100% { transform: scale(1);    background: var(--accent); color: #fff; }
+  }
+  @keyframes card-flash-green {
+    0%   { background: rgba(112,163,17,0.35); }
+    100% { background: rgba(112,163,17,0.2); }
+  }
+  @keyframes card-flash-red {
+    0%   { background: rgba(199,0,58,0.25); }
+    100% { background: rgba(199,0,58,0.1); }
+  }
+        </style>
+    </head>
+    <body>
+        <div id="top-bar">
+            <div id="top-bar-left">
+                <div id="header">
+                    <a href="animated-intro.html" style="color:var(--muted);font-size:12px;text-decoration:none;margin-right:12px;white-space:nowrap" title="Back to introduction">&larr; Intro</a>
+                    <h1>Legacy Sortition Algorithm</h1>
+                    <div id="step-info">
+                        <span id="step-label">Step 1</span>
+                        <span id="step-desc">— Initial state: 16 candidates, selecting 8</span>
+                    </div>
+                </div>
+                <div id="controls">
+                    <button id="btn-prev" title="Previous step (←)">◀ Prev</button>
+                    <button id="btn-play">▶ Play</button>
+                    <button id="btn-next" title="Next step (→)">Next ▶</button>
+                    <div class="speed-group">
+                        <label>Speed:</label>
+                        <input type="range" id="speed-slider" min="1" max="10" value="5">
+                        <span id="speed-label">1.0s</span>
+                    </div>
+                    <button id="btn-log" title="Toggle event log">Log</button>
+                    <div class="step-counter">
+                        Step <span id="ctr-cur">1</span> / <span id="ctr-tot">?</span>
+                    </div>
+                </div>
+            </div>
+            <div id="logo-panel">
+                <a href="https://www.sortitionfoundation.org/"><img src="logosortition.svg" alt="Sortition Foundation" width="256" height="86"></a>
+            </div>
+        </div>
+        <div id="main">
+            <div id="people-pool-section">
+                <h2>Candidate Pool</h2>
+                <div id="people-grid"></div>
+            </div>
+            <div id="bottom-section">
+                <div id="feature-table-panel">
+                    <h2>
+                        Feature quotas &amp; difficulty — difficulty = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span>
+                    </h2>
+                    <div id="feature-table-wrap">
+                        <table class="ft">
+                            <thead>
+                                <tr>
+                                    <th>Value</th>
+                                    <th title="Minimum required" style="color:var(--c-min)">Min</th>
+                                    <th title="Maximum allowed">Max</th>
+                                    <th title="Selected so far" style="color:var(--c-sel)">Selected</th>
+                                    <th title="Remaining candidates in pool with this value"
+                                        style="color:var(--c-rem)">Remaining</th>
+                                    <th title="Difficulty = (min − selected) / remaining">Difficulty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ft-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="right-panel">
+                    <div id="step-detail">
+                        <div class="detail-card" id="how-card">
+                            <h3>How it works</h3>
+                            <ol>
+                                <li id="how-step-1">
+                                    Each round, compute <em>difficulty = (<span style="color:var(--c-min)">min</span> − <span style="color:var(--c-sel)">selected</span>) / <span style="color:var(--c-rem)">remaining</span></em> for every feature value
+                                </li>
+                                <li id="how-step-2">Pick a random person from the value with the highest difficulty</li>
+                                <li id="how-step-3">Update the selected and remaining numbers for all values that person has</li>
+                                <li id="how-step-4">When a value hits its max, remove all remaining candidates with that value from the pool</li>
+                                <li id="how-step-5">Update the remaining numbers for all values those removed people had</li>
+                            </ol>
+                        </div>
+                        <div class="detail-card" id="counts-card">
+                            <h3>Counts</h3>
+                            <div class="dr">
+                                <span class="k">Candidates in pool</span><span class="v" id="count-pool">—</span>
+                            </div>
+                            <div class="dr">
+                                <span class="k">Selected</span><span class="v" id="count-selected">—</span>
+                            </div>
+                            <div class="dr">
+                                <span class="k">Features</span><span class="v" id="count-features">—</span>
+                            </div>
+                        </div>
+                        <div id="selected-panel">
+                            <h2 id="selected-title">Selected (0 / 8)</h2>
+                            <div class="sel-grid" id="selected-grid"></div>
+                        </div>
+                        <h2>Step detail</h2>
+                        <div id="detail-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="event-log">
+            <h2>Event Log</h2>
+            <div id="log-entries"></div>
+        </div>
+        <div id="progress-bar-wrap">
+            <div id="progress-track">
+                <div id="progress-fill" style="width:0%"></div>
+            </div>
+        </div>
+        <script>
+// ─────────────────────────────────────────────────────────────────
+// DATA — Same 16 candidates as animated-common-algorithm.html
+// ─────────────────────────────────────────────────────────────────
+
+const FEATURES = {
+  gender: {
+    M: { min: 4, max: 4 },
+    F: { min: 4, max: 4 },
+  },
+  region: {
+    North: { min: 3, max: 5 },
+    South: { min: 3, max: 5 },
+  },
+  age: {
+    Young:  { min: 4, max: 4 },
+    Senior: { min: 4, max: 4 },
+  },
+};
+
+const CANDIDATES = [
+  // North Senior Males (4) — abundant group
+  { id: "adam",    name: "Adam",    gender: "M", region: "North", age: "Senior" },
+  { id: "ben",     name: "Ben",     gender: "M", region: "North", age: "Senior" },
+  { id: "chen",    name: "Chen",    gender: "M", region: "North", age: "Senior" },
+  { id: "dmitri",  name: "Dmitri",  gender: "M", region: "North", age: "Senior" },
+  // North Senior Females (3)
+  { id: "elena",   name: "Elena",   gender: "F", region: "North", age: "Senior" },
+  { id: "fatima",  name: "Fatima",  gender: "F", region: "North", age: "Senior" },
+  { id: "grace",   name: "Grace",   gender: "F", region: "North", age: "Senior" },
+  // North Young Males (2)
+  { id: "hassan",  name: "Hassan",  gender: "M", region: "North", age: "Young" },
+  { id: "ivan",    name: "Ivan",    gender: "M", region: "North", age: "Young" },
+  // North Young Females (2)
+  { id: "jun",     name: "Jun",     gender: "F", region: "North", age: "Young" },
+  { id: "keiko",   name: "Keiko",   gender: "F", region: "North", age: "Young" },
+  // South Senior Males (1) — scarce
+  { id: "leo",     name: "Leo",     gender: "M", region: "South", age: "Senior" },
+  // South Senior Females (2)
+  { id: "mia",     name: "Mia",     gender: "F", region: "South", age: "Senior" },
+  { id: "nadia",   name: "Nadia",   gender: "F", region: "South", age: "Senior" },
+  // South Young Male (1) — very scarce
+  { id: "omar",    name: "Omar",    gender: "M", region: "South", age: "Young" },
+  // South Young Female (1) — very scarce
+  { id: "priya",   name: "Priya",   gender: "F", region: "South", age: "Young" },
+];
+
+const NUM_WANTED = 8;
+const FEATURE_NAMES = Object.keys(FEATURES);
+const FEATURE_DISPLAY = { gender: "Gender", region: "Region", age: "Age" };
+
+// Build lookup from id → candidate object
+const ID_TO_CANDIDATE = {};
+CANDIDATES.forEach(c => { ID_TO_CANDIDATE[c.id] = c; });
+
+// ─────────────────────────────────────────────────────────────────
+// SEEDED PRNG (mulberry32)
+// ─────────────────────────────────────────────────────────────────
+function makePrng(seed) {
+  let s = seed >>> 0;
+  return {
+    next() {
+      s = (s + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    },
+    randbelow(n) {
+      return Math.floor(this.next() * n);
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SIMULATION
+// ─────────────────────────────────────────────────────────────────
+function deepCloneCounts(counts) {
+  const c = {};
+  for (const [f, vals] of Object.entries(counts)) {
+    c[f] = {};
+    for (const [v, sc] of Object.entries(vals)) {
+      c[f][v] = { ...sc };
+    }
+  }
+  return c;
+}
+
+function initCounts() {
+  const counts = {};
+  for (const [f, vals] of Object.entries(FEATURES)) {
+    counts[f] = {};
+    for (const [v, { min, max }] of Object.entries(vals)) {
+      counts[f][v] = { min, max, selected: 0, remaining: 0 };
+    }
+  }
+  return counts;
+}
+
+function updateRemaining(pool, counts) {
+  for (const person of pool) {
+    for (const f of FEATURE_NAMES) {
+      const v = person[f];
+      if (counts[f][v] !== undefined) counts[f][v].remaining++;
+    }
+  }
+}
+
+function deleteAllWithValue(pool, counts, feature, value) {
+  const toDelete = pool.filter(p => p[feature] === value).map(p => p.id);
+  const deleted = [];
+  for (const id of toDelete) {
+    const idx = pool.findIndex(p => p.id === id);
+    if (idx === -1) continue;
+    const person = pool[idx];
+    pool.splice(idx, 1);
+    deleted.push(person);
+    for (const f of FEATURE_NAMES) {
+      const fv = person[f];
+      if (counts[f][fv] !== undefined && counts[f][fv].remaining > 0) {
+        counts[f][fv].remaining--;
+      }
+    }
+  }
+  return deleted;
+}
+
+function selectPerson(pool, counts, person) {
+  const idx = pool.findIndex(p => p.id === person.id);
+  if (idx !== -1) pool.splice(idx, 1);
+  for (const f of FEATURE_NAMES) {
+    const v = person[f];
+    if (counts[f][v] !== undefined) {
+      if (counts[f][v].remaining > 0) counts[f][v].remaining--;
+      counts[f][v].selected++;
+    }
+  }
+}
+
+function peopleStillNeeded(sc) {
+  return Math.max(sc.min - sc.selected, 0);
+}
+
+function calcDifficulties(counts) {
+  const difficulties = [];
+  for (const f of FEATURE_NAMES) {
+    for (const [v, sc] of Object.entries(counts[f])) {
+      const needed = peopleStillNeeded(sc);
+      const difficulty = sc.remaining > 0 && sc.max > 0 ? needed / sc.remaining : -1;
+      difficulties.push({ feature: f, value: v, selected: sc.selected, remaining: sc.remaining, min: sc.min, max: sc.max, needed, difficulty });
+    }
+  }
+  return difficulties;
+}
+
+function findWinner(difficulties) {
+  let best = null;
+  for (const r of difficulties) {
+    if (r.remaining <= 0 || r.max <= 0) continue;
+    if (best === null || r.difficulty > best.difficulty) best = r;
+  }
+  return best;
+}
+
+function findPersonByPosition(pool, feature, value, position) {
+  let count = 0;
+  for (const person of pool) {
+    if (person[feature] === value) {
+      count++;
+      if (count === position) return person;
+    }
+  }
+  return null;
+}
+
+function getFullCategories(counts, person) {
+  const full = [];
+  for (const f of FEATURE_NAMES) {
+    const v = person[f];
+    const sc = counts[f][v];
+    if (sc && sc.selected === sc.max && sc.max > 0) {
+      full.push({ feature: f, value: v, selected: sc.selected, max: sc.max });
+    }
+  }
+  return full;
+}
+
+// Compute which feature/value pairs changed difficulty between two difficulty arrays
+function findChangedFVs(prevDifficulties, currDifficulties) {
+  const changed = [];
+  const prevMap = {};
+  for (const r of prevDifficulties) {
+    prevMap[`${r.feature}||${r.value}`] = r;
+  }
+  for (const r of currDifficulties) {
+    const key = `${r.feature}||${r.value}`;
+    const prev = prevMap[key];
+    if (prev && (prev.difficulty !== r.difficulty || prev.selected !== r.selected || prev.remaining !== r.remaining)) {
+      changed.push({ feature: r.feature, value: r.value, prevDifficulty: prev.difficulty, newDifficulty: r.difficulty });
+    }
+  }
+  return changed;
+}
+
+function runSimulation(seed) {
+  const rng = makePrng(seed);
+  const pool = CANDIDATES.map(c => ({ ...c }));
+  const counts = initCounts();
+  const selected = [];
+  const steps = [];
+
+  updateRemaining(pool, counts);
+
+  const initialDifficulties = calcDifficulties(counts);
+
+  steps.push({
+    type: 'initial',
+    description: 'Initial state',
+    pool: pool.map(p => p.id),
+    selected: [],
+    counts: deepCloneCounts(counts),
+    winner: null,
+    selectedPerson: null,
+    fullCats: [],
+    events: [`Loaded ${CANDIDATES.length} candidates. Target: ${NUM_WANTED} people.`],
+    difficulties: initialDifficulties,
+    iteration: 0,
+    activeSteps: [],
+    changedFVs: [],
+    removedIds: [],
+  });
+
+  for (let iter = 0; iter < NUM_WANTED; iter++) {
+    // ── Difficulty calculation step ──────────────────────────
+    const difficulties = calcDifficulties(counts);
+    const winner = findWinner(difficulties);
+
+    if (!winner) break;
+
+    steps.push({
+      type: 'difficulty',
+      description: `Iteration ${iter + 1}: Computing difficulty values`,
+      pool: pool.map(p => p.id),
+      selected: selected.map(p => p.id),
+      counts: deepCloneCounts(counts),
+      winner,
+      selectedPerson: null,
+      fullCats: [],
+      difficulties,
+      iteration: iter + 1,
+      activeSteps: [1],
+      changedFVs: [],
+      removedIds: [],
+      events: [
+        `Iteration ${iter + 1}: Computing difficulty for all feature values`,
+        `Highest difficulty: ${FEATURE_DISPLAY[winner.feature]} / ${winner.value}  →  ${winner.needed} / ${winner.remaining} = ${winner.difficulty.toFixed(3)}`,
+      ],
+    });
+
+    // ── Selection step ──────────────────────────────────────
+    const prevDifficulties = calcDifficulties(counts);
+    const position = rng.randbelow(winner.remaining) + 1;
+    const person = findPersonByPosition(pool, winner.feature, winner.value, position);
+
+    selectPerson(pool, counts, person);
+    selected.push(person);
+
+    const newDifficulties = calcDifficulties(counts);
+    const changedFVs = findChangedFVs(prevDifficulties, newDifficulties);
+
+    // Build narration for the selection
+    const selEvents = [
+      `Picked position ${position} of ${winner.remaining} in ${FEATURE_DISPLAY[winner.feature]}/${winner.value}  →  ${person.name}`,
+    ];
+
+    // For the first pick, add special narration about cascading updates
+    if (iter === 0) {
+      const otherChanges = changedFVs.filter(c => !(c.feature === winner.feature && c.value === winner.value));
+      if (otherChanges.length > 0) {
+        const parts = otherChanges.map(c =>
+          `${FEATURE_DISPLAY[c.feature]}/${c.value} (${c.prevDifficulty.toFixed(3)} → ${c.newDifficulty.toFixed(3)})`
+        );
+        selEvents.push(
+          `We picked ${person.name} from ${FEATURE_DISPLAY[winner.feature]}=${winner.value}, but since they are also ${otherChanges.map(c => `${FEATURE_DISPLAY[c.feature]}=${c.value}`).join(" and ")}, those difficulty values were updated too: ${parts.join(", ")}`
+        );
+      }
+    } else {
+      selEvents.push(
+        `Updated difficulty for: ${changedFVs.map(c => `${FEATURE_DISPLAY[c.feature]}/${c.value}`).join(", ")}`
+      );
+    }
+
+    steps.push({
+      type: 'selection',
+      description: `Iteration ${iter + 1}: Selected ${person.name}`,
+      pool: pool.map(p => p.id),
+      selected: selected.map(p => p.id),
+      counts: deepCloneCounts(counts),
+      winner,
+      selectedPerson: person,
+      fullCats: [],
+      difficulties: newDifficulties,
+      iteration: iter + 1,
+      position,
+      activeSteps: [2, 3],
+      changedFVs,
+      removedIds: [],
+      events: selEvents,
+    });
+
+    // ── Category-full steps ─────────────────────────────────
+    const fullCats = getFullCategories(counts, person);
+    for (const fc of fullCats) {
+      const prevDiff = calcDifficulties(counts);
+      const deleted = deleteAllWithValue(pool, counts, fc.feature, fc.value);
+      if (deleted.length > 0) {
+        const newDiff = calcDifficulties(counts);
+        const fullChangedFVs = findChangedFVs(prevDiff, newDiff);
+
+        steps.push({
+          type: 'category_full',
+          description: `${FEATURE_DISPLAY[fc.feature]}/${fc.value} is full`,
+          pool: pool.map(p => p.id),
+          selected: selected.map(p => p.id),
+          counts: deepCloneCounts(counts),
+          winner,
+          selectedPerson: person,
+          fullCat: fc,
+          fullCats: [fc],
+          difficulties: newDiff,
+          iteration: iter + 1,
+          position,
+          removedIds: deleted.map(p => p.id),
+          activeSteps: [4, 5],
+          changedFVs: fullChangedFVs,
+          events: [
+            `${FEATURE_DISPLAY[fc.feature]}/${fc.value} FULL: selected=${fc.selected} = max=${fc.max}`,
+            `Removed ${deleted.length} remaining candidates from pool  (${pool.length} left)`,
+            `Updated remaining counts for: ${fullChangedFVs.map(c => `${FEATURE_DISPLAY[c.feature]}/${c.value}`).join(", ")}`,
+          ],
+        });
+      }
+    }
+  }
+
+  steps.push({
+    type: 'complete',
+    description: 'Selection complete!',
+    pool: pool.map(p => p.id),
+    selected: selected.map(p => p.id),
+    counts: deepCloneCounts(counts),
+    winner: null,
+    selectedPerson: null,
+    fullCats: [],
+    difficulties: calcDifficulties(counts),
+    iteration: NUM_WANTED,
+    activeSteps: [],
+    changedFVs: [],
+    removedIds: [],
+    events: [
+      `Selection complete! ${selected.length} people chosen from ${CANDIDATES.length} candidates.`,
+      `Remaining pool size: ${pool.length}`,
+    ],
+  });
+
+  return steps;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BUILD LOG (accumulate all events across steps)
+// ─────────────────────────────────────────────────────────────────
+function buildLog(steps) {
+  const log = [];
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    for (const e of s.events) {
+      log.push({ stepIdx: i, type: s.type, text: e });
+    }
+  }
+  return log;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — people pool
+// ─────────────────────────────────────────────────────────────────
+function buildPeoplePool() {
+  const grid = document.getElementById('people-grid');
+  let html = '';
+  for (const c of CANDIDATES) {
+    html += `<div class="person-card" id="pc-${c.id}">
+      <span class="pc-name">${c.name}</span>
+      <span class="pc-traits">${c.gender} · ${c.region} · ${c.age}</span>
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function renderPeoplePool(step) {
+  const poolSet = new Set(step.pool);
+  const selectedSet = new Set(step.selected);
+  const justSelectedId = step.selectedPerson ? step.selectedPerson.id : null;
+  const justRemovedSet = new Set(step.removedIds || []);
+
+  for (const c of CANDIDATES) {
+    const el = document.getElementById(`pc-${c.id}`);
+    if (!el) continue;
+
+    // Reset classes
+    el.className = 'person-card';
+
+    if (step.type === 'selection' && c.id === justSelectedId) {
+      el.classList.add('is-just-selected');
+    } else if (step.type === 'category_full' && justRemovedSet.has(c.id)) {
+      el.classList.add('is-just-removed');
+    } else if (selectedSet.has(c.id)) {
+      el.classList.add('is-selected');
+    } else if (!poolSet.has(c.id) && !selectedSet.has(c.id)) {
+      el.classList.add('is-removed');
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — feature/value table
+// ─────────────────────────────────────────────────────────────────
+
+const FV_ROW_MAP = new Map();
+
+function buildTableSkeleton() {
+  const tbody = document.getElementById('ft-tbody');
+  FV_ROW_MAP.clear();
+  let html = '';
+  let idx = 0;
+  for (const f of FEATURE_NAMES) {
+    html += `<tr class="fg-header"><td colspan="6">${FEATURE_DISPLAY[f]}</td></tr>`;
+    for (const v of Object.keys(FEATURES[f])) {
+      html += `<tr class="fv-row" data-rowidx="${idx}">
+        <td class="td-val">${v}</td>
+        <td class="td-min">${FEATURES[f][v].min}</td>
+        <td class="td-max">${FEATURES[f][v].max}</td>
+        <td class="td-sel"><span class="sel-num">0</span><span class="sel-min"> / ${FEATURES[f][v].min}</span></td>
+        <td class="td-rem"><span class="rem-num">—</span></td>
+        <td class="td-difficulty">
+          <div class="difficulty-cell">
+            <span class="difficulty-formula">—</span>
+            <div class="difficulty-track"><div class="difficulty-fill" style="width:0%"></div></div>
+          </div>
+        </td>
+      </tr>`;
+      FV_ROW_MAP.set(`${f}||${v}`, idx);
+      idx++;
+    }
+  }
+  tbody.innerHTML = html;
+  const rows = tbody.querySelectorAll('tr.fv-row');
+  for (const [key, i] of FV_ROW_MAP) {
+    FV_ROW_MAP.set(key, rows[i]);
+  }
+}
+
+function renderCounts(step) {
+  document.getElementById('count-pool').textContent = step.pool.length;
+  document.getElementById('count-selected').textContent = `${step.selected.length} / ${NUM_WANTED}`;
+  document.getElementById('count-features').textContent = FEATURE_NAMES.length;
+}
+
+function renderFeatureTable(step) {
+  const { difficulties, winner, type, fullCat, changedFVs } = step;
+
+  // Build a set of changed FV keys for fast lookup
+  const changedSet = new Set();
+  if (changedFVs) {
+    for (const c of changedFVs) {
+      changedSet.add(`${c.feature}||${c.value}`);
+    }
+  }
+
+  // Find max difficulty among active rows to scale the bars
+  let maxDifficulty = 0;
+  for (const r of difficulties) {
+    if (r.difficulty > maxDifficulty) maxDifficulty = r.difficulty;
+  }
+  if (maxDifficulty === 0) maxDifficulty = 1;
+
+  for (const r of difficulties) {
+    const key = `${r.feature}||${r.value}`;
+    const row = FV_ROW_MAP.get(key);
+    if (!row) continue;
+
+    const isWinner  = winner && r.feature === winner.feature && r.value === winner.value;
+    const isFullEvt = type === 'category_full' && fullCat &&
+                      r.feature === fullCat.feature && r.value === fullCat.value;
+    const isMaxed   = !isWinner && r.selected >= r.max && r.max > 0;
+    const isInactive = r.max === 0;
+    const isChanged  = changedSet.has(key) && !isWinner && !isFullEvt;
+
+    row.className = 'fv-row' +
+      (isWinner   ? ' is-winner'     : '') +
+      (isFullEvt  ? ' is-full-event' : '') +
+      (isMaxed    ? ' is-maxed'      : '') +
+      (isInactive ? ' is-inactive'   : '') +
+      (isChanged  ? ' is-changed'    : '');
+
+    row.querySelector('.sel-num').textContent = r.selected;
+    row.querySelector('.rem-num').textContent = r.remaining;
+
+    const formulaEl = row.querySelector('.difficulty-formula');
+    let barPct;
+    if (r.max === 0 || r.remaining === 0) {
+      formulaEl.textContent = '—';
+      barPct = 0;
+    } else {
+      formulaEl.innerHTML =
+        `(<span class="c-min">${r.min}</span> − <span class="c-sel">${r.selected}</span>) / <span class="c-rem">${r.remaining}</span> = <span class="c-res">${r.difficulty.toFixed(3)}</span>`;
+      barPct = Math.round((r.difficulty / maxDifficulty) * 100);
+    }
+    row.querySelector('.difficulty-fill').style.width = `${barPct}%`;
+  }
+
+  // Scroll the winner row into view
+  if (winner) {
+    const row = FV_ROW_MAP.get(`${winner.feature}||${winner.value}`);
+    if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — how-it-works step highlighting
+// ─────────────────────────────────────────────────────────────────
+function renderHowSteps(step) {
+  const activeSteps = step.activeSteps || [];
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById(`how-step-${i}`);
+    if (el) {
+      if (activeSteps.includes(i)) {
+        el.classList.add('active-step');
+      } else {
+        el.classList.remove('active-step');
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — step detail card (right panel)
+// ─────────────────────────────────────────────────────────────────
+function personCard(person, iteration, position, categoryRemaining) {
+  const rows = FEATURE_NAMES.map(f =>
+    `<div class="dr"><span class="k">${FEATURE_DISPLAY[f]}</span><span class="v">${person[f]}</span></div>`
+  ).join('');
+  return `<div class="detail-card dc-person">
+    <h3>Person selected — iteration ${iteration}</h3>
+    <div class="person-id">${person.name}</div>
+    <div class="dr"><span class="k">position in category</span><span class="v">${position} of ${categoryRemaining}</span></div>
+    ${rows}
+  </div>`;
+}
+
+function renderDetail(step) {
+  const { type, winner, selectedPerson, fullCat, position, difficulties, iteration, changedFVs } = step;
+  const el = document.getElementById('detail-content');
+  let html = '';
+
+  if (type === 'initial') {
+    html = '';
+
+  } else if (type === 'difficulty' && winner) {
+    html = `<div class="detail-card dc-winner">
+      <h3>Highest difficulty — iteration ${iteration}</h3>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${FEATURE_DISPLAY[winner.feature]}</span></div>
+      <div class="dr"><span class="k">Value</span><span class="v hl">${winner.value}</span></div>
+      <div class="dr"><span class="k">Selected / min</span><span class="v">${winner.selected} / ${winner.min}</span></div>
+      <div class="dr"><span class="k">Still needed</span><span class="v">${winner.needed}</span></div>
+      <div class="dr"><span class="k">Remaining in pool</span><span class="v">${winner.remaining}</span></div>
+      <div class="formula">difficulty = ${winner.needed} / ${winner.remaining} = ${winner.difficulty.toFixed(4)}</div>
+    </div>`;
+
+  } else if (type === 'selection' && selectedPerson) {
+    html = `<div class="detail-card dc-winner">
+      <h3>Category chosen — iteration ${iteration}</h3>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${FEATURE_DISPLAY[winner.feature]}</span></div>
+      <div class="dr"><span class="k">Value</span><span class="v hl">${winner.value}</span></div>
+      <div class="formula">difficulty = ${winner.difficulty.toFixed(4)}</div>
+    </div>
+    ${personCard(selectedPerson, iteration, position, winner.remaining + 1)}`;
+
+    // Show which difficulty values changed
+    if (changedFVs && changedFVs.length > 0) {
+      html += `<div class="detail-card" style="border-color:var(--yellow); background:rgba(253,161,53,0.08);">
+        <h3 style="color:var(--yellow);">Difficulty values updated</h3>`;
+      for (const c of changedFVs) {
+        html += `<div class="dr">
+          <span class="k">${FEATURE_DISPLAY[c.feature]}/${c.value}</span>
+          <span class="v" style="color:var(--yellow)">${c.prevDifficulty.toFixed(3)} → ${c.newDifficulty.toFixed(3)}</span>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+  } else if (type === 'category_full' && fullCat) {
+    html = `<div class="detail-card dc-full">
+      <h3>Category full — iteration ${iteration}</h3>
+      <div class="dr"><span class="k">Feature</span><span class="v hl">${FEATURE_DISPLAY[fullCat.feature]}</span></div>
+      <div class="dr"><span class="k">Value</span><span class="v hl">${fullCat.value}</span></div>
+      <div class="dr"><span class="k">Selected = max</span><span class="v">${fullCat.selected}</span></div>
+      <div class="dr"><span class="k">Candidates removed</span><span class="v">${step.removedIds ? step.removedIds.length : 0}</span></div>
+      <div class="dr"><span class="k">Pool size now</span><span class="v">${step.pool.length}</span></div>
+    </div>`;
+    if (selectedPerson) {
+      html += personCard(selectedPerson, iteration, step.position, winner ? winner.remaining + 1 : '?');
+    }
+    // Show which difficulty values changed from the removal
+    if (changedFVs && changedFVs.length > 0) {
+      html += `<div class="detail-card" style="border-color:var(--yellow); background:rgba(253,161,53,0.08);">
+        <h3 style="color:var(--yellow);">Remaining counts updated</h3>`;
+      for (const c of changedFVs) {
+        html += `<div class="dr">
+          <span class="k">${FEATURE_DISPLAY[c.feature]}/${c.value}</span>
+          <span class="v" style="color:var(--yellow)">${c.prevDifficulty >= 0 ? c.prevDifficulty.toFixed(3) : '—'} → ${c.newDifficulty >= 0 ? c.newDifficulty.toFixed(3) : '—'}</span>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+  } else if (type === 'complete') {
+    html = `<div class="detail-card dc-done">
+      <h3>Selection complete!</h3>
+      <div class="dr"><span class="k">People selected</span><span class="v">${step.selected.length} / ${NUM_WANTED}</span></div>
+      <div class="dr"><span class="k">Remaining pool</span><span class="v">${step.pool.length}</span></div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — selected chips
+// ─────────────────────────────────────────────────────────────────
+function renderSelected(step) {
+  const { selected, selectedPerson } = step;
+  const grid = document.getElementById('selected-grid');
+  document.getElementById('selected-title').textContent =
+    `Selected (${selected.length} / ${NUM_WANTED})`;
+
+  let html = '';
+  for (const id of selected) {
+    const c = ID_TO_CANDIDATE[id];
+    const isNew = selectedPerson && id === selectedPerson.id;
+    html += `<span class="sel-chip${isNew ? ' is-new' : ''}">${c ? c.name : id}</span>`;
+  }
+  for (let i = selected.length; i < NUM_WANTED; i++) {
+    html += `<span class="empty-slot">—</span>`;
+  }
+  grid.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — event log
+// ─────────────────────────────────────────────────────────────────
+function renderLog(stepIdx, allLog) {
+  const el = document.getElementById('log-entries');
+  let html = '';
+  for (const entry of allLog) {
+    const isCurrent = entry.stepIdx === stepIdx;
+    const tag = { initial:'[INIT]', difficulty:'[DIFF]', selection:'[SELECT]',
+                  category_full:'[FULL]', complete:'[DONE]' }[entry.type] || '[?]';
+    html = `<div class="log-entry type-${entry.type}${isCurrent ? ' current' : ''}">` +
+           `<span class="tag">${tag}</span>${entry.text}</div>` + html;
+  }
+  el.innerHTML = html;
+  el.scrollTop = 0;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER — step info + progress bar
+// ─────────────────────────────────────────────────────────────────
+function renderStepInfo(step, stepIdx, totalSteps) {
+  document.getElementById('step-label').textContent = `Step ${stepIdx + 1}`;
+  document.getElementById('step-desc').textContent  = ` — ${step.description}`;
+  document.getElementById('ctr-cur').textContent    = stepIdx + 1;
+  document.getElementById('ctr-tot').textContent    = totalSteps;
+  document.getElementById('progress-fill').style.width =
+    `${((stepIdx + 1) / totalSteps) * 100}%`;
+}
+
+function renderStep(stepIdx) {
+  const step = STEPS[stepIdx];
+  renderStepInfo(step, stepIdx, STEPS.length);
+  renderCounts(step);
+  renderFeatureTable(step);
+  renderHowSteps(step);
+  renderDetail(step);
+  renderSelected(step);
+  renderPeoplePool(step);
+  renderLog(stepIdx, ALL_LOG);
+  document.getElementById('btn-prev').disabled = stepIdx === 0;
+  document.getElementById('btn-next').disabled = stepIdx === STEPS.length - 1;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PLAYBACK CONTROLS
+// ─────────────────────────────────────────────────────────────────
+let currentStep = 0;
+let isPlaying = false;
+let playTimer = null;
+
+function getDelay() {
+  const val = parseInt(document.getElementById('speed-slider').value, 10);
+  return Math.round(3000 - (val - 1) * (3000 - 150) / 9);
+}
+
+function updateSpeedLabel() {
+  const ms = getDelay();
+  document.getElementById('speed-label').textContent = ms >= 1000
+    ? `${(ms / 1000).toFixed(1)}s`
+    : `${ms}ms`;
+}
+
+function play() {
+  if (currentStep >= STEPS.length - 1) { pause(); return; }
+  isPlaying = true;
+  document.getElementById('btn-play').textContent = '⏸ Pause';
+  document.getElementById('btn-play').classList.add('playing');
+  function tick() {
+    if (!isPlaying) return;
+    currentStep++;
+    renderStep(currentStep);
+    if (currentStep >= STEPS.length - 1) {
+      pause();
+    } else {
+      playTimer = setTimeout(tick, getDelay());
+    }
+  }
+  playTimer = setTimeout(tick, getDelay());
+}
+
+function pause() {
+  isPlaying = false;
+  if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+  document.getElementById('btn-play').textContent = '▶ Play';
+  document.getElementById('btn-play').classList.remove('playing');
+}
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (isPlaying) pause(); else play();
+});
+document.getElementById('btn-prev').addEventListener('click', () => {
+  pause();
+  if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  pause();
+  if (currentStep < STEPS.length - 1) { currentStep++; renderStep(currentStep); }
+});
+document.getElementById('btn-log').addEventListener('click', () => {
+  document.getElementById('event-log').classList.toggle('visible');
+  document.getElementById('btn-log').classList.toggle('active');
+});
+
+document.getElementById('speed-slider').addEventListener('input', () => {
+  updateSpeedLabel();
+  if (isPlaying) { pause(); play(); }
+});
+
+document.getElementById('progress-track').addEventListener('click', (e) => {
+  pause();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const frac = (e.clientX - rect.left) / rect.width;
+  currentStep = Math.round(frac * (STEPS.length - 1));
+  currentStep = Math.max(0, Math.min(STEPS.length - 1, currentStep));
+  renderStep(currentStep);
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === 'l') {
+    pause();
+    if (currentStep < STEPS.length - 1) { currentStep++; renderStep(currentStep); }
+  } else if (e.key === 'ArrowLeft' || e.key === 'h') {
+    pause();
+    if (currentStep > 0) { currentStep--; renderStep(currentStep); }
+  } else if (e.key === ' ') {
+    e.preventDefault();
+    if (isPlaying) pause(); else play();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────
+const STEPS = runSimulation(12);
+const ALL_LOG = buildLog(STEPS);
+
+buildPeoplePool();
+buildTableSkeleton();
+updateSpeedLabel();
+renderStep(0);
+        </script>
+    </body>
+</html>
